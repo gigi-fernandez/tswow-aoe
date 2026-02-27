@@ -56,6 +56,9 @@ declare function __TS__New(target: any): any;
 declare function base64_decode(str: string): string;
 declare function base64_encode(str: string): string;
 
+// dll additions
+declare function GetSpellDescription(spellID: number): string;
+
 /**
  * Returns the highest expansion id the current account has been flagged for.
  */
@@ -3677,6 +3680,7 @@ declare function ShowRepairCursor():void;
 declare function GetNumBuybackItems():number;
 
 declare function SetPortraitToTexture(texture:WoWAPI.Texture,path:string):void;
+declare function SetPortraitTexture(texture:WoWAPI.Texture,unitToken:WoWAPI.UnitId,disableMasking?:boolean):void;
 
 declare const MAX_PLAYER_LEVEL_TABLE: {
     LE_EXPANSION_CLASSIC: 60,
@@ -4498,11 +4502,11 @@ declare function PickupPlayerMoney(copper: number): void;
 
 /**
  * Puts the specified spell onto the mouse cursor
- * @param spell ID of the spell to pick up
+ * @param spell Name of the spell to pick up
  * @requires NO_COMBAT
  * @see https://wow.gamepedia.com/API_PickupSpell
  */
-declare function PickupSpell(spellId: number): void;
+declare function PickupSpell(spellName: string): void;
 
 /**
  * Attaches a pet in your stable to your cursor. 1 for the pet in the slot on the left, and 2 for the pet in the slot on the right
@@ -12008,7 +12012,7 @@ declare function GetRealmName(): string;
 /// <reference path="../auction.d.ts" />
 
 declare namespace WoWAPI {
-    interface GameTooltip extends UIObject, GameTooltipHookScript, GameTooltipSetScript {
+    interface GameTooltip extends UIObject, Frame, GameTooltipHookScript, GameTooltipSetScript {
 
         /**
          * Adds Line to tooltip with textLeft on left side of line and textRight on right side
@@ -12105,6 +12109,11 @@ declare namespace WoWAPI {
          * @see http://wowwiki.wikia.com/wiki/API_GameTooltip_GetItem
          */
         GetItem(): LuaMultiReturn<[string, ItemLink]>;
+
+        /**
+         * Get the text for the Tooltip
+         */
+        GetText(): string;
 
         /**
          * unknown
@@ -12346,6 +12355,13 @@ declare namespace WoWAPI {
         SetSpell(spellBookId: number, bookType: "pet" | "spell"): void;
 
         /**
+         * Shows the tooltip for the specified spell
+         * @param spellID the id of the spell
+         * @see https://wowpedia.fandom.com/wiki/UIOBJECT_GameTooltip
+         */
+        SetSpellByID(spellID: number): void;
+
+        /**
          * Shows the tooltip for the specified talent
          * @param tabIndex the index of the talent tab
          * @param talentIndex the index of the talent on the tab
@@ -12498,9 +12514,35 @@ declare namespace WoWAPI {
 
     type UIDropdownInfo = {
         text: string,
+        icon?: string,
+        value?: any,
         func?: () => void,
-        checked: boolean
+        arg1?: any,
+        arg2?: any,
+        isTitle?: boolean,
+        disabled?: boolean,
+        checked?: boolean,
+        hasArrow?: boolean,
+        hasColorSwatch?: boolean,
+        r?: number,
+        g?: number,
+        b?: number,
+        colorCode?: string,
+        swatchFunc?: () => void,
+        hasOpacity?: boolean,
+        opacity?: number,
+        opacityFunc?: () => void,
+        cancelFunc?: () => void,
+        notClickable?: boolean,
+        notCheckable?: boolean,
+        keepShownOnClick?: boolean,
+        tooltipTitle?: string,
+        tooltipText?: string,
+        justifyH?: WoWAPI.HorizontalAlign,
+        menuList?: object
     };
+
+    type UIDropDownMenuDisplayMode = "" | "MENU";
 
     /**
      * The Frame type
@@ -12951,6 +12993,13 @@ declare namespace WoWAPI {
          * "MOD" - Ignores the alpha channel, multiplying the image against the back-ground.
          */
         SetBlendMode(mode: WoWAPI.BlendMode): void;
+
+        /**
+         * 
+         * @param desaturated 1 to make the image grayscale, 0/nil for the original colors
+         * @returns shaderSupported - returns nil if desaturation isn't supported by the user's graphics card
+         */
+        SetDesaturated(desaturated: number): boolean;
     }
 
     /**
@@ -12974,10 +13023,24 @@ declare namespace WoWAPI {
         SetText(text: string): void;
 
         /**
+         * Sets the text displayed in the font string using format specifiers. Equivalent to :SetText(string.format("format", value)), but does not create a throwaway Lua string object, resulting in greater memory-usage efficiency.
+         * @param format A string containing format specifiers (as with string.format()).
+         * @param args A list of values to be included in the formatted string.
+         */
+        SetFormattedText(format: string, ...args: string[]): void;
+
+        /**
          * Returns how wide the string would be, in pixels, without wrapping
          * @see https://wow.gamepedia.com/API_FontString_GetStringWidth
          */
         GetStringWidth(): number;
+
+        /**
+         * Sets whether a frame's text should wrap
+         * @param wrap true to allow text wrapping for children, false to disallow
+         * @see https://warcraft.wiki.gg/wiki/API_FontString_SetWordWrap
+         */
+        SetWordWrap(wrap: boolean): void;
     }
 
     /**
@@ -13164,7 +13227,7 @@ declare namespace WoWAPI {
          */
         CreateFontString(name?: string, layer?: Layer, inheritsFrom?: string): FontString;
 
-        RegisterForClicks(clickType:ClickType): void;
+        RegisterForClicks(...clickType: ClickType[]): void;
 
         /**
          * Creates a Texture object within the specified widget.
@@ -13270,6 +13333,13 @@ declare namespace WoWAPI {
         SetAttribute(name: string, value: any): void;
 
         /**
+         * get an attribute on the frame
+         *
+         * @param name the name of the attribute to get
+         */
+        GetAttribute(name: string): any;
+
+        /**
          * Unregisters the widget from receiving OnEvent notifications for a particular event.
          *
          * @param eventName The name of the event the object wishes to no longer monitor. See Events.
@@ -13305,6 +13375,13 @@ declare namespace WoWAPI {
         SetMovable(movable: boolean): void;
 
         /**
+         * Sets whether a frame's children can be clipped
+         * @param clipsChildren true to allow clipping for children, false to disallow
+         * @see https://warcraft.wiki.gg/wiki/API_Frame_SetClipsChildren
+         */
+        SetClipsChildren(clipsChildren: boolean): void;
+
+        /**
          * Starts moving the frame-inheriting widget as the user moves the mouse cursor
          * @see https://wow.gamepedia.com/API_Frame_StartMoving
          */
@@ -13316,12 +13393,45 @@ declare namespace WoWAPI {
          */
         StopMovingOrSizing(): void;
 
+         /**
+          * Returns the frame level of the frame
+          * @see https://wowpedia.fandom.com/wiki/API_Frame_GetFrameLevel
+          */
+         GetFrameLevel(): number;
+
         /**
          * Sets the Frame Level of the frame, within its Frame Strata
          * @param level the new strata level
          * @see https://wow.gamepedia.com/API_Frame_SetFrameLevel
          */
         SetFrameLevel(level: number): void;
+
+         /**
+          * Prevents the frame from moving off-screen.
+          * @param clampedToScreen True to enable clamping, false to permit moving off-screen
+          * @see https://wowpedia.fandom.com/wiki/API_Frame_SetClampedToScreen
+          */
+         SetClampedToScreen(clampedToScreen: boolean): void;
+
+         /**
+          * Controls how much of the frame may be moved off-screen
+          * @param left Left clamp region offset. Controls collision with the left edge of the screen, positive values allow the frame to be moved off-screen, negative values enforce minimum distance to the edge
+          * @param right Right clamp region offset. Controls collision with the right edge of the screen, negative values allow the frame to be moved off-screen, positive values enforce minimum distance to the edge
+          * @param top Top clamp region offset. Controls collision with the top edge of the screen, negative values allow the frame to be moved off-screen, positive values enforce minimum distance to the edge
+          * @param bottom Bottom clamp region offset. Controls collision with the bottom edge of the screen, positive values allow the frame to be moved off-screen, negative values enforce minimum distance to the edge
+          * @see https://wowpedia.fandom.com/wiki/API_Frame_SetClampRectInsets
+          */
+         SetClampRectInsets(left: number, right: number, top: number, bottom: number): void;
+
+        /**
+         * Modifies the size of the frame's hit rectangle - the area in which clicks are sent to the frame in question
+         * @param left pixels to move the frame's left hit edge to the right by
+         * @param right pixels to move the frame's right hit edge to the left by
+         * @param top pixels to move the frame's top hit edge down by
+         * @param bottom pixels to move the frame's bottom hit edge up by
+         * @see https://wowpedia.fandom.com/wiki/API_Frame_SetHitRectInsets
+         */
+        SetHitRectInsets(left: number, right: number, top: number, bottom: number): void;
 
         RegisterForDrag(button: WoWAPI.MouseButton): void;
 
@@ -13703,7 +13813,7 @@ declare namespace WoWAPI {
         GetTextWidth(): number;
         IsEnabled(): bool;
         LockHighlight(): void;
-        RegisterForClicks(clickType: ClickType): void;
+        RegisterForClicks(...clickType: ClickType[]): void;
         RegisterForMouse(): void;
         SetButtonState(state: string): void;
         SetDisabledAtlas(atlasName: string): void;
@@ -13775,8 +13885,23 @@ declare namespace WoWAPI {
     }
 
     interface DressUpModel extends PlayerModel {
+        /**
+         * Updates the model to reflect the character’s currently equipped items.
+         */
         Dress(): void;
-        TryOn(item: string): void;
+
+        /**
+         * Updates the model to reflect the character’s appearance after equipping a specific item.
+         *
+         * @param item The item to try on. Can be:
+         *   - `number`: Item ID (e.g., 12345)
+         *   - `string`: Item name (e.g., "Stormbreaker") or item link (e.g., "item:12345:0:0:0:0:0:0")
+         */
+        TryOn(item: number | string): void;
+    
+        /**
+         * Updates the model to reflect the character’s appearance without any equipped items.
+         */
         Undress(): void;
     }
 
@@ -13929,7 +14054,9016 @@ declare const UISpecialFrames: string[];
 declare function loadstring(code: string, name?: string): ()=>void;
 declare function assert(code: ()=>void):() => string;
 declare function type(thing: any): string;
-declare function tonumber(value: string|number, radix?:number): number
+declare function tonumber(value: string|number, radix?:number): number;
+declare function format(pattern: string, ...any:any): string;
+
+interface String {
+    format(...any:any): string;
+};
+
+ /**
+  * global strings
+  */
+ 
+ declare const ABANDON_PET: string;
+ declare const ABANDON_QUEST: string;
+ declare const ABANDON_QUEST_ABBREV: string;
+ declare const ABANDON_QUEST_CONFIRM: string;
+ declare const ABANDON_QUEST_CONFIRM_WITH_ITEMS: string;
+ declare const ABILITIES: string;
+ declare const ABSORB: string;
+ declare const ABSORB_TRAILER: string;
+ declare const ACCEPT: string;
+ declare const ACCEPT_ALT: string;
+ declare const ACCEPT_COMMENT: string;
+ declare const ACHIEVEMENT: string;
+ declare const ACHIEVEMENTFRAME_FILTER_ALL: string;
+ declare const ACHIEVEMENTFRAME_FILTER_COMPLETED: string;
+ declare const ACHIEVEMENTFRAME_FILTER_INCOMPLETE: string;
+ declare const ACHIEVEMENTS: string;
+ declare const ACHIEVEMENTS_COMPLETED: string;
+ declare const ACHIEVEMENTS_COMPLETED_CATEGORY: string;
+ declare const ACHIEVEMENT_BROADCAST: string;
+ declare const ACHIEVEMENT_BROADCAST_SELF: string;
+ declare const ACHIEVEMENT_BUTTON: string;
+ declare const ACHIEVEMENT_CATEGORY_PROGRESS: string;
+ declare const ACHIEVEMENT_META_COMPLETED_DATE: string;
+ declare const ACHIEVEMENT_SUMMARY_CATEGORY: string;
+ declare const ACHIEVEMENT_TITLE: string;
+ declare const ACHIEVEMENT_TOOLTIP_COMPLETE: string;
+ declare const ACHIEVEMENT_TOOLTIP_IN_PROGRESS: string;
+ declare const ACHIEVEMENT_UNLOCKED: string;
+ declare const ACHIEVEMENT_UNLOCKED_CHAT_MSG: string;
+ declare const ACHIEVEMENT_WATCH_TOO_MANY: string;
+ declare const ACTIONBARS_LABEL: string;
+ declare const ACTIONBARS_SUBTEXT: string;
+ declare const ACTIONBAR_LABEL: string;
+ declare const ACTION_DAMAGE_SHIELD: string;
+ declare const ACTION_DAMAGE_SHIELD_FULL_TEXT: string;
+ declare const ACTION_DAMAGE_SHIELD_FULL_TEXT_NO_SOURCE: string;
+ declare const ACTION_DAMAGE_SHIELD_MISSED: string;
+ declare const ACTION_DAMAGE_SHIELD_MISSED_BLOCK: string;
+ declare const ACTION_DAMAGE_SHIELD_MISSED_BLOCK_FULL_TEXT: string;
+ declare const ACTION_DAMAGE_SHIELD_MISSED_BLOCK_FULL_TEXT_NO_SOURCE: string;
+ declare const ACTION_DAMAGE_SHIELD_MISSED_BLOCK_POSSESSIVE: string;
+ declare const ACTION_DAMAGE_SHIELD_MISSED_DEFLECT: string;
+ declare const ACTION_DAMAGE_SHIELD_MISSED_DEFLECT_FULL_TEXT: string;
+ declare const ACTION_DAMAGE_SHIELD_MISSED_DEFLECT_FULL_TEXT_NO_SOURCE: string;
+ declare const ACTION_DAMAGE_SHIELD_MISSED_DEFLECT_POSSESSIVE: string;
+ declare const ACTION_DAMAGE_SHIELD_MISSED_DODGE: string;
+ declare const ACTION_DAMAGE_SHIELD_MISSED_DODGE_FULL_TEXT: string;
+ declare const ACTION_DAMAGE_SHIELD_MISSED_DODGE_FULL_TEXT_NO_SOURCE: string;
+ declare const ACTION_DAMAGE_SHIELD_MISSED_DODGE_POSSESSIVE: string;
+ declare const ACTION_DAMAGE_SHIELD_MISSED_EVADED: string;
+ declare const ACTION_DAMAGE_SHIELD_MISSED_EVADED_FULL_TEXT: string;
+ declare const ACTION_DAMAGE_SHIELD_MISSED_EVADED_FULL_TEXT_NO_SOURCE: string;
+ declare const ACTION_DAMAGE_SHIELD_MISSED_EVADED_POSSESSIVE: string;
+ declare const ACTION_DAMAGE_SHIELD_MISSED_FULL_TEXT: string;
+ declare const ACTION_DAMAGE_SHIELD_MISSED_FULL_TEXT_NO_SOURCE: string;
+ declare const ACTION_DAMAGE_SHIELD_MISSED_IMMUNE: string;
+ declare const ACTION_DAMAGE_SHIELD_MISSED_IMMUNE_FULL_TEXT: string;
+ declare const ACTION_DAMAGE_SHIELD_MISSED_IMMUNE_FULL_TEXT_NO_SOURCE: string;
+ declare const ACTION_DAMAGE_SHIELD_MISSED_IMMUNE_POSSESSIVE: string;
+ declare const ACTION_DAMAGE_SHIELD_MISSED_MISS: string;
+ declare const ACTION_DAMAGE_SHIELD_MISSED_MISS_FULL_TEXT: string;
+ declare const ACTION_DAMAGE_SHIELD_MISSED_MISS_FULL_TEXT_NO_SOURCE: string;
+ declare const ACTION_DAMAGE_SHIELD_MISSED_MISS_POSSESSIVE: string;
+ declare const ACTION_DAMAGE_SHIELD_MISSED_PARRY: string;
+ declare const ACTION_DAMAGE_SHIELD_MISSED_PARRY_FULL_TEXT: string;
+ declare const ACTION_DAMAGE_SHIELD_MISSED_PARRY_FULL_TEXT_NO_SOURCE: string;
+ declare const ACTION_DAMAGE_SHIELD_MISSED_PARRY_POSSESSIVE: string;
+ declare const ACTION_DAMAGE_SHIELD_MISSED_POSSESSIVE: string;
+ declare const ACTION_DAMAGE_SHIELD_MISSED_RESIST: string;
+ declare const ACTION_DAMAGE_SHIELD_MISSED_RESIST_FULL_TEXT: string;
+ declare const ACTION_DAMAGE_SHIELD_MISSED_RESIST_FULL_TEXT_NO_SOURCE: string;
+ declare const ACTION_DAMAGE_SHIELD_MISSED_RESIST_POSSESSIVE: string;
+ declare const ACTION_DAMAGE_SHIELD_POSSESSIVE: string;
+ declare const ACTION_DAMAGE_SPLIT: string;
+ declare const ACTION_DAMAGE_SPLIT_ABSORBED_FULL_TEXT: string;
+ declare const ACTION_DAMAGE_SPLIT_FULL_TEXT: string;
+ declare const ACTION_DAMAGE_SPLIT_POSSESSIVE: string;
+ declare const ACTION_DAMAGE_SPLIT_RESULT_FULL_TEXT: string;
+ declare const ACTION_ENCHANT_APPLIED: string;
+ declare const ACTION_ENCHANT_APPLIED_FULL_TEXT: string;
+ declare const ACTION_ENCHANT_APPLIED_POSSESSIVE: string;
+ declare const ACTION_ENCHANT_REMOVED: string;
+ declare const ACTION_ENCHANT_REMOVED_FULL_TEXT: string;
+ declare const ACTION_ENCHANT_REMOVED_POSSESSIVE: string;
+ declare const ACTION_ENVIRONMENTAL_DAMAGE: string;
+ declare const ACTION_ENVIRONMENTAL_DAMAGE_DROWNING: string;
+ declare const ACTION_ENVIRONMENTAL_DAMAGE_DROWNING_FULL_TEXT: string;
+ declare const ACTION_ENVIRONMENTAL_DAMAGE_DROWNING_POSSESSIVE: string;
+ declare const ACTION_ENVIRONMENTAL_DAMAGE_FALLING: string;
+ declare const ACTION_ENVIRONMENTAL_DAMAGE_FALLING_FULL_TEXT: string;
+ declare const ACTION_ENVIRONMENTAL_DAMAGE_FALLING_POSSESSIVE: string;
+ declare const ACTION_ENVIRONMENTAL_DAMAGE_FATIGUE: string;
+ declare const ACTION_ENVIRONMENTAL_DAMAGE_FATIGUE_FULL_TEXT: string;
+ declare const ACTION_ENVIRONMENTAL_DAMAGE_FATIGUE_POSSESSIVE: string;
+ declare const ACTION_ENVIRONMENTAL_DAMAGE_FIRE: string;
+ declare const ACTION_ENVIRONMENTAL_DAMAGE_FIRE_FULL_TEXT: string;
+ declare const ACTION_ENVIRONMENTAL_DAMAGE_FIRE_POSSESSIVE: string;
+ declare const ACTION_ENVIRONMENTAL_DAMAGE_FULL_TEXT: string;
+ declare const ACTION_ENVIRONMENTAL_DAMAGE_LAVA: string;
+ declare const ACTION_ENVIRONMENTAL_DAMAGE_LAVA_FULL_TEXT: string;
+ declare const ACTION_ENVIRONMENTAL_DAMAGE_LAVA_POSSESSIVE: string;
+ declare const ACTION_ENVIRONMENTAL_DAMAGE_POSSESSIVE: string;
+ declare const ACTION_ENVIRONMENTAL_DAMAGE_SLIME: string;
+ declare const ACTION_ENVIRONMENTAL_DAMAGE_SLIME_FULL_TEXT: string;
+ declare const ACTION_ENVIRONMENTAL_DAMAGE_SLIME_POSSESSIVE: string;
+ declare const ACTION_PARTY_KILL: string;
+ declare const ACTION_PARTY_KILL_FULL_TEXT: string;
+ declare const ACTION_PARTY_KILL_POSSESSIVE: string;
+ declare const ACTION_RANGED: string;
+ declare const ACTION_RANGE_DAMAGE: string;
+ declare const ACTION_RANGE_DAMAGE_FULL_TEXT: string;
+ declare const ACTION_RANGE_DAMAGE_FULL_TEXT_NO_SOURCE: string;
+ declare const ACTION_RANGE_DAMAGE_POSSESSIVE: string;
+ declare const ACTION_RANGE_MISSED: string;
+ declare const ACTION_RANGE_MISSED_ABSORB: string;
+ declare const ACTION_RANGE_MISSED_ABSORB_FULL_TEXT: string;
+ declare const ACTION_RANGE_MISSED_ABSORB_POSSESSIVE: string;
+ declare const ACTION_RANGE_MISSED_BLOCK: string;
+ declare const ACTION_RANGE_MISSED_BLOCK_FULL_TEXT: string;
+ declare const ACTION_RANGE_MISSED_BLOCK_POSSESSIVE: string;
+ declare const ACTION_RANGE_MISSED_DEFLECT: string;
+ declare const ACTION_RANGE_MISSED_DEFLECT_FULL_TEXT: string;
+ declare const ACTION_RANGE_MISSED_DEFLECT_POSSESSIVE: string;
+ declare const ACTION_RANGE_MISSED_DODGE: string;
+ declare const ACTION_RANGE_MISSED_DODGE_FULL_TEXT: string;
+ declare const ACTION_RANGE_MISSED_DODGE_POSSESSIVE: string;
+ declare const ACTION_RANGE_MISSED_EVADE: string;
+ declare const ACTION_RANGE_MISSED_EVADE_FULL_TEXT: string;
+ declare const ACTION_RANGE_MISSED_EVADE_POSSESSIVE: string;
+ declare const ACTION_RANGE_MISSED_FULL_TEXT: string;
+ declare const ACTION_RANGE_MISSED_IMMUNE: string;
+ declare const ACTION_RANGE_MISSED_IMMUNE_FULL_TEXT: string;
+ declare const ACTION_RANGE_MISSED_IMMUNE_POSSESSIVE: string;
+ declare const ACTION_RANGE_MISSED_MISS: string;
+ declare const ACTION_RANGE_MISSED_MISS_FULL_TEXT: string;
+ declare const ACTION_RANGE_MISSED_MISS_POSSESSIVE: string;
+ declare const ACTION_RANGE_MISSED_PARRY: string;
+ declare const ACTION_RANGE_MISSED_PARRY_FULL_TEXT: string;
+ declare const ACTION_RANGE_MISSED_PARRY_POSSESSIVE: string;
+ declare const ACTION_RANGE_MISSED_POSSESSIVE: string;
+ declare const ACTION_RANGE_MISSED_RESIST: string;
+ declare const ACTION_RANGE_MISSED_RESIST_FULL_TEXT: string;
+ declare const ACTION_RANGE_MISSED_RESIST_POSSESSIVE: string;
+ declare const ACTION_SPELL_AURA_APPLIED: string;
+ declare const ACTION_SPELL_AURA_APPLIED_BUFF: string;
+ declare const ACTION_SPELL_AURA_APPLIED_BUFF_FULL_TEXT: string;
+ declare const ACTION_SPELL_AURA_APPLIED_BUFF_FULL_TEXT_NO_SOURCE: string;
+ declare const ACTION_SPELL_AURA_APPLIED_BUFF_MASTER: string;
+ declare const ACTION_SPELL_AURA_APPLIED_BUFF_POSSESSIVE: string;
+ declare const ACTION_SPELL_AURA_APPLIED_DEBUFF: string;
+ declare const ACTION_SPELL_AURA_APPLIED_DEBUFF_FULL_TEXT: string;
+ declare const ACTION_SPELL_AURA_APPLIED_DEBUFF_FULL_TEXT_NO_SOURCE: string;
+ declare const ACTION_SPELL_AURA_APPLIED_DEBUFF_MASTER: string;
+ declare const ACTION_SPELL_AURA_APPLIED_DEBUFF_POSSESSIVE: string;
+ declare const ACTION_SPELL_AURA_APPLIED_DOSE: string;
+ declare const ACTION_SPELL_AURA_APPLIED_DOSE_BUFF: string;
+ declare const ACTION_SPELL_AURA_APPLIED_DOSE_BUFF_FULL_TEXT: string;
+ declare const ACTION_SPELL_AURA_APPLIED_DOSE_BUFF_FULL_TEXT_NO_SOURCE: string;
+ declare const ACTION_SPELL_AURA_APPLIED_DOSE_BUFF_POSSESSIVE: string;
+ declare const ACTION_SPELL_AURA_APPLIED_DOSE_DEBUFF: string;
+ declare const ACTION_SPELL_AURA_APPLIED_DOSE_DEBUFF_FULL_TEXT: string;
+ declare const ACTION_SPELL_AURA_APPLIED_DOSE_DEBUFF_FULL_TEXT_NO_SOURCE: string;
+ declare const ACTION_SPELL_AURA_APPLIED_DOSE_DEBUFF_POSSESSIVE: string;
+ declare const ACTION_SPELL_AURA_APPLIED_MASTER: string;
+ declare const ACTION_SPELL_AURA_APPLIED_POSSESSIVE: string;
+ declare const ACTION_SPELL_AURA_BROKEN: string;
+ declare const ACTION_SPELL_AURA_BROKEN_BUFF: string;
+ declare const ACTION_SPELL_AURA_BROKEN_BUFF_FULL_TEXT: string;
+ declare const ACTION_SPELL_AURA_BROKEN_BUFF_FULL_TEXT_NO_SOURCE: string;
+ declare const ACTION_SPELL_AURA_BROKEN_BUFF_POSSESSIVE: string;
+ declare const ACTION_SPELL_AURA_BROKEN_DEBUFF: string;
+ declare const ACTION_SPELL_AURA_BROKEN_DEBUFF_FULL_TEXT: string;
+ declare const ACTION_SPELL_AURA_BROKEN_DEBUFF_FULL_TEXT_NO_SOURCE: string;
+ declare const ACTION_SPELL_AURA_BROKEN_DEBUFF_POSSESSIVE: string;
+ declare const ACTION_SPELL_AURA_BROKEN_SPELL_BUFF: string;
+ declare const ACTION_SPELL_AURA_BROKEN_SPELL_BUFF_FULL_TEXT: string;
+ declare const ACTION_SPELL_AURA_BROKEN_SPELL_BUFF_FULL_TEXT_NO_SOURCE: string;
+ declare const ACTION_SPELL_AURA_BROKEN_SPELL_BUFF_POSSESSIVE: string;
+ declare const ACTION_SPELL_AURA_BROKEN_SPELL_DEBUFF: string;
+ declare const ACTION_SPELL_AURA_BROKEN_SPELL_DEBUFF_FULL_TEXT: string;
+ declare const ACTION_SPELL_AURA_BROKEN_SPELL_DEBUFF_FULL_TEXT_NO_SOURCE: string;
+ declare const ACTION_SPELL_AURA_BROKEN_SPELL_DEBUFF_POSSESSIVE: string;
+ declare const ACTION_SPELL_AURA_REFRESH: string;
+ declare const ACTION_SPELL_AURA_REFRESH_BUFF: string;
+ declare const ACTION_SPELL_AURA_REFRESH_BUFF_FULL_TEXT: string;
+ declare const ACTION_SPELL_AURA_REFRESH_BUFF_FULL_TEXT_NO_SOURCE: string;
+ declare const ACTION_SPELL_AURA_REFRESH_BUFF_MASTER: string;
+ declare const ACTION_SPELL_AURA_REFRESH_BUFF_POSSESSIVE: string;
+ declare const ACTION_SPELL_AURA_REFRESH_DEBUFF: string;
+ declare const ACTION_SPELL_AURA_REFRESH_DEBUFF_FULL_TEXT: string;
+ declare const ACTION_SPELL_AURA_REFRESH_DEBUFF_FULL_TEXT_NO_SOURCE: string;
+ declare const ACTION_SPELL_AURA_REFRESH_DEBUFF_MASTER: string;
+ declare const ACTION_SPELL_AURA_REFRESH_DEBUFF_POSSESSIVE: string;
+ declare const ACTION_SPELL_AURA_REFRESH_MASTER: string;
+ declare const ACTION_SPELL_AURA_REMOVED: string;
+ declare const ACTION_SPELL_AURA_REMOVED_BUFF: string;
+ declare const ACTION_SPELL_AURA_REMOVED_BUFF_FULL_TEXT: string;
+ declare const ACTION_SPELL_AURA_REMOVED_BUFF_FULL_TEXT_NO_SOURCE: string;
+ declare const ACTION_SPELL_AURA_REMOVED_BUFF_POSSESSIVE: string;
+ declare const ACTION_SPELL_AURA_REMOVED_DEBUFF: string;
+ declare const ACTION_SPELL_AURA_REMOVED_DEBUFF_FULL_TEXT: string;
+ declare const ACTION_SPELL_AURA_REMOVED_DEBUFF_FULL_TEXT_NO_SOURCE: string;
+ declare const ACTION_SPELL_AURA_REMOVED_DEBUFF_POSSESSIVE: string;
+ declare const ACTION_SPELL_AURA_REMOVED_DOSE: string;
+ declare const ACTION_SPELL_AURA_REMOVED_DOSE_BUFF: string;
+ declare const ACTION_SPELL_AURA_REMOVED_DOSE_BUFF_FULL_TEXT: string;
+ declare const ACTION_SPELL_AURA_REMOVED_DOSE_BUFF_FULL_TEXT_NO_SOURCE: string;
+ declare const ACTION_SPELL_AURA_REMOVED_DOSE_BUFF_POSSESSIVE: string;
+ declare const ACTION_SPELL_AURA_REMOVED_DOSE_DEBUFF: string;
+ declare const ACTION_SPELL_AURA_REMOVED_DOSE_DEBUFF_FULL_TEXT: string;
+ declare const ACTION_SPELL_AURA_REMOVED_DOSE_DEBUFF_FULL_TEXT_NO_SOURCE: string;
+ declare const ACTION_SPELL_AURA_REMOVED_DOSE_DEBUFF_POSSESSIVE: string;
+ declare const ACTION_SPELL_AURA_REMOVED_FULL_TEXT: string;
+ declare const ACTION_SPELL_AURA_REMOVED_FULL_TEXT_NO_SOURCE: string;
+ declare const ACTION_SPELL_AURA_REMOVED_POSSESSIVE: string;
+ declare const ACTION_SPELL_BUILDING_DAMAGE: string;
+ declare const ACTION_SPELL_BUILDING_DAMAGE_FULL_TEXT: string;
+ declare const ACTION_SPELL_BUILDING_DAMAGE_FULL_TEXT_NO_SOURCE: string;
+ declare const ACTION_SPELL_BUILDING_DAMAGE_MASTER: string;
+ declare const ACTION_SPELL_BUILDING_DAMAGE_POSSESSIVE: string;
+ declare const ACTION_SPELL_BUILDING_HEAL: string;
+ declare const ACTION_SPELL_BUILDING_HEAL_FULL_TEXT: string;
+ declare const ACTION_SPELL_BUILDING_HEAL_FULL_TEXT_NO_SOURCE: string;
+ declare const ACTION_SPELL_BUILDING_HEAL_POSSESSIVE: string;
+ declare const ACTION_SPELL_CAST_FAILED: string;
+ declare const ACTION_SPELL_CAST_FAILED_FULL_TEXT: string;
+ declare const ACTION_SPELL_CAST_FAILED_MASTER: string;
+ declare const ACTION_SPELL_CAST_FAILED_POSSESSIVE: string;
+ declare const ACTION_SPELL_CAST_START: string;
+ declare const ACTION_SPELL_CAST_START_FULL_TEXT: string;
+ declare const ACTION_SPELL_CAST_START_FULL_TEXT_NO_DEST: string;
+ declare const ACTION_SPELL_CAST_START_FULL_TEXT_NO_SOURCE: string;
+ declare const ACTION_SPELL_CAST_START_MASTER: string;
+ declare const ACTION_SPELL_CAST_START_POSSESSIVE: string;
+ declare const ACTION_SPELL_CAST_SUCCESS: string;
+ declare const ACTION_SPELL_CAST_SUCCESS_FULL_TEXT: string;
+ declare const ACTION_SPELL_CAST_SUCCESS_FULL_TEXT_NO_DEST: string;
+ declare const ACTION_SPELL_CAST_SUCCESS_FULL_TEXT_NO_SOURCE: string;
+ declare const ACTION_SPELL_CAST_SUCCESS_MASTER: string;
+ declare const ACTION_SPELL_CAST_SUCCESS_POSSESSIVE: string;
+ declare const ACTION_SPELL_CREATE: string;
+ declare const ACTION_SPELL_CREATE_FULL_TEXT: string;
+ declare const ACTION_SPELL_CREATE_FULL_TEXT_NO_SOURCE: string;
+ declare const ACTION_SPELL_CREATE_POSSESSIVE: string;
+ declare const ACTION_SPELL_DAMAGE: string;
+ declare const ACTION_SPELL_DAMAGE_FULL_TEXT: string;
+ declare const ACTION_SPELL_DAMAGE_FULL_TEXT_NO_SOURCE: string;
+ declare const ACTION_SPELL_DAMAGE_MASTER: string;
+ declare const ACTION_SPELL_DAMAGE_POSSESSIVE: string;
+ declare const ACTION_SPELL_DISPEL: string;
+ declare const ACTION_SPELL_DISPEL_BUFF: string;
+ declare const ACTION_SPELL_DISPEL_BUFF_FULL_TEXT: string;
+ declare const ACTION_SPELL_DISPEL_BUFF_FULL_TEXT_NO_SOURCE: string;
+ declare const ACTION_SPELL_DISPEL_BUFF_POSSESSIVE: string;
+ declare const ACTION_SPELL_DISPEL_DEBUFF: string;
+ declare const ACTION_SPELL_DISPEL_DEBUFF_FULL_TEXT: string;
+ declare const ACTION_SPELL_DISPEL_DEBUFF_FULL_TEXT_NO_SOURCE: string;
+ declare const ACTION_SPELL_DISPEL_DEBUFF_POSSESSIVE: string;
+ declare const ACTION_SPELL_DISPEL_FAILED: string;
+ declare const ACTION_SPELL_DISPEL_FAILED_FULL_TEXT: string;
+ declare const ACTION_SPELL_DISPEL_FAILED_FULL_TEXT_NO_SOURCE: string;
+ declare const ACTION_SPELL_DISPEL_FAILED_POSSESSIVE: string;
+ declare const ACTION_SPELL_DISPEL_POSSESSIVE: string;
+ declare const ACTION_SPELL_DRAIN: string;
+ declare const ACTION_SPELL_DRAIN_FULL_TEXT: string;
+ declare const ACTION_SPELL_DRAIN_FULL_TEXT_NO_SOURCE: string;
+ declare const ACTION_SPELL_DRAIN_POSSESSIVE: string;
+ declare const ACTION_SPELL_DURABILITY_DAMAGE: string;
+ declare const ACTION_SPELL_DURABILITY_DAMAGE_ALL: string;
+ declare const ACTION_SPELL_DURABILITY_DAMAGE_ALL_FULL_TEXT: string;
+ declare const ACTION_SPELL_DURABILITY_DAMAGE_ALL_POSSESSIVE: string;
+ declare const ACTION_SPELL_DURABILITY_DAMAGE_FULL_TEXT: string;
+ declare const ACTION_SPELL_DURABILITY_DAMAGE_POSSESSIVE: string;
+ declare const ACTION_SPELL_ENERGIZE: string;
+ declare const ACTION_SPELL_ENERGIZE_FULL_TEXT: string;
+ declare const ACTION_SPELL_ENERGIZE_FULL_TEXT_NO_SOURCE: string;
+ declare const ACTION_SPELL_ENERGIZE_POSSESSIVE: string;
+ declare const ACTION_SPELL_ENERGIZE_RESULT: string;
+ declare const ACTION_SPELL_EXTRA_ATTACKS: string;
+ declare const ACTION_SPELL_EXTRA_ATTACKS_FULL_TEXT: string;
+ declare const ACTION_SPELL_EXTRA_ATTACKS_FULL_TEXT_NO_SOURCE: string;
+ declare const ACTION_SPELL_EXTRA_ATTACKS_POSSESSIVE: string;
+ declare const ACTION_SPELL_HEAL: string;
+ declare const ACTION_SPELL_HEAL_FULL_TEXT: string;
+ declare const ACTION_SPELL_HEAL_FULL_TEXT_NO_SOURCE: string;
+ declare const ACTION_SPELL_HEAL_POSSESSIVE: string;
+ declare const ACTION_SPELL_INSTAKILL: string;
+ declare const ACTION_SPELL_INSTAKILL_FULL_TEXT: string;
+ declare const ACTION_SPELL_INSTAKILL_FULL_TEXT_NO_SOURCE: string;
+ declare const ACTION_SPELL_INSTAKILL_POSSESSIVE: string;
+ declare const ACTION_SPELL_INTERRUPT: string;
+ declare const ACTION_SPELL_INTERRUPT_FULL_TEXT: string;
+ declare const ACTION_SPELL_INTERRUPT_FULL_TEXT_NO_SOURCE: string;
+ declare const ACTION_SPELL_INTERRUPT_POSSESSIVE: string;
+ declare const ACTION_SPELL_LEECH: string;
+ declare const ACTION_SPELL_LEECH_FULL_TEXT: string;
+ declare const ACTION_SPELL_LEECH_FULL_TEXT_NO_SOURCE: string;
+ declare const ACTION_SPELL_LEECH_POSSESSIVE: string;
+ declare const ACTION_SPELL_LEECH_RESULT: string;
+ declare const ACTION_SPELL_MISSED: string;
+ declare const ACTION_SPELL_MISSED_ABSORB: string;
+ declare const ACTION_SPELL_MISSED_ABSORB_FULL_TEXT: string;
+ declare const ACTION_SPELL_MISSED_ABSORB_FULL_TEXT_NO_SOURCE: string;
+ declare const ACTION_SPELL_MISSED_ABSORB_POSSESSIVE: string;
+ declare const ACTION_SPELL_MISSED_BLOCK: string;
+ declare const ACTION_SPELL_MISSED_BLOCK_FULL_TEXT: string;
+ declare const ACTION_SPELL_MISSED_BLOCK_FULL_TEXT_NO_SOURCE: string;
+ declare const ACTION_SPELL_MISSED_BLOCK_POSSESSIVE: string;
+ declare const ACTION_SPELL_MISSED_DEFLECT: string;
+ declare const ACTION_SPELL_MISSED_DEFLECT_FULL_TEXT: string;
+ declare const ACTION_SPELL_MISSED_DEFLECT_FULL_TEXT_NO_SOURCE: string;
+ declare const ACTION_SPELL_MISSED_DEFLECT_POSSESSIVE: string;
+ declare const ACTION_SPELL_MISSED_DODGE: string;
+ declare const ACTION_SPELL_MISSED_DODGE_FULL_TEXT: string;
+ declare const ACTION_SPELL_MISSED_DODGE_FULL_TEXT_NO_SOURCE: string;
+ declare const ACTION_SPELL_MISSED_DODGE_POSSESSIVE: string;
+ declare const ACTION_SPELL_MISSED_EVADE: string;
+ declare const ACTION_SPELL_MISSED_EVADE_FULL_TEXT: string;
+ declare const ACTION_SPELL_MISSED_EVADE_FULL_TEXT_NO_SOURCE: string;
+ declare const ACTION_SPELL_MISSED_EVADE_POSSESSIVE: string;
+ declare const ACTION_SPELL_MISSED_FULL_TEXT: string;
+ declare const ACTION_SPELL_MISSED_FULL_TEXT_NO_SOURCE: string;
+ declare const ACTION_SPELL_MISSED_IMMUNE: string;
+ declare const ACTION_SPELL_MISSED_IMMUNE_FULL_TEXT: string;
+ declare const ACTION_SPELL_MISSED_IMMUNE_FULL_TEXT_NO_SOURCE: string;
+ declare const ACTION_SPELL_MISSED_MISS: string;
+ declare const ACTION_SPELL_MISSED_MISS_FULL_TEXT: string;
+ declare const ACTION_SPELL_MISSED_MISS_FULL_TEXT_NO_SOURCE: string;
+ declare const ACTION_SPELL_MISSED_MISS_POSSESSIVE: string;
+ declare const ACTION_SPELL_MISSED_PARRY: string;
+ declare const ACTION_SPELL_MISSED_PARRY_FULL_TEXT: string;
+ declare const ACTION_SPELL_MISSED_PARRY_FULL_TEXT_NO_SOURCE: string;
+ declare const ACTION_SPELL_MISSED_PARRY_POSSESSIVE: string;
+ declare const ACTION_SPELL_MISSED_POSSESSIVE: string;
+ declare const ACTION_SPELL_MISSED_REFLECT: string;
+ declare const ACTION_SPELL_MISSED_REFLECT_FULL_TEXT: string;
+ declare const ACTION_SPELL_MISSED_REFLECT_FULL_TEXT_NO_SOURCE: string;
+ declare const ACTION_SPELL_MISSED_RESIST: string;
+ declare const ACTION_SPELL_MISSED_RESIST_FULL_TEXT: string;
+ declare const ACTION_SPELL_MISSED_RESIST_FULL_TEXT_NO_SOURCE: string;
+ declare const ACTION_SPELL_MISSED_RESIST_POSSESSIVE: string;
+ declare const ACTION_SPELL_PERIODIC_DAMAGE: string;
+ declare const ACTION_SPELL_PERIODIC_DAMAGE_FULL_TEXT: string;
+ declare const ACTION_SPELL_PERIODIC_DAMAGE_FULL_TEXT_NO_SOURCE: string;
+ declare const ACTION_SPELL_PERIODIC_DAMAGE_POSSESSIVE: string;
+ declare const ACTION_SPELL_PERIODIC_DRAIN: string;
+ declare const ACTION_SPELL_PERIODIC_DRAIN_FULL_TEXT: string;
+ declare const ACTION_SPELL_PERIODIC_DRAIN_FULL_TEXT_NO_SOURCE: string;
+ declare const ACTION_SPELL_PERIODIC_DRAIN_POSSESSIVE: string;
+ declare const ACTION_SPELL_PERIODIC_ENERGIZE: string;
+ declare const ACTION_SPELL_PERIODIC_ENERGIZE_FULL_TEXT: string;
+ declare const ACTION_SPELL_PERIODIC_ENERGIZE_FULL_TEXT_NO_SOURCE: string;
+ declare const ACTION_SPELL_PERIODIC_ENERGIZE_POSSESSIVE: string;
+ declare const ACTION_SPELL_PERIODIC_ENERGIZE_RESULT: string;
+ declare const ACTION_SPELL_PERIODIC_HEAL: string;
+ declare const ACTION_SPELL_PERIODIC_HEAL_FULL_TEXT: string;
+ declare const ACTION_SPELL_PERIODIC_HEAL_FULL_TEXT_NO_SOURCE: string;
+ declare const ACTION_SPELL_PERIODIC_HEAL_POSSESSIVE: string;
+ declare const ACTION_SPELL_PERIODIC_LEECH: string;
+ declare const ACTION_SPELL_PERIODIC_LEECH_FULL_TEXT: string;
+ declare const ACTION_SPELL_PERIODIC_LEECH_FULL_TEXT_NO_SOURCE: string;
+ declare const ACTION_SPELL_PERIODIC_LEECH_POSSESSIVE: string;
+ declare const ACTION_SPELL_PERIODIC_LEECH_RESULT: string;
+ declare const ACTION_SPELL_PERIODIC_MISSED: string;
+ declare const ACTION_SPELL_PERIODIC_MISSED_ABSORB: string;
+ declare const ACTION_SPELL_PERIODIC_MISSED_ABSORB_FULL_TEXT: string;
+ declare const ACTION_SPELL_PERIODIC_MISSED_ABSORB_FULL_TEXT_NO_SOURCE: string;
+ declare const ACTION_SPELL_PERIODIC_MISSED_ABSORB_POSSESSIVE: string;
+ declare const ACTION_SPELL_PERIODIC_MISSED_BLOCK: string;
+ declare const ACTION_SPELL_PERIODIC_MISSED_BLOCK_FULL_TEXT: string;
+ declare const ACTION_SPELL_PERIODIC_MISSED_BLOCK_FULL_TEXT_NO_SOURCE: string;
+ declare const ACTION_SPELL_PERIODIC_MISSED_BLOCK_POSSESSIVE: string;
+ declare const ACTION_SPELL_PERIODIC_MISSED_DEFLECTED: string;
+ declare const ACTION_SPELL_PERIODIC_MISSED_DEFLECTED_FULL_TEXT: string;
+ declare const ACTION_SPELL_PERIODIC_MISSED_DEFLECTED_FULL_TEXT_NO_SOURCE: string;
+ declare const ACTION_SPELL_PERIODIC_MISSED_DEFLECTED_POSSESSIVE: string;
+ declare const ACTION_SPELL_PERIODIC_MISSED_DODGE: string;
+ declare const ACTION_SPELL_PERIODIC_MISSED_DODGE_FULL_TEXT: string;
+ declare const ACTION_SPELL_PERIODIC_MISSED_DODGE_FULL_TEXT_NO_SOURCE: string;
+ declare const ACTION_SPELL_PERIODIC_MISSED_DODGE_POSSESSIVE: string;
+ declare const ACTION_SPELL_PERIODIC_MISSED_EVADED: string;
+ declare const ACTION_SPELL_PERIODIC_MISSED_EVADED_FULL_TEXT: string;
+ declare const ACTION_SPELL_PERIODIC_MISSED_EVADED_FULL_TEXT_NO_SOURCE: string;
+ declare const ACTION_SPELL_PERIODIC_MISSED_EVADED_POSSESSIVE: string;
+ declare const ACTION_SPELL_PERIODIC_MISSED_FULL_TEXT: string;
+ declare const ACTION_SPELL_PERIODIC_MISSED_FULL_TEXT_NO_SOURCE: string;
+ declare const ACTION_SPELL_PERIODIC_MISSED_IMMUNE: string;
+ declare const ACTION_SPELL_PERIODIC_MISSED_IMMUNE_FULL_TEXT: string;
+ declare const ACTION_SPELL_PERIODIC_MISSED_IMMUNE_FULL_TEXT_NO_SOURCE: string;
+ declare const ACTION_SPELL_PERIODIC_MISSED_IMMUNE_POSSESSIVE: string;
+ declare const ACTION_SPELL_PERIODIC_MISSED_MISS: string;
+ declare const ACTION_SPELL_PERIODIC_MISSED_MISS_FULL_TEXT: string;
+ declare const ACTION_SPELL_PERIODIC_MISSED_MISS_FULL_TEXT_NO_SOURCE: string;
+ declare const ACTION_SPELL_PERIODIC_MISSED_MISS_POSSESSIVE: string;
+ declare const ACTION_SPELL_PERIODIC_MISSED_PARRY: string;
+ declare const ACTION_SPELL_PERIODIC_MISSED_PARRY_FULL_TEXT: string;
+ declare const ACTION_SPELL_PERIODIC_MISSED_PARRY_FULL_TEXT_NO_SOURCE: string;
+ declare const ACTION_SPELL_PERIODIC_MISSED_PARRY_POSSESSIVE: string;
+ declare const ACTION_SPELL_PERIODIC_MISSED_POSSESSIVE: string;
+ declare const ACTION_SPELL_PERIODIC_MISSED_RESIST: string;
+ declare const ACTION_SPELL_PERIODIC_MISSED_RESIST_FULL_TEXT: string;
+ declare const ACTION_SPELL_PERIODIC_MISSED_RESIST_FULL_TEXT_NO_SOURCE: string;
+ declare const ACTION_SPELL_PERIODIC_MISSED_RESIST_POSSESSIVE: string;
+ declare const ACTION_SPELL_RESURRECT: string;
+ declare const ACTION_SPELL_RESURRECT_FULL_TEXT: string;
+ declare const ACTION_SPELL_RESURRECT_FULL_TEXT_NO_SOURCE: string;
+ declare const ACTION_SPELL_RESURRECT_POSSESSIVE: string;
+ declare const ACTION_SPELL_STOLEN: string;
+ declare const ACTION_SPELL_STOLEN_BUFF: string;
+ declare const ACTION_SPELL_STOLEN_BUFF_FULL_TEXT: string;
+ declare const ACTION_SPELL_STOLEN_BUFF_FULL_TEXT_NO_SOURCE: string;
+ declare const ACTION_SPELL_STOLEN_BUFF_POSSESSIVE: string;
+ declare const ACTION_SPELL_STOLEN_BUFF__POSSESSIVE: string;
+ declare const ACTION_SPELL_STOLEN_DEBUFF: string;
+ declare const ACTION_SPELL_STOLEN_DEBUFF_FULL_TEXT: string;
+ declare const ACTION_SPELL_STOLEN_DEBUFF_FULL_TEXT_NO_SOURCE: string;
+ declare const ACTION_SPELL_STOLEN_DEBUFF_POSSESSIVE: string;
+ declare const ACTION_SPELL_STOLEN_FULL_TEXT: string;
+ declare const ACTION_SPELL_STOLEN_FULL_TEXT_NO_SOURCE: string;
+ declare const ACTION_SPELL_STOLEN_POSSESSIVE: string;
+ declare const ACTION_SPELL_SUMMON: string;
+ declare const ACTION_SPELL_SUMMON_FULL_TEXT: string;
+ declare const ACTION_SPELL_SUMMON_FULL_TEXT_NO_SOURCE: string;
+ declare const ACTION_SPELL_SUMMON_POSSESSIVE: string;
+ declare const ACTION_SWING: string;
+ declare const ACTION_SWING_DAMAGE: string;
+ declare const ACTION_SWING_DAMAGE_FULL_TEXT: string;
+ declare const ACTION_SWING_DAMAGE_FULL_TEXT_NO_SOURCE: string;
+ declare const ACTION_SWING_DAMAGE_POSSESSIVE: string;
+ declare const ACTION_SWING_MISSED: string;
+ declare const ACTION_SWING_MISSED_ABSORB: string;
+ declare const ACTION_SWING_MISSED_ABSORB_FULL_TEXT: string;
+ declare const ACTION_SWING_MISSED_ABSORB_POSSESSIVE: string;
+ declare const ACTION_SWING_MISSED_BLOCK: string;
+ declare const ACTION_SWING_MISSED_BLOCK_FULL_TEXT: string;
+ declare const ACTION_SWING_MISSED_BLOCK_POSSESSIVE: string;
+ declare const ACTION_SWING_MISSED_DEFLECT: string;
+ declare const ACTION_SWING_MISSED_DEFLECT_FULL_TEXT: string;
+ declare const ACTION_SWING_MISSED_DEFLECT_POSSESSIVE: string;
+ declare const ACTION_SWING_MISSED_DODGE: string;
+ declare const ACTION_SWING_MISSED_DODGE_FULL_TEXT: string;
+ declare const ACTION_SWING_MISSED_DODGE_POSSESSIVE: string;
+ declare const ACTION_SWING_MISSED_EVADE: string;
+ declare const ACTION_SWING_MISSED_EVADE_FULL_TEXT: string;
+ declare const ACTION_SWING_MISSED_EVADE_POSSESSIVE: string;
+ declare const ACTION_SWING_MISSED_FULL_TEXT: string;
+ declare const ACTION_SWING_MISSED_IMMUNE: string;
+ declare const ACTION_SWING_MISSED_IMMUNE_FULL_TEXT: string;
+ declare const ACTION_SWING_MISSED_IMMUNE_POSSESSIVE: string;
+ declare const ACTION_SWING_MISSED_MISS: string;
+ declare const ACTION_SWING_MISSED_MISS_FULL_TEXT: string;
+ declare const ACTION_SWING_MISSED_MISS_POSSESSIVE: string;
+ declare const ACTION_SWING_MISSED_PARRY: string;
+ declare const ACTION_SWING_MISSED_PARRY_FULL_TEXT: string;
+ declare const ACTION_SWING_MISSED_PARRY_POSSESSIVE: string;
+ declare const ACTION_SWING_MISSED_POSSESSIVE: string;
+ declare const ACTION_SWING_MISSED_RESIST: string;
+ declare const ACTION_SWING_MISSED_RESIST_FULL_TEXT: string;
+ declare const ACTION_SWING_MISSED_RESIST_POSSESSIVE: string;
+ declare const ACTION_UNIT_DESTROYED: string;
+ declare const ACTION_UNIT_DESTROYED_FULL_TEXT: string;
+ declare const ACTION_UNIT_DESTROYED_POSSESSIVE: string;
+ declare const ACTION_UNIT_DIED: string;
+ declare const ACTION_UNIT_DIED_FULL_TEXT: string;
+ declare const ACTION_UNIT_DIED_POSSESSIVE: string;
+ declare const ACTION_UNIT_DISSIPATES: string;
+ declare const ACTION_UNIT_DISSIPATES_FULL_TEXT: string;
+ declare const ACTION_UNIT_DISSIPATES_POSSESSIVE: string;
+ declare const ACTIVATE: string;
+ declare const ADD: string;
+ declare const ADDITIONAL_COMMENTS: string;
+ declare const ADDITIONAL_FILTERS: string;
+ declare const ADDMEMBER: string;
+ declare const ADDMEMBER_TEAM: string;
+ declare const ADDONS: string;
+ declare const ADDON_ACTION_FORBIDDEN: string;
+ declare const ADDON_BANNED: string;
+ declare const ADDON_CORRUPT: string;
+ declare const ADDON_DEMAND_LOADED: string;
+ declare const ADDON_DEP_BANNED: string;
+ declare const ADDON_DEP_CORRUPT: string;
+ declare const ADDON_DEP_DEMAND_LOADED: string;
+ declare const ADDON_DEP_DISABLED: string;
+ declare const ADDON_DEP_INCOMPATIBLE: string;
+ declare const ADDON_DEP_INSECURE: string;
+ declare const ADDON_DEP_INTERFACE_VERSION: string;
+ declare const ADDON_DEP_MISSING: string;
+ declare const ADDON_DISABLED: string;
+ declare const ADDON_INCOMPATIBLE: string;
+ declare const ADDON_INSECURE: string;
+ declare const ADDON_INTERFACE_VERSION: string;
+ declare const ADDON_LOAD_FAILED: string;
+ declare const ADDON_MEM_KB_ABBR: string;
+ declare const ADDON_MEM_MB_ABBR: string;
+ declare const ADDON_MISSING: string;
+ declare const ADDON_UNKNOWN_ERROR: string;
+ declare const ADD_ANOTHER: string;
+ declare const ADD_CHANNEL: string;
+ declare const ADD_CHAT_CHANNEL: string;
+ declare const ADD_FILTER: string;
+ declare const ADD_FRIEND: string;
+ declare const ADD_FRIEND_LABEL: string;
+ declare const ADD_GUILDMEMBER_LABEL: string;
+ declare const ADD_GUILDRANK_LABEL: string;
+ declare const ADD_IGNORE_LABEL: string;
+ declare const ADD_MUTE_LABEL: string;
+ declare const ADD_RAIDMEMBER_LABEL: string;
+ declare const ADD_RAID_MEMBER: string;
+ declare const ADD_TEAMMEMBER_LABEL: string;
+ declare const ADVANCED_OBJECTIVES_TEXT: string;
+ declare const ADVANCED_OPTIONS: string;
+ declare const ADVANCED_OPTIONS_TOOLTIP: string;
+ declare const ADVANCED_WATCHFRAME_OPTION_ENABLE_INTERRUPT: string;
+ declare const ADVANCED_WORLD_MAP_TEXT: string;
+ declare const AFK: string;
+ declare const AGGRO_WARNING_DISPLAY: string;
+ declare const AGGRO_WARNING_IN_INSTANCE: string;
+ declare const AGGRO_WARNING_IN_PARTY: string;
+ declare const AGI: string;
+ declare const AGILITY_COLON: string;
+ declare const AGILITY_TOOLTIP: string;
+ declare const AIM_DOWN: string;
+ declare const AIM_UP: string;
+ declare const ALL: string;
+ declare const ALLIED: string;
+ declare const ALL_BOSSES_ALIVE: string;
+ declare const ALL_INVENTORY_SLOTS: string;
+ declare const ALL_SETTINGS: string;
+ declare const ALL_SUBCLASSES: string;
+ declare const ALREADY_BOUND: string;
+ declare const ALREADY_LEARNED: string;
+ declare const ALT_KEY: string;
+ declare const ALWAYS: string;
+ declare const ALWAYS_SHOW_MULTIBARS_TEXT: string;
+ declare const AMBIENCE_VOLUME: string;
+ declare const AMMOSLOT: string;
+ declare const AMMO_DAMAGE_TEMPLATE: string;
+ declare const AMMO_SCHOOL_DAMAGE_TEMPLATE: string;
+ declare const AMOUNT_PAID_COLON: string;
+ declare const AMOUNT_RECEIVED_COLON: string;
+ declare const AMOUNT_TO_SEND: string;
+ declare const ANIMATION: string;
+ declare const ANISOTROPIC: string;
+ declare const APPEARANCE_LABEL: string;
+ declare const APPEARANCE_SUBTEXT: string;
+ declare const APPLY: string;
+ declare const AREA_SPIRIT_HEAL: string;
+ declare const ARENA: string;
+ declare const ARENA_BANNER_VENDOR_GREETING: string;
+ declare const ARENA_BATTLES: string;
+ declare const ARENA_CASUAL: string;
+ declare const ARENA_CHARTER_PURCHASE: string;
+ declare const ARENA_CHARTER_TEMPLATE: string;
+ declare const ARENA_CHARTER_TURN_IN: string;
+ declare const ARENA_COMPLETE_MESSAGE: string;
+ declare const ARENA_MASTER_NO_SEASON_TEXT: string;
+ declare const ARENA_MASTER_TEXT: string;
+ declare const ARENA_OFF_SEASON_TEXT: string;
+ declare const ARENA_PETITION_LEADER_INSTRUCTIONS: string;
+ declare const ARENA_PETITION_MEMBER_INSTRUCTIONS: string;
+ declare const ARENA_POINTS: string;
+ declare const ARENA_PRACTICE_BATTLE: string;
+ declare const ARENA_RATED: string;
+ declare const ARENA_RATED_BATTLE: string;
+ declare const ARENA_RATED_MATCH: string;
+ declare const ARENA_REGISTRAR_PURCHASE_TEXT: string;
+ declare const ARENA_SPECTATOR: string;
+ declare const ARENA_TEAM: string;
+ declare const ARENA_TEAM_2V2: string;
+ declare const ARENA_TEAM_3V3: string;
+ declare const ARENA_TEAM_5V5: string;
+ declare const ARENA_TEAM_CAPTAIN: string;
+ declare const ARENA_TEAM_INVITATION: string;
+ declare const ARENA_TEAM_LEAD_IN: string;
+ declare const ARENA_TEAM_RATING: string;
+ declare const ARENA_THIS_SEASON: string;
+ declare const ARENA_THIS_SEASON_TOGGLE: string;
+ declare const ARENA_THIS_WEEK: string;
+ declare const ARENA_THIS_WEEK_TOGGLE: string;
+ declare const ARMOR: string;
+ declare const ARMOR_TEMPLATE: string;
+ declare const ARMOR_TOOLTIP: string;
+ declare const ASSEMBLING_GROUP: string;
+ declare const ASSIGNED_COLON: string;
+ declare const ASSIST_ATTACK: string;
+ declare const ATTACHMENT_TEXT: string;
+ declare const ATTACK: string;
+ declare const ATTACK_COLON: string;
+ declare const ATTACK_POWER: string;
+ declare const ATTACK_POWER_TOOLTIP: string;
+ declare const ATTACK_SPEED: string;
+ declare const ATTACK_SPEED_SECONDS: string;
+ declare const ATTACK_SPEED_TOOLTIP1: string;
+ declare const ATTACK_TOOLTIP: string;
+ declare const ATTACK_TOOLTIP_SUBTEXT: string;
+ declare const AT_WAR: string;
+ declare const AUCTIONS: string;
+ declare const AUCTION_BUYOUT_ERROR: string;
+ declare const AUCTION_CREATING: string;
+ declare const AUCTION_CREATOR: string;
+ declare const AUCTION_DURATION: string;
+ declare const AUCTION_DURATION_ERROR: string;
+ declare const AUCTION_DURATION_ONE: string;
+ declare const AUCTION_DURATION_THREE: string;
+ declare const AUCTION_DURATION_TWO: string;
+ declare const AUCTION_EXPIRED_MAIL_SUBJECT: string;
+ declare const AUCTION_HOUSE_CUT_COLON: string;
+ declare const AUCTION_INVOICE_FUNDS_DELAY: string;
+ declare const AUCTION_INVOICE_FUNDS_NOT_YET_SENT: string;
+ declare const AUCTION_INVOICE_MAIL_SUBJECT: string;
+ declare const AUCTION_INVOICE_PENDING_FUNDS_COLON: string;
+ declare const AUCTION_ITEM: string;
+ declare const AUCTION_ITEM_INCOMING_AMOUNT: string;
+ declare const AUCTION_ITEM_SOLD: string;
+ declare const AUCTION_ITEM_TEXT: string;
+ declare const AUCTION_ITEM_TIME_UNTIL_DELIVERY: string;
+ declare const AUCTION_NUM_STACKS: string;
+ declare const AUCTION_OUTBID_MAIL_SUBJECT: string;
+ declare const AUCTION_PRICE: string;
+ declare const AUCTION_PRICE_PER_ITEM: string;
+ declare const AUCTION_PRICE_PER_STACK: string;
+ declare const AUCTION_REMOVED_MAIL_SUBJECT: string;
+ declare const AUCTION_SOLD_MAIL_SUBJECT: string;
+ declare const AUCTION_STACK_SIZE: string;
+ declare const AUCTION_TIME_LEFT1: string;
+ declare const AUCTION_TIME_LEFT1_DETAIL: string;
+ declare const AUCTION_TIME_LEFT2: string;
+ declare const AUCTION_TIME_LEFT2_DETAIL: string;
+ declare const AUCTION_TIME_LEFT3: string;
+ declare const AUCTION_TIME_LEFT3_DETAIL: string;
+ declare const AUCTION_TIME_LEFT4: string;
+ declare const AUCTION_TIME_LEFT4_DETAIL: string;
+ declare const AUCTION_TITLE: string;
+ declare const AUCTION_TOOLTIP_BID_PREFIX: string;
+ declare const AUCTION_TOOLTIP_BUYOUT_PREFIX: string;
+ declare const AUCTION_WON_MAIL_SUBJECT: string;
+ declare const AURAS: string;
+ declare const AURAS_COMBATLOG_TOOLTIP: string;
+ declare const AURA_END: string;
+ declare const AUTOFOLLOWSTART: string;
+ declare const AUTOFOLLOWSTOP: string;
+ declare const AUTOFOLLOWSTOPCOMBAT: string;
+ declare const AUTO_ADD_DISABLED_GROUPED_TOOLTIP: string;
+ declare const AUTO_ADD_DISABLED_QUEUED_TOOLTIP: string;
+ declare const AUTO_ADD_MEMBERS: string;
+ declare const AUTO_ADD_TOOLTIP: string;
+ declare const AUTO_DISMOUNT_FLYING_TEXT: string;
+ declare const AUTO_FOLLOW_SPEED: string;
+ declare const AUTO_JOIN: string;
+ declare const AUTO_JOIN_DISABLED_TOOLTIP: string;
+ declare const AUTO_JOIN_GUILD_CHANNEL: string;
+ declare const AUTO_JOIN_TOOLTIP: string;
+ declare const AUTO_JOIN_VOICE: string;
+ declare const AUTO_LOOT_DEFAULT_TEXT: string;
+ declare const AUTO_LOOT_KEY_TEXT: string;
+ declare const AUTO_QUEST_PROGRESS_TEXT: string;
+ declare const AUTO_QUEST_WATCH_TEXT: string;
+ declare const AUTO_RANGED_COMBAT_TEXT: string;
+ declare const AUTO_SELF_CAST_KEY_TEXT: string;
+ declare const AUTO_SELF_CAST_TEXT: string;
+ declare const AVAILABLE: string;
+ declare const AVAILABLE_QUESTS: string;
+ declare const AVAILABLE_SERVICES: string;
+ declare const AVERAGE_WAIT_TIME: string;
+ declare const A_RANDOM_DUNGEON: string;
+ declare const BACK: string;
+ declare const BACKGROUND: string;
+ declare const BACKPACK_TOOLTIP: string;
+ declare const BACKSLOT: string;
+ declare const BAGSLOT: string;
+ declare const BAGSLOTTEXT: string;
+ declare const BAGS_ONLY: string;
+ declare const BANKSLOTPURCHASE: string;
+ declare const BANKSLOTPURCHASE_LABEL: string;
+ declare const BANK_BAG: string;
+ declare const BANK_BAG_PURCHASE: string;
+ declare const BARBERSHOP: string;
+ declare const BASIC_OPTIONS_TOOLTIP: string;
+ declare const BATTLEFIELDMINIMAP_OPACITY_LABEL: string;
+ declare const BATTLEFIELDMINIMAP_OPTIONS_LABEL: string;
+ declare const BATTLEFIELDS: string;
+ declare const BATTLEFIELD_ALERT: string;
+ declare const BATTLEFIELD_CONFIRM_STATUS: string;
+ declare const BATTLEFIELD_FULL: string;
+ declare const BATTLEFIELD_GROUP_JOIN: string;
+ declare const BATTLEFIELD_IN_BATTLEFIELD: string;
+ declare const BATTLEFIELD_IN_QUEUE: string;
+ declare const BATTLEFIELD_IN_QUEUE_SIMPLE: string;
+ declare const BATTLEFIELD_JOIN: string;
+ declare const BATTLEFIELD_LEVEL: string;
+ declare const BATTLEFIELD_MINIMAP: string;
+ declare const BATTLEFIELD_MINIMAP_SHOW_ALWAYS: string;
+ declare const BATTLEFIELD_MINIMAP_SHOW_BATTLEGROUNDS: string;
+ declare const BATTLEFIELD_MINIMAP_SHOW_NEVER: string;
+ declare const BATTLEFIELD_NAME: string;
+ declare const BATTLEFIELD_QUEUE_CONFIRM: string;
+ declare const BATTLEFIELD_QUEUE_CONFIRM_SIMPLE: string;
+ declare const BATTLEFIELD_QUEUE_PENDING_REMOVAL: string;
+ declare const BATTLEFIELD_QUEUE_STATUS: string;
+ declare const BATTLEGROUND: string;
+ declare const BATTLEGROUNDS: string;
+ declare const BATTLEGROUND_COMPLETE_MESSAGE: string;
+ declare const BATTLEGROUND_HOLIDAY: string;
+ declare const BATTLEGROUND_HOLIDAY_EXPLANATION: string;
+ declare const BATTLEGROUND_INSTANCE: string;
+ declare const BATTLEGROUND_INSTANCE_TOOLTIP: string;
+ declare const BATTLEGROUND_LEADER: string;
+ declare const BATTLEGROUND_MESSAGE: string;
+ declare const BATTLEGROUND_REQUIRED_LEVEL_TOOLTIP: string;
+ declare const BATTLEGROUND_SILENCE: string;
+ declare const BATTLEGROUND_UNSILENCE: string;
+ declare const BATTLENET_FRIEND: string;
+ declare const BATTLENET_FRIEND_INFO: string;
+ declare const BATTLENET_FRIEND_LABEL: string;
+ declare const BATTLENET_NAME_FORMAT: string;
+ declare const BATTLENET_OPTIONS_LABEL: string;
+ declare const BATTLENET_OPTIONS_SUBTEXT: string;
+ declare const BATTLENET_UNAVAILABLE: string;
+ declare const BATTLENET_UNAVAILABLE_ALERT: string;
+ declare const BENCHMARK_TAXI_AVERAGE_FPS: string;
+ declare const BENCHMARK_TAXI_MAX_FPS: string;
+ declare const BENCHMARK_TAXI_MIN_FPS: string;
+ declare const BENCHMARK_TAXI_MODE_OFF: string;
+ declare const BENCHMARK_TAXI_MODE_ON: string;
+ declare const BENCHMARK_TAXI_RESULTS: string;
+ declare const BENCHMARK_TAXI_TOTAL_TIME: string;
+ declare const BENEFICIAL: string;
+ declare const BENEFICIAL_AURA_COMBATLOG_TOOLTIP: string;
+ declare const BF_NOT_IN: string;
+ declare const BG_SYSTEM_ALLIANCE: string;
+ declare const BG_SYSTEM_HORDE: string;
+ declare const BG_SYSTEM_NEUTRAL: string;
+ declare const BID: string;
+ declare const BIDS: string;
+ declare const BID_AUCTION_CONFIRMATION: string;
+ declare const BID_STATUS: string;
+ declare const BILLING_NAG_DIALOG: string;
+ declare const BILLING_NAG_WARNING: string;
+ declare const BINDING_HEADER_ACTIONBAR: string;
+ declare const BINDING_HEADER_BLANK: string;
+ declare const BINDING_HEADER_CAMERA: string;
+ declare const BINDING_HEADER_CHAT: string;
+ declare const BINDING_HEADER_INTERFACE: string;
+ declare const BINDING_HEADER_ITUNES_REMOTE: string;
+ declare const BINDING_HEADER_MISC: string;
+ declare const BINDING_HEADER_MOVEMENT: string;
+ declare const BINDING_HEADER_MOVIE_RECORDING_SECTION: string;
+ declare const BINDING_HEADER_MULTIACTIONBAR: string;
+ declare const BINDING_HEADER_MULTICASTFUNCTIONS: string;
+ declare const BINDING_HEADER_RAID_TARGET: string;
+ declare const BINDING_HEADER_TARGETING: string;
+ declare const BINDING_HEADER_VEHICLE: string;
+ declare const BINDING_HEADER_VOICE_CHAT: string;
+ declare const BINDING_NAME_ACTIONBUTTON1: string;
+ declare const BINDING_NAME_ACTIONBUTTON10: string;
+ declare const BINDING_NAME_ACTIONBUTTON11: string;
+ declare const BINDING_NAME_ACTIONBUTTON12: string;
+ declare const BINDING_NAME_ACTIONBUTTON2: string;
+ declare const BINDING_NAME_ACTIONBUTTON3: string;
+ declare const BINDING_NAME_ACTIONBUTTON4: string;
+ declare const BINDING_NAME_ACTIONBUTTON5: string;
+ declare const BINDING_NAME_ACTIONBUTTON6: string;
+ declare const BINDING_NAME_ACTIONBUTTON7: string;
+ declare const BINDING_NAME_ACTIONBUTTON8: string;
+ declare const BINDING_NAME_ACTIONBUTTON9: string;
+ declare const BINDING_NAME_ACTIONPAGE1: string;
+ declare const BINDING_NAME_ACTIONPAGE2: string;
+ declare const BINDING_NAME_ACTIONPAGE3: string;
+ declare const BINDING_NAME_ACTIONPAGE4: string;
+ declare const BINDING_NAME_ACTIONPAGE5: string;
+ declare const BINDING_NAME_ACTIONPAGE6: string;
+ declare const BINDING_NAME_ACTIONWINDOW1: string;
+ declare const BINDING_NAME_ACTIONWINDOW2: string;
+ declare const BINDING_NAME_ACTIONWINDOW3: string;
+ declare const BINDING_NAME_ACTIONWINDOW4: string;
+ declare const BINDING_NAME_ACTIONWINDOWDECREMENT: string;
+ declare const BINDING_NAME_ACTIONWINDOWINCREMENT: string;
+ declare const BINDING_NAME_ACTIONWINDOWMOVE: string;
+ declare const BINDING_NAME_ALLNAMEPLATES: string;
+ declare const BINDING_NAME_ASSISTTARGET: string;
+ declare const BINDING_NAME_ATTACKTARGET: string;
+ declare const BINDING_NAME_BONUSACTIONBUTTON1: string;
+ declare const BINDING_NAME_BONUSACTIONBUTTON10: string;
+ declare const BINDING_NAME_BONUSACTIONBUTTON2: string;
+ declare const BINDING_NAME_BONUSACTIONBUTTON3: string;
+ declare const BINDING_NAME_BONUSACTIONBUTTON4: string;
+ declare const BINDING_NAME_BONUSACTIONBUTTON5: string;
+ declare const BINDING_NAME_BONUSACTIONBUTTON6: string;
+ declare const BINDING_NAME_BONUSACTIONBUTTON7: string;
+ declare const BINDING_NAME_BONUSACTIONBUTTON8: string;
+ declare const BINDING_NAME_BONUSACTIONBUTTON9: string;
+ declare const BINDING_NAME_CAMERAZOOMIN: string;
+ declare const BINDING_NAME_CAMERAZOOMOUT: string;
+ declare const BINDING_NAME_CHATBOTTOM: string;
+ declare const BINDING_NAME_CHATPAGEDOWN: string;
+ declare const BINDING_NAME_CHATPAGEUP: string;
+ declare const BINDING_NAME_COMBATLOGBOTTOM: string;
+ declare const BINDING_NAME_COMBATLOGPAGEDOWN: string;
+ declare const BINDING_NAME_COMBATLOGPAGEUP: string;
+ declare const BINDING_NAME_DISMOUNT: string;
+ declare const BINDING_NAME_FLIPCAMERAYAW: string;
+ declare const BINDING_NAME_FOCUSTARGET: string;
+ declare const BINDING_NAME_FOLLOWTARGET: string;
+ declare const BINDING_NAME_FRIENDNAMEPLATES: string;
+ declare const BINDING_NAME_INTERACTMOUSEOVER: string;
+ declare const BINDING_NAME_INTERACTTARGET: string;
+ declare const BINDING_NAME_INVERTBINDINGMODE1: string;
+ declare const BINDING_NAME_INVERTBINDINGMODE2: string;
+ declare const BINDING_NAME_INVERTBINDINGMODE3: string;
+ declare const BINDING_NAME_ITUNES_BACKTRACK: string;
+ declare const BINDING_NAME_ITUNES_NEXTTRACK: string;
+ declare const BINDING_NAME_ITUNES_PLAYPAUSE: string;
+ declare const BINDING_NAME_ITUNES_VOLUMEDOWN: string;
+ declare const BINDING_NAME_ITUNES_VOLUMEUP: string;
+ declare const BINDING_NAME_JUMP: string;
+ declare const BINDING_NAME_MASTERVOLUMEDOWN: string;
+ declare const BINDING_NAME_MASTERVOLUMEUP: string;
+ declare const BINDING_NAME_MINIMAPZOOMIN: string;
+ declare const BINDING_NAME_MINIMAPZOOMOUT: string;
+ declare const BINDING_NAME_MOVEANDSTEER: string;
+ declare const BINDING_NAME_MOVEBACKWARD: string;
+ declare const BINDING_NAME_MOVEFORWARD: string;
+ declare const BINDING_NAME_MOVEVIEWIN: string;
+ declare const BINDING_NAME_MOVEVIEWOUT: string;
+ declare const BINDING_NAME_MOVIE_RECORDING_CANCEL: string;
+ declare const BINDING_NAME_MOVIE_RECORDING_COMPRESS: string;
+ declare const BINDING_NAME_MOVIE_RECORDING_GUI: string;
+ declare const BINDING_NAME_MOVIE_RECORDING_STARTSTOP: string;
+ declare const BINDING_NAME_MULTIACTIONBAR1BUTTON1: string;
+ declare const BINDING_NAME_MULTIACTIONBAR1BUTTON10: string;
+ declare const BINDING_NAME_MULTIACTIONBAR1BUTTON11: string;
+ declare const BINDING_NAME_MULTIACTIONBAR1BUTTON12: string;
+ declare const BINDING_NAME_MULTIACTIONBAR1BUTTON2: string;
+ declare const BINDING_NAME_MULTIACTIONBAR1BUTTON3: string;
+ declare const BINDING_NAME_MULTIACTIONBAR1BUTTON4: string;
+ declare const BINDING_NAME_MULTIACTIONBAR1BUTTON5: string;
+ declare const BINDING_NAME_MULTIACTIONBAR1BUTTON6: string;
+ declare const BINDING_NAME_MULTIACTIONBAR1BUTTON7: string;
+ declare const BINDING_NAME_MULTIACTIONBAR1BUTTON8: string;
+ declare const BINDING_NAME_MULTIACTIONBAR1BUTTON9: string;
+ declare const BINDING_NAME_MULTIACTIONBAR2BUTTON1: string;
+ declare const BINDING_NAME_MULTIACTIONBAR2BUTTON10: string;
+ declare const BINDING_NAME_MULTIACTIONBAR2BUTTON11: string;
+ declare const BINDING_NAME_MULTIACTIONBAR2BUTTON12: string;
+ declare const BINDING_NAME_MULTIACTIONBAR2BUTTON2: string;
+ declare const BINDING_NAME_MULTIACTIONBAR2BUTTON3: string;
+ declare const BINDING_NAME_MULTIACTIONBAR2BUTTON4: string;
+ declare const BINDING_NAME_MULTIACTIONBAR2BUTTON5: string;
+ declare const BINDING_NAME_MULTIACTIONBAR2BUTTON6: string;
+ declare const BINDING_NAME_MULTIACTIONBAR2BUTTON7: string;
+ declare const BINDING_NAME_MULTIACTIONBAR2BUTTON8: string;
+ declare const BINDING_NAME_MULTIACTIONBAR2BUTTON9: string;
+ declare const BINDING_NAME_MULTIACTIONBAR3BUTTON1: string;
+ declare const BINDING_NAME_MULTIACTIONBAR3BUTTON10: string;
+ declare const BINDING_NAME_MULTIACTIONBAR3BUTTON11: string;
+ declare const BINDING_NAME_MULTIACTIONBAR3BUTTON12: string;
+ declare const BINDING_NAME_MULTIACTIONBAR3BUTTON2: string;
+ declare const BINDING_NAME_MULTIACTIONBAR3BUTTON3: string;
+ declare const BINDING_NAME_MULTIACTIONBAR3BUTTON4: string;
+ declare const BINDING_NAME_MULTIACTIONBAR3BUTTON5: string;
+ declare const BINDING_NAME_MULTIACTIONBAR3BUTTON6: string;
+ declare const BINDING_NAME_MULTIACTIONBAR3BUTTON7: string;
+ declare const BINDING_NAME_MULTIACTIONBAR3BUTTON8: string;
+ declare const BINDING_NAME_MULTIACTIONBAR3BUTTON9: string;
+ declare const BINDING_NAME_MULTIACTIONBAR4BUTTON1: string;
+ declare const BINDING_NAME_MULTIACTIONBAR4BUTTON10: string;
+ declare const BINDING_NAME_MULTIACTIONBAR4BUTTON11: string;
+ declare const BINDING_NAME_MULTIACTIONBAR4BUTTON12: string;
+ declare const BINDING_NAME_MULTIACTIONBAR4BUTTON2: string;
+ declare const BINDING_NAME_MULTIACTIONBAR4BUTTON3: string;
+ declare const BINDING_NAME_MULTIACTIONBAR4BUTTON4: string;
+ declare const BINDING_NAME_MULTIACTIONBAR4BUTTON5: string;
+ declare const BINDING_NAME_MULTIACTIONBAR4BUTTON6: string;
+ declare const BINDING_NAME_MULTIACTIONBAR4BUTTON7: string;
+ declare const BINDING_NAME_MULTIACTIONBAR4BUTTON8: string;
+ declare const BINDING_NAME_MULTIACTIONBAR4BUTTON9: string;
+ declare const BINDING_NAME_MULTICASTACTIONBUTTON1: string;
+ declare const BINDING_NAME_MULTICASTACTIONBUTTON10: string;
+ declare const BINDING_NAME_MULTICASTACTIONBUTTON11: string;
+ declare const BINDING_NAME_MULTICASTACTIONBUTTON12: string;
+ declare const BINDING_NAME_MULTICASTACTIONBUTTON2: string;
+ declare const BINDING_NAME_MULTICASTACTIONBUTTON3: string;
+ declare const BINDING_NAME_MULTICASTACTIONBUTTON4: string;
+ declare const BINDING_NAME_MULTICASTACTIONBUTTON5: string;
+ declare const BINDING_NAME_MULTICASTACTIONBUTTON6: string;
+ declare const BINDING_NAME_MULTICASTACTIONBUTTON7: string;
+ declare const BINDING_NAME_MULTICASTACTIONBUTTON8: string;
+ declare const BINDING_NAME_MULTICASTACTIONBUTTON9: string;
+ declare const BINDING_NAME_MULTICASTRECALLBUTTON1: string;
+ declare const BINDING_NAME_MULTICASTSUMMONBUTTON1: string;
+ declare const BINDING_NAME_MULTICASTSUMMONBUTTON2: string;
+ declare const BINDING_NAME_MULTICASTSUMMONBUTTON3: string;
+ declare const BINDING_NAME_NAMEPLATES: string;
+ declare const BINDING_NAME_NEXTACTIONPAGE: string;
+ declare const BINDING_NAME_NEXTVIEW: string;
+ declare const BINDING_NAME_OPENALLBAGS: string;
+ declare const BINDING_NAME_OPENCHAT: string;
+ declare const BINDING_NAME_OPENCHATSLASH: string;
+ declare const BINDING_NAME_PETATTACK: string;
+ declare const BINDING_NAME_PITCHDECREMENT: string;
+ declare const BINDING_NAME_PITCHDOWN: string;
+ declare const BINDING_NAME_PITCHINCREMENT: string;
+ declare const BINDING_NAME_PITCHUP: string;
+ declare const BINDING_NAME_PREVIOUSACTIONPAGE: string;
+ declare const BINDING_NAME_PREVVIEW: string;
+ declare const BINDING_NAME_PUSHTOTALK: string;
+ declare const BINDING_NAME_RAIDTARGET1: string;
+ declare const BINDING_NAME_RAIDTARGET2: string;
+ declare const BINDING_NAME_RAIDTARGET3: string;
+ declare const BINDING_NAME_RAIDTARGET4: string;
+ declare const BINDING_NAME_RAIDTARGET5: string;
+ declare const BINDING_NAME_RAIDTARGET6: string;
+ declare const BINDING_NAME_RAIDTARGET7: string;
+ declare const BINDING_NAME_RAIDTARGET8: string;
+ declare const BINDING_NAME_RAIDTARGETNONE: string;
+ declare const BINDING_NAME_REPLY: string;
+ declare const BINDING_NAME_REPLY2: string;
+ declare const BINDING_NAME_RESETVIEW1: string;
+ declare const BINDING_NAME_RESETVIEW2: string;
+ declare const BINDING_NAME_RESETVIEW3: string;
+ declare const BINDING_NAME_RESETVIEW4: string;
+ declare const BINDING_NAME_RESETVIEW5: string;
+ declare const BINDING_NAME_SAVEVIEW1: string;
+ declare const BINDING_NAME_SAVEVIEW2: string;
+ declare const BINDING_NAME_SAVEVIEW3: string;
+ declare const BINDING_NAME_SAVEVIEW4: string;
+ declare const BINDING_NAME_SAVEVIEW5: string;
+ declare const BINDING_NAME_SCREENSHOT: string;
+ declare const BINDING_NAME_SETVIEW1: string;
+ declare const BINDING_NAME_SETVIEW2: string;
+ declare const BINDING_NAME_SETVIEW3: string;
+ declare const BINDING_NAME_SETVIEW4: string;
+ declare const BINDING_NAME_SETVIEW5: string;
+ declare const BINDING_NAME_SHAPESHIFTBUTTON1: string;
+ declare const BINDING_NAME_SHAPESHIFTBUTTON10: string;
+ declare const BINDING_NAME_SHAPESHIFTBUTTON2: string;
+ declare const BINDING_NAME_SHAPESHIFTBUTTON3: string;
+ declare const BINDING_NAME_SHAPESHIFTBUTTON4: string;
+ declare const BINDING_NAME_SHAPESHIFTBUTTON5: string;
+ declare const BINDING_NAME_SHAPESHIFTBUTTON6: string;
+ declare const BINDING_NAME_SHAPESHIFTBUTTON7: string;
+ declare const BINDING_NAME_SHAPESHIFTBUTTON8: string;
+ declare const BINDING_NAME_SHAPESHIFTBUTTON9: string;
+ declare const BINDING_NAME_SITORSTAND: string;
+ declare const BINDING_NAME_STARTATTACK: string;
+ declare const BINDING_NAME_STOPATTACK: string;
+ declare const BINDING_NAME_STOPCASTING: string;
+ declare const BINDING_NAME_STRAFELEFT: string;
+ declare const BINDING_NAME_STRAFERIGHT: string;
+ declare const BINDING_NAME_SWINGCAMERA: string;
+ declare const BINDING_NAME_SWINGCAMERAANDPLAYER: string;
+ declare const BINDING_NAME_TARGETENEMYDIRECTIONAL: string;
+ declare const BINDING_NAME_TARGETFOCUS: string;
+ declare const BINDING_NAME_TARGETFRIENDDIRECTIONAL: string;
+ declare const BINDING_NAME_TARGETLASTHOSTILE: string;
+ declare const BINDING_NAME_TARGETLASTTARGET: string;
+ declare const BINDING_NAME_TARGETMOUSEOVER: string;
+ declare const BINDING_NAME_TARGETNEARESTENEMY: string;
+ declare const BINDING_NAME_TARGETNEARESTENEMYPLAYER: string;
+ declare const BINDING_NAME_TARGETNEARESTFRIEND: string;
+ declare const BINDING_NAME_TARGETNEARESTFRIENDPLAYER: string;
+ declare const BINDING_NAME_TARGETPARTYMEMBER1: string;
+ declare const BINDING_NAME_TARGETPARTYMEMBER2: string;
+ declare const BINDING_NAME_TARGETPARTYMEMBER3: string;
+ declare const BINDING_NAME_TARGETPARTYMEMBER4: string;
+ declare const BINDING_NAME_TARGETPARTYPET1: string;
+ declare const BINDING_NAME_TARGETPARTYPET2: string;
+ declare const BINDING_NAME_TARGETPARTYPET3: string;
+ declare const BINDING_NAME_TARGETPARTYPET4: string;
+ declare const BINDING_NAME_TARGETPET: string;
+ declare const BINDING_NAME_TARGETPREVIOUSENEMY: string;
+ declare const BINDING_NAME_TARGETPREVIOUSENEMYPLAYER: string;
+ declare const BINDING_NAME_TARGETPREVIOUSFRIEND: string;
+ declare const BINDING_NAME_TARGETPREVIOUSFRIENDPLAYER: string;
+ declare const BINDING_NAME_TARGETSELF: string;
+ declare const BINDING_NAME_TARGETTALKER: string;
+ declare const BINDING_NAME_TOGGLEABILITYBOOK: string;
+ declare const BINDING_NAME_TOGGLEACHIEVEMENT: string;
+ declare const BINDING_NAME_TOGGLEACTIONBARLOCK: string;
+ declare const BINDING_NAME_TOGGLEAUTORUN: string;
+ declare const BINDING_NAME_TOGGLEAUTOSELFCAST: string;
+ declare const BINDING_NAME_TOGGLEBACKPACK: string;
+ declare const BINDING_NAME_TOGGLEBAG1: string;
+ declare const BINDING_NAME_TOGGLEBAG2: string;
+ declare const BINDING_NAME_TOGGLEBAG3: string;
+ declare const BINDING_NAME_TOGGLEBAG4: string;
+ declare const BINDING_NAME_TOGGLEBAG5: string;
+ declare const BINDING_NAME_TOGGLEBATTLEFIELDMINIMAP: string;
+ declare const BINDING_NAME_TOGGLEBINDINGMODE1: string;
+ declare const BINDING_NAME_TOGGLEBINDINGMODE2: string;
+ declare const BINDING_NAME_TOGGLEBINDINGMODE3: string;
+ declare const BINDING_NAME_TOGGLECHANNELPULLOUT: string;
+ declare const BINDING_NAME_TOGGLECHANNELTAB: string;
+ declare const BINDING_NAME_TOGGLECHARACTER0: string;
+ declare const BINDING_NAME_TOGGLECHARACTER1: string;
+ declare const BINDING_NAME_TOGGLECHARACTER2: string;
+ declare const BINDING_NAME_TOGGLECHARACTER3: string;
+ declare const BINDING_NAME_TOGGLECHARACTER4: string;
+ declare const BINDING_NAME_TOGGLECHATTAB: string;
+ declare const BINDING_NAME_TOGGLECOMBATLOG: string;
+ declare const BINDING_NAME_TOGGLECURRENCY: string;
+ declare const BINDING_NAME_TOGGLEFPS: string;
+ declare const BINDING_NAME_TOGGLEFRIENDSTAB: string;
+ declare const BINDING_NAME_TOGGLEGAMEMENU: string;
+ declare const BINDING_NAME_TOGGLEGUILDTAB: string;
+ declare const BINDING_NAME_TOGGLEIGNORETAB: string;
+ declare const BINDING_NAME_TOGGLEINSCRIPTION: string;
+ declare const BINDING_NAME_TOGGLEKEYRING: string;
+ declare const BINDING_NAME_TOGGLELFGPARENT: string;
+ declare const BINDING_NAME_TOGGLELFRPARENT: string;
+ declare const BINDING_NAME_TOGGLEMINIMAP: string;
+ declare const BINDING_NAME_TOGGLEMINIMAPROTATION: string;
+ declare const BINDING_NAME_TOGGLEMOUSE: string;
+ declare const BINDING_NAME_TOGGLEMUSIC: string;
+ declare const BINDING_NAME_TOGGLEPETBOOK: string;
+ declare const BINDING_NAME_TOGGLEPVP: string;
+ declare const BINDING_NAME_TOGGLEQUESTLOG: string;
+ declare const BINDING_NAME_TOGGLERAIDTAB: string;
+ declare const BINDING_NAME_TOGGLERUN: string;
+ declare const BINDING_NAME_TOGGLESELFMUTE: string;
+ declare const BINDING_NAME_TOGGLESHEATH: string;
+ declare const BINDING_NAME_TOGGLESOCIAL: string;
+ declare const BINDING_NAME_TOGGLESOUND: string;
+ declare const BINDING_NAME_TOGGLESPELLBOOK: string;
+ declare const BINDING_NAME_TOGGLESTATISTICS: string;
+ declare const BINDING_NAME_TOGGLETALENTS: string;
+ declare const BINDING_NAME_TOGGLEUI: string;
+ declare const BINDING_NAME_TOGGLEWHOTAB: string;
+ declare const BINDING_NAME_TOGGLEWORLDMAP: string;
+ declare const BINDING_NAME_TOGGLEWORLDMAPSIZE: string;
+ declare const BINDING_NAME_TOGGLEWORLDSTATESCORES: string;
+ declare const BINDING_NAME_TURNLEFT: string;
+ declare const BINDING_NAME_TURNRIGHT: string;
+ declare const BINDING_NAME_VEHICLEAIMDECREMENT: string;
+ declare const BINDING_NAME_VEHICLEAIMDOWN: string;
+ declare const BINDING_NAME_VEHICLEAIMINCREMENT: string;
+ declare const BINDING_NAME_VEHICLEAIMUP: string;
+ declare const BINDING_NAME_VEHICLECAMERAZOOMIN: string;
+ declare const BINDING_NAME_VEHICLECAMERAZOOMOUT: string;
+ declare const BINDING_NAME_VEHICLEEXIT: string;
+ declare const BINDING_NAME_VEHICLENEXTSEAT: string;
+ declare const BINDING_NAME_VEHICLEPREVSEAT: string;
+ declare const BIND_ENCHANT: string;
+ declare const BIND_KEY_TO_COMMAND: string;
+ declare const BIND_TRADE_TIME_REMAINING: string;
+ declare const BIND_ZONE_DISPLAY: string;
+ declare const BLIZZARD_COMBAT_LOG_MENU_BOTH: string;
+ declare const BLIZZARD_COMBAT_LOG_MENU_EVERYTHING: string;
+ declare const BLIZZARD_COMBAT_LOG_MENU_INCOMING: string;
+ declare const BLIZZARD_COMBAT_LOG_MENU_OUTGOING: string;
+ declare const BLIZZARD_COMBAT_LOG_MENU_OUTGOING_ME: string;
+ declare const BLIZZARD_COMBAT_LOG_MENU_RESET: string;
+ declare const BLIZZARD_COMBAT_LOG_MENU_REVERT: string;
+ declare const BLIZZARD_COMBAT_LOG_MENU_SAVE: string;
+ declare const BLIZZARD_COMBAT_LOG_MENU_SPELL_HIDE: string;
+ declare const BLIZZARD_COMBAT_LOG_MENU_SPELL_LINK: string;
+ declare const BLIZZARD_COMBAT_LOG_MENU_SPELL_TYPE_HEADER: string;
+ declare const BLOCK: string;
+ declare const BLOCKED_COMMUNICATION: string;
+ declare const BLOCKED_INVITES: string;
+ declare const BLOCK_CHANCE: string;
+ declare const BLOCK_COMMUNICATION: string;
+ declare const BLOCK_INVITES: string;
+ declare const BLOCK_INVITES_CONFIRMATION: string;
+ declare const BLOCK_INVITES_TOOLTIP: string;
+ declare const BLOCK_TRADES: string;
+ declare const BLOCK_TRAILER: string;
+ declare const BLUE_GEM: string;
+ declare const BNET_BROADCAST_SENT_TIME: string;
+ declare const BNET_INVITE_SENT_TIME: string;
+ declare const BNET_LAST_ONLINE_TIME: string;
+ declare const BNET_REPORT: string;
+ declare const BNET_REPORT_ABUSE: string;
+ declare const BNET_REPORT_ABUSE_BUTTON: string;
+ declare const BNET_REPORT_ABUSE_LABEL: string;
+ declare const BNET_REPORT_ABUSE_PROMPT: string;
+ declare const BNET_REPORT_CONFIRM_ABUSE: string;
+ declare const BNET_REPORT_CONFIRM_NAME: string;
+ declare const BNET_REPORT_CONFIRM_SPAM: string;
+ declare const BNET_REPORT_NAME: string;
+ declare const BNET_REPORT_PLAYER: string;
+ declare const BNET_REPORT_PLAYER_TOOLTIP: string;
+ declare const BNET_REPORT_SENT: string;
+ declare const BNET_REPORT_SPAM: string;
+ declare const BN_BROADCAST_TOOLTIP: string;
+ declare const BN_CONVERSATION: string;
+ declare const BN_INLINE_TOAST_ALERT: string;
+ declare const BN_INLINE_TOAST_BROADCAST: string;
+ declare const BN_INLINE_TOAST_BROADCAST_INFORM: string;
+ declare const BN_INLINE_TOAST_CONVERSATION: string;
+ declare const BN_INLINE_TOAST_FRIEND_ADDED: string;
+ declare const BN_INLINE_TOAST_FRIEND_OFFLINE: string;
+ declare const BN_INLINE_TOAST_FRIEND_ONLINE: string;
+ declare const BN_INLINE_TOAST_FRIEND_PENDING: string;
+ declare const BN_INLINE_TOAST_FRIEND_REMOVED: string;
+ declare const BN_INLINE_TOAST_FRIEND_REQUEST: string;
+ declare const BN_TOAST_CONVERSATION: string;
+ declare const BN_TOAST_NEW_INVITE: string;
+ declare const BN_TOAST_OFFLINE: string;
+ declare const BN_TOAST_ONLINE: string;
+ declare const BN_TOAST_PENDING_INVITES: string;
+ declare const BN_UNABLE_TO_RESOLVE_NAME: string;
+ declare const BN_WHISPER: string;
+ declare const BONUS_ARENA_POINTS: string;
+ declare const BONUS_DAMAGE: string;
+ declare const BONUS_DAMAGE_ABBR: string;
+ declare const BONUS_HEALING: string;
+ declare const BONUS_HEALING_ABBR: string;
+ declare const BONUS_HEALING_TOOLTIP: string;
+ declare const BONUS_HONOR: string;
+ declare const BONUS_TALENTS: string;
+ declare const BOSS: string;
+ declare const BOSSES: string;
+ declare const BOSSES_KILLED: string;
+ declare const BOSS_ALIVE: string;
+ declare const BOSS_DEAD: string;
+ declare const BREATH_LABEL: string;
+ declare const BROWSE: string;
+ declare const BROWSE_AUCTIONS: string;
+ declare const BROWSE_NO_RESULTS: string;
+ declare const BROWSE_SEARCH_TEXT: string;
+ declare const BROWSING: string;
+ declare const BUFFERING: string;
+ declare const BUFFER_DOUBLE: string;
+ declare const BUFFOPTIONS_LABEL: string;
+ declare const BUFFOPTIONS_SUBTEXT: string;
+ declare const BUG_BUTTON: string;
+ declare const BUG_CATEGORY1: string;
+ declare const BUG_CATEGORY2: string;
+ declare const BUG_CATEGORY3: string;
+ declare const BUG_CATEGORY4: string;
+ declare const BUG_CATEGORY5: string;
+ declare const BUG_CATEGORY6: string;
+ declare const BUG_CATEGORY7: string;
+ declare const BUG_CATEGORY8: string;
+ declare const BUG_CATEGORY9: string;
+ declare const BUG_CATEGORY10: string;
+ declare const BUG_CATEGORY11: string;
+ declare const BUG_CATEGORY12: string;
+ declare const BUG_CATEGORY13: string;
+ declare const BUG_CATEGORY14: string;
+ declare const BUG_CATEGORY15: string;
+ declare const BUG_CATEGORY_CHOOSE: string;
+ declare const BUG_CATEGORY_ERROR: string;
+ declare const BUG_SUBMITTED: string;
+ declare const BUG_SUBMIT_FAILED: string;
+ declare const BUILDING_DAMAGE: string;
+ declare const BUILDING_DAMAGE_COMBATLOG_TOOLTIP: string;
+ declare const BUILDING_HEAL: string;
+ declare const BUILDING_HEAL_COMBATLOG_TOOLTIP: string;
+ declare const BUTTON_LAG_AUCTIONHOUSE: string;
+ declare const BUTTON_LAG_AUCTIONHOUSE_NEWBIE: string;
+ declare const BUTTON_LAG_AUCTIONHOUSE_TOOLTIP: string;
+ declare const BUTTON_LAG_CHAT: string;
+ declare const BUTTON_LAG_CHAT_NEWBIE: string;
+ declare const BUTTON_LAG_CHAT_TOOLTIP: string;
+ declare const BUTTON_LAG_LOOT: string;
+ declare const BUTTON_LAG_LOOT_NEWBIE: string;
+ declare const BUTTON_LAG_LOOT_TOOLTIP: string;
+ declare const BUTTON_LAG_MAIL: string;
+ declare const BUTTON_LAG_MAIL_NEWBIE: string;
+ declare const BUTTON_LAG_MAIL_TOOLTIP: string;
+ declare const BUTTON_LAG_MOVEMENT: string;
+ declare const BUTTON_LAG_MOVEMENT_NEWBIE: string;
+ declare const BUTTON_LAG_MOVEMENT_TOOLTIP: string;
+ declare const BUTTON_LAG_SPELL: string;
+ declare const BUTTON_LAG_SPELL_NEWBIE: string;
+ declare const BUTTON_LAG_SPELL_TOOLTIP: string;
+ declare const BUYBACK: string;
+ declare const BUYBACK_THIS_ITEM: string;
+ declare const BUYOUT: string;
+ declare const BUYOUT_AUCTION_CONFIRMATION: string;
+ declare const BUYOUT_COST: string;
+ declare const BUYOUT_PRICE: string;
+ declare const BUY_GUILDBANK_TAB: string;
+ declare const BY_SOURCE: string;
+ declare const BY_SOURCE_COMBATLOG_TOOLTIP: string;
+ declare const BY_TARGET: string;
+ declare const BY_TARGET_COMBATLOG_TOOLTIP: string;
+ declare const CALENDAR_ACCEPT_INVITATION: string;
+ declare const CALENDAR_ANNOUNCEMENT_CREATEDBY_PLAYER: string;
+ declare const CALENDAR_ANNOUNCEMENT_CREATEDBY_YOURSELF: string;
+ declare const CALENDAR_AUTO_APPROVE: string;
+ declare const CALENDAR_COPY_EVENT: string;
+ declare const CALENDAR_CREATE: string;
+ declare const CALENDAR_CREATE_ANNOUNCEMENT: string;
+ declare const CALENDAR_CREATE_ARENATEAM_EVENT: string;
+ declare const CALENDAR_CREATE_EVENT: string;
+ declare const CALENDAR_CREATE_GUILD_ANNOUNCEMENT: string;
+ declare const CALENDAR_CREATE_GUILD_EVENT: string;
+ declare const CALENDAR_DECLINE_INVITATION: string;
+ declare const CALENDAR_DELETE_ANNOUNCEMENT_CONFIRM: string;
+ declare const CALENDAR_DELETE_EVENT: string;
+ declare const CALENDAR_DELETE_EVENT_CONFIRM: string;
+ declare const CALENDAR_DELETE_GUILD_EVENT_CONFIRM: string;
+ declare const CALENDAR_EDIT_ANNOUNCEMENT: string;
+ declare const CALENDAR_EDIT_EVENT: string;
+ declare const CALENDAR_EDIT_GUILD_EVENT: string;
+ declare const CALENDAR_ERROR: string;
+ declare const CALENDAR_ERROR_ALREADY_INVITED_TO_EVENT_S: string;
+ declare const CALENDAR_ERROR_ARENA_EVENTS_EXCEEDED: string;
+ declare const CALENDAR_ERROR_CREATEDATE_AFTER_MAX: string;
+ declare const CALENDAR_ERROR_CREATEDATE_BEFORE_TODAY: string;
+ declare const CALENDAR_ERROR_DELETE_CREATOR_FAILED: string;
+ declare const CALENDAR_ERROR_EVENTS_EXCEEDED: string;
+ declare const CALENDAR_ERROR_EVENT_INVALID: string;
+ declare const CALENDAR_ERROR_EVENT_LOCKED: string;
+ declare const CALENDAR_ERROR_EVENT_PASSED: string;
+ declare const CALENDAR_ERROR_EVENT_THROTTLED: string;
+ declare const CALENDAR_ERROR_EVENT_TIME_PASSED: string;
+ declare const CALENDAR_ERROR_EVENT_WRONG_SERVER: string;
+ declare const CALENDAR_ERROR_GUILD_EVENTS_EXCEEDED: string;
+ declare const CALENDAR_ERROR_IGNORED: string;
+ declare const CALENDAR_ERROR_INTERNAL: string;
+ declare const CALENDAR_ERROR_INVALID_DATE: string;
+ declare const CALENDAR_ERROR_INVALID_SIGNUP: string;
+ declare const CALENDAR_ERROR_INVALID_TIME: string;
+ declare const CALENDAR_ERROR_INVITES_DISABLED: string;
+ declare const CALENDAR_ERROR_INVITES_EXCEEDED: string;
+ declare const CALENDAR_ERROR_INVITE_THROTTLED: string;
+ declare const CALENDAR_ERROR_INVITE_WRONG_SERVER: string;
+ declare const CALENDAR_ERROR_NEEDS_TITLE: string;
+ declare const CALENDAR_ERROR_NOT_ALLIED: string;
+ declare const CALENDAR_ERROR_NOT_INVITED: string;
+ declare const CALENDAR_ERROR_NO_GUILD_INVITES: string;
+ declare const CALENDAR_ERROR_NO_INVITE: string;
+ declare const CALENDAR_ERROR_NO_MODERATOR: string;
+ declare const CALENDAR_ERROR_OTHER_INVITES_EXCEEDED: string;
+ declare const CALENDAR_ERROR_PERMISSIONS: string;
+ declare const CALENDAR_ERROR_RESTRICTED_LEVEL: string;
+ declare const CALENDAR_ERROR_SELF_INVITES_EXCEEDED: string;
+ declare const CALENDAR_EVENTNAME_FORMAT_END: string;
+ declare const CALENDAR_EVENTNAME_FORMAT_RAID_LOCKOUT: string;
+ declare const CALENDAR_EVENTNAME_FORMAT_RAID_RESET: string;
+ declare const CALENDAR_EVENTNAME_FORMAT_START: string;
+ declare const CALENDAR_EVENT_ALARM_MESSAGE: string;
+ declare const CALENDAR_EVENT_CREATORNAME: string;
+ declare const CALENDAR_EVENT_DESCRIPTION: string;
+ declare const CALENDAR_EVENT_INVITEDBY_PLAYER: string;
+ declare const CALENDAR_EVENT_INVITEDBY_YOURSELF: string;
+ declare const CALENDAR_EVENT_NAME: string;
+ declare const CALENDAR_EVENT_PICKER_TITLE: string;
+ declare const CALENDAR_EVENT_REMOVED_MAIL_BODY: string;
+ declare const CALENDAR_EVENT_REMOVED_MAIL_SUBJECT: string;
+ declare const CALENDAR_FILTERS: string;
+ declare const CALENDAR_FILTER_BATTLEGROUND: string;
+ declare const CALENDAR_FILTER_DARKMOON: string;
+ declare const CALENDAR_FILTER_RAID_LOCKOUTS: string;
+ declare const CALENDAR_FILTER_RAID_RESETS: string;
+ declare const CALENDAR_FILTER_WEEKLY_HOLIDAYS: string;
+ declare const CALENDAR_GUILDEVENT_INVITEDBY_YOURSELF: string;
+ declare const CALENDAR_INVITELIST_CLEARMODERATOR: string;
+ declare const CALENDAR_INVITELIST_CREATORNAME: string;
+ declare const CALENDAR_INVITELIST_INVITETORAID: string;
+ declare const CALENDAR_INVITELIST_MODERATORNAME: string;
+ declare const CALENDAR_INVITELIST_SETINVITESTATUS: string;
+ declare const CALENDAR_INVITELIST_SETMODERATOR: string;
+ declare const CALENDAR_INVITE_ALL: string;
+ declare const CALENDAR_INVITE_CONFIRMED: string;
+ declare const CALENDAR_INVITE_LABEL: string;
+ declare const CALENDAR_INVITE_MEMBERS: string;
+ declare const CALENDAR_INVITE_PLAYER: string;
+ declare const CALENDAR_INVITE_REMOVED_MAIL_BODY: string;
+ declare const CALENDAR_INVITE_REMOVED_MAIL_SUBJECT: string;
+ declare const CALENDAR_LOCK_EVENT: string;
+ declare const CALENDAR_MASSINVITE_ARENA_HELP: string;
+ declare const CALENDAR_MASSINVITE_GUILD_HELP: string;
+ declare const CALENDAR_MASSINVITE_GUILD_MINRANK: string;
+ declare const CALENDAR_MASS_INVITE: string;
+ declare const CALENDAR_NOT_SIGNEDUP_FOR_GUILDEVENT: string;
+ declare const CALENDAR_PASTE_EVENT: string;
+ declare const CALENDAR_PLAYER_NAME: string;
+ declare const CALENDAR_RAID_LOCKOUT_DESCRIPTION: string;
+ declare const CALENDAR_RAID_RESET_DESCRIPTION: string;
+ declare const CALENDAR_REMOVE_INVITATION: string;
+ declare const CALENDAR_REMOVE_SIGNUP: string;
+ declare const CALENDAR_REPEAT_BIWEEKLY: string;
+ declare const CALENDAR_REPEAT_MONTHLY: string;
+ declare const CALENDAR_REPEAT_NEVER: string;
+ declare const CALENDAR_REPEAT_WEEKLY: string;
+ declare const CALENDAR_SET_DESCRIPTION_LABEL: string;
+ declare const CALENDAR_SIGNEDUP_FOR_GUILDEVENT_WITH_STATUS: string;
+ declare const CALENDAR_SIGNUP: string;
+ declare const CALENDAR_SIGNUP_FOR_GUILDEVENT: string;
+ declare const CALENDAR_STATUS_ACCEPTED: string;
+ declare const CALENDAR_STATUS_CONFIRMED: string;
+ declare const CALENDAR_STATUS_DECLINED: string;
+ declare const CALENDAR_STATUS_INVITED: string;
+ declare const CALENDAR_STATUS_NOT_SIGNEDUP: string;
+ declare const CALENDAR_STATUS_OUT: string;
+ declare const CALENDAR_STATUS_SIGNEDUP: string;
+ declare const CALENDAR_STATUS_STANDBY: string;
+ declare const CALENDAR_STATUS_TENTATIVE: string;
+ declare const CALENDAR_TENTATIVE_INVITATION: string;
+ declare const CALENDAR_TEXTURE_PICKER_TITLE_DUNGEON: string;
+ declare const CALENDAR_TEXTURE_PICKER_TITLE_RAID: string;
+ declare const CALENDAR_TOOLTIP_AUTOAPPROVE: string;
+ declare const CALENDAR_TOOLTIP_AVAILABLEBUTTON: string;
+ declare const CALENDAR_TOOLTIP_DECLINEBUTTON: string;
+ declare const CALENDAR_TOOLTIP_INVITEMEMBERS_BUTTON_PARTY: string;
+ declare const CALENDAR_TOOLTIP_INVITEMEMBERS_BUTTON_RAID: string;
+ declare const CALENDAR_TOOLTIP_INVITE_RESPONDED: string;
+ declare const CALENDAR_TOOLTIP_INVITE_TOTALS: string;
+ declare const CALENDAR_TOOLTIP_LOCKEVENT: string;
+ declare const CALENDAR_TOOLTIP_MASSINVITE: string;
+ declare const CALENDAR_TOOLTIP_REMOVEBUTTON: string;
+ declare const CALENDAR_TOOLTIP_REMOVESIGNUPBUTTON: string;
+ declare const CALENDAR_TOOLTIP_SIGNUPBUTTON: string;
+ declare const CALENDAR_TOOLTIP_TENTATIVEBUTTON: string;
+ declare const CALENDAR_TYPE_DUNGEON: string;
+ declare const CALENDAR_TYPE_MEETING: string;
+ declare const CALENDAR_TYPE_OTHER: string;
+ declare const CALENDAR_TYPE_PVP: string;
+ declare const CALENDAR_TYPE_RAID: string;
+ declare const CALENDAR_UPDATE: string;
+ declare const CALENDAR_VIEW_ANNOUNCEMENT: string;
+ declare const CALENDAR_VIEW_EVENT: string;
+ declare const CALENDAR_VIEW_EVENTTITLE_LOCKED: string;
+ declare const CALENDAR_VIEW_EVENTTYPE: string;
+ declare const CALENDAR_VIEW_EVENT_REMOVE: string;
+ declare const CALENDAR_VIEW_EVENT_SETSTATUS: string;
+ declare const CALENDAR_VIEW_EVENT_TENTATIVE: string;
+ declare const CALENDAR_VIEW_GUILD_EVENT: string;
+ declare const CALIBRATION_TEXT: string;
+ declare const CAMERA_ALWAYS: string;
+ declare const CAMERA_FOLLOWING_STYLE: string;
+ declare const CAMERA_LABEL: string;
+ declare const CAMERA_LOCKED: string;
+ declare const CAMERA_MODE: string;
+ declare const CAMERA_NEVER: string;
+ declare const CAMERA_SMART: string;
+ declare const CAMERA_SMARTER: string;
+ declare const CAMERA_SUBTEXT: string;
+ declare const CAMP_NOW: string;
+ declare const CAMP_TIMER: string;
+ declare const CANCEL: string;
+ declare const CANCEL_AUCTION: string;
+ declare const CANCEL_AUCTION_CONFIRMATION: string;
+ declare const CANCEL_AUCTION_CONFIRMATION_MONEY: string;
+ declare const CANNOT_COOPERATE_LABEL: string;
+ declare const CANT_AFFORD_ITEM: string;
+ declare const CANT_USE_ITEM: string;
+ declare const CAN_BIND_PTT: string;
+ declare const CAPSLOCK_KEY_TEXT: string;
+ declare const CASH_ON_DELIVERY: string;
+ declare const CAST_WHILE_MOVING: string;
+ declare const CATEGORIES: string;
+ declare const CATEGORY: string;
+ declare const CHANCE_TO_BLOCK: string;
+ declare const CHANCE_TO_CRIT: string;
+ declare const CHANCE_TO_DODGE: string;
+ declare const CHANCE_TO_PARRY: string;
+ declare const CHANGE_INSTANCE: string;
+ declare const CHANGE_MACRO_NAME_ICON: string;
+ declare const CHANGE_OPACITY: string;
+ declare const CHANNEL: string;
+ declare const CHANNELING: string;
+ declare const CHANNELPULLOUT_OPACITY_LABEL: string;
+ declare const CHANNELPULLOUT_OPTIONS_LABEL: string;
+ declare const CHANNELS: string;
+ declare const CHANNEL_CATEGORY_CUSTOM: string;
+ declare const CHANNEL_CATEGORY_GROUP: string;
+ declare const CHANNEL_CATEGORY_WORLD: string;
+ declare const CHANNEL_CHANNEL_NAME: string;
+ declare const CHANNEL_INVITE: string;
+ declare const CHANNEL_JOIN_CHANNEL: string;
+ declare const CHANNEL_NEW_CHANNEL: string;
+ declare const CHANNEL_PASSWORD: string;
+ declare const CHANNEL_ROSTER: string;
+ declare const CHARACTER: string;
+ declare const CHARACTER_BUTTON: string;
+ declare const CHARACTER_FRIEND: string;
+ declare const CHARACTER_FRIEND_INFO: string;
+ declare const CHARACTER_FRIEND_LABEL: string;
+ declare const CHARACTER_INFO: string;
+ declare const CHARACTER_KEY_BINDINGS: string;
+ declare const CHARACTER_POINTS2_COLON: string;
+ declare const CHARACTER_POINTS_CHANGED: string;
+ declare const CHARACTER_SHADOWS: string;
+ declare const CHARACTER_SPECIFIC_KEYBINDINGS: string;
+ declare const CHARACTER_SPECIFIC_KEYBINDING_TOOLTIP: string;
+ declare const CHARACTER_SPECIFIC_MACROS: string;
+ declare const CHAT: string;
+ declare const CHATCONFIG_HEADER: string;
+ declare const CHATLOGDISABLED: string;
+ declare const CHATLOGENABLED: string;
+ declare const CHAT_AFK_GET: string;
+ declare const CHAT_ANNOUNCE: string;
+ declare const CHAT_ANNOUNCEMENTS_OFF_NOTICE: string;
+ declare const CHAT_ANNOUNCEMENTS_OFF_NOTICE_BN: string;
+ declare const CHAT_ANNOUNCEMENTS_ON_NOTICE: string;
+ declare const CHAT_ANNOUNCEMENTS_ON_NOTICE_BN: string;
+ declare const CHAT_AUTO_JOIN: string;
+ declare const CHAT_BAN: string;
+ declare const CHAT_BANNED_NOTICE: string;
+ declare const CHAT_BATTLEGROUND_GET: string;
+ declare const CHAT_BATTLEGROUND_LEADER_GET: string;
+ declare const CHAT_BATTLEGROUND_SEND: string;
+ declare const CHAT_BN_CONVERSATION_GET: string;
+ declare const CHAT_BN_CONVERSATION_GET_LINK: string;
+ declare const CHAT_BN_CONVERSATION_LIST: string;
+ declare const CHAT_BN_CONVERSATION_SEND: string;
+ declare const CHAT_BN_WHISPER_GET: string;
+ declare const CHAT_BN_WHISPER_INFORM_GET: string;
+ declare const CHAT_BN_WHISPER_SEND: string;
+ declare const CHAT_BUBBLES_TEXT: string;
+ declare const CHAT_CHANNELS: string;
+ declare const CHAT_CHANNEL_GET: string;
+ declare const CHAT_CHANNEL_JOIN_GET: string;
+ declare const CHAT_CHANNEL_LEAVE_GET: string;
+ declare const CHAT_CHANNEL_LIST_GET: string;
+ declare const CHAT_CHANNEL_OWNER_NOTICE: string;
+ declare const CHAT_CHANNEL_OWNER_NOTICE_BN: string;
+ declare const CHAT_CHANNEL_SEND: string;
+ declare const CHAT_COMBAT_MISC_INFO_GET: string;
+ declare const CHAT_CONFIGURATION: string;
+ declare const CHAT_CONVERSATION_CONVERSATION_CONVERTED_TO_WHISPER_NOTICE: string;
+ declare const CHAT_CONVERSATION_MEMBER_JOINED_NOTICE: string;
+ declare const CHAT_CONVERSATION_MEMBER_LEFT_NOTICE: string;
+ declare const CHAT_CONVERSATION_YOU_JOINED_CONVERSATION_NOTICE: string;
+ declare const CHAT_CONVERSATION_YOU_LEFT_CONVERSATION_NOTICE: string;
+ declare const CHAT_DEFAULT: string;
+ declare const CHAT_DEFAULTS: string;
+ declare const CHAT_DEMOTE: string;
+ declare const CHAT_DND_GET: string;
+ declare const CHAT_EMOTE_GET: string;
+ declare const CHAT_EMOTE_SEND: string;
+ declare const CHAT_EMOTE_UNKNOWN: string;
+ declare const CHAT_FILTERED: string;
+ declare const CHAT_FLAG_AFK: string;
+ declare const CHAT_FLAG_DND: string;
+ declare const CHAT_FLAG_GM: string;
+ declare const CHAT_GUILD_DEMOTE_SEND: string;
+ declare const CHAT_GUILD_GET: string;
+ declare const CHAT_GUILD_INVITE_SEND: string;
+ declare const CHAT_GUILD_LEADER_SEND: string;
+ declare const CHAT_GUILD_MOTD_SEND: string;
+ declare const CHAT_GUILD_PROMOTE_SEND: string;
+ declare const CHAT_GUILD_SEND: string;
+ declare const CHAT_GUILD_UNINVITE_SEND: string;
+ declare const CHAT_HELP_TEXT_LINE1: string;
+ declare const CHAT_HELP_TEXT_LINE2: string;
+ declare const CHAT_HELP_TEXT_LINE3: string;
+ declare const CHAT_HELP_TEXT_LINE4: string;
+ declare const CHAT_HELP_TEXT_LINE5: string;
+ declare const CHAT_HELP_TEXT_LINE6: string;
+ declare const CHAT_HELP_TEXT_LINE7: string;
+ declare const CHAT_HELP_TEXT_LINE8: string;
+ declare const CHAT_HELP_TEXT_LINE9: string;
+ declare const CHAT_HELP_TEXT_LINE10: string;
+ declare const CHAT_HELP_TEXT_LINE11: string;
+ declare const CHAT_HELP_TEXT_LINE12: string;
+ declare const CHAT_HELP_TEXT_LINE13: string;
+ declare const CHAT_HELP_TEXT_LINE14: string;
+ declare const CHAT_HELP_TEXT_LINE15: string;
+ declare const CHAT_HELP_TEXT_LINE16: string;
+ declare const CHAT_IGNORED: string;
+ declare const CHAT_INVALID_NAME_NOTICE: string;
+ declare const CHAT_INVITE_NOTICE: string;
+ declare const CHAT_INVITE_NOTICE_POPUP: string;
+ declare const CHAT_INVITE_SEND: string;
+ declare const CHAT_INVITE_WRONG_FACTION_NOTICE: string;
+ declare const CHAT_JOIN: string;
+ declare const CHAT_JOIN_HELP: string;
+ declare const CHAT_KICK: string;
+ declare const CHAT_LABEL: string;
+ declare const CHAT_LEAVE: string;
+ declare const CHAT_LOCKED_TEXT: string;
+ declare const CHAT_MODERATE: string;
+ declare const CHAT_MODERATION_OFF_NOTICE: string;
+ declare const CHAT_MODERATION_OFF_NOTICE_BN: string;
+ declare const CHAT_MODERATION_ON_NOTICE: string;
+ declare const CHAT_MODERATION_ON_NOTICE_BN: string;
+ declare const CHAT_MONSTER_EMOTE_GET: string;
+ declare const CHAT_MONSTER_PARTY_GET: string;
+ declare const CHAT_MONSTER_SAY_GET: string;
+ declare const CHAT_MONSTER_WHISPER_GET: string;
+ declare const CHAT_MONSTER_YELL_GET: string;
+ declare const CHAT_MOUSE_WHEEL_SCROLL: string;
+ declare const CHAT_MSG_ACHIEVEMENT: string;
+ declare const CHAT_MSG_AFK: string;
+ declare const CHAT_MSG_BATTLEGROUND: string;
+ declare const CHAT_MSG_BATTLEGROUND_LEADER: string;
+ declare const CHAT_MSG_BG_SYSTEM_ALLIANCE: string;
+ declare const CHAT_MSG_BG_SYSTEM_HORDE: string;
+ declare const CHAT_MSG_BG_SYSTEM_NEUTRAL: string;
+ declare const CHAT_MSG_BN_CONVERSATION: string;
+ declare const CHAT_MSG_BN_WHISPER: string;
+ declare const CHAT_MSG_CHANNEL_LIST: string;
+ declare const CHAT_MSG_COMBAT_HONOR_GAIN: string;
+ declare const CHAT_MSG_EMOTE: string;
+ declare const CHAT_MSG_FILTERED: string;
+ declare const CHAT_MSG_GUILD: string;
+ declare const CHAT_MSG_GUILD_ACHIEVEMENT: string;
+ declare const CHAT_MSG_LOOT: string;
+ declare const CHAT_MSG_MONEY: string;
+ declare const CHAT_MSG_MONSTER_EMOTE: string;
+ declare const CHAT_MSG_MONSTER_PARTY: string;
+ declare const CHAT_MSG_MONSTER_SAY: string;
+ declare const CHAT_MSG_MONSTER_WHISPER: string;
+ declare const CHAT_MSG_MONSTER_YELL: string;
+ declare const CHAT_MSG_OFFICER: string;
+ declare const CHAT_MSG_PARTY: string;
+ declare const CHAT_MSG_PARTY_LEADER: string;
+ declare const CHAT_MSG_RAID: string;
+ declare const CHAT_MSG_RAID_BOSS_EMOTE: string;
+ declare const CHAT_MSG_RAID_LEADER: string;
+ declare const CHAT_MSG_RAID_WARNING: string;
+ declare const CHAT_MSG_RESTRICTED: string;
+ declare const CHAT_MSG_SAY: string;
+ declare const CHAT_MSG_SKILL: string;
+ declare const CHAT_MSG_SYSTEM: string;
+ declare const CHAT_MSG_TEXT_EMOTE: string;
+ declare const CHAT_MSG_WHISPER: string;
+ declare const CHAT_MSG_WHISPER_INFORM: string;
+ declare const CHAT_MSG_YELL: string;
+ declare const CHAT_MUTED_NOTICE: string;
+ declare const CHAT_MUTED_NOTICE_BN: string;
+ declare const CHAT_NAME_TEMPLATE: string;
+ declare const CHAT_NOT_IN_AREA_NOTICE: string;
+ declare const CHAT_NOT_MEMBER_NOTICE: string;
+ declare const CHAT_NOT_MODERATED_NOTICE: string;
+ declare const CHAT_NOT_MODERATOR_NOTICE: string;
+ declare const CHAT_NOT_MODERATOR_NOTICE_BN: string;
+ declare const CHAT_NOT_OWNER_NOTICE: string;
+ declare const CHAT_NOT_OWNER_NOTICE_BN: string;
+ declare const CHAT_OFFICER_GET: string;
+ declare const CHAT_OFFICER_SEND: string;
+ declare const CHAT_OPTIONS_LABEL: string;
+ declare const CHAT_OVERFLOW_LABEL: string;
+ declare const CHAT_OWNER: string;
+ declare const CHAT_OWNER_CHANGED_NOTICE: string;
+ declare const CHAT_OWNER_CHANGED_NOTICE_BN: string;
+ declare const CHAT_PARTY_GET: string;
+ declare const CHAT_PARTY_GUIDE_GET: string;
+ declare const CHAT_PARTY_LEADER_GET: string;
+ declare const CHAT_PARTY_SEND: string;
+ declare const CHAT_PASSWORD: string;
+ declare const CHAT_PASSWORD_CHANGED_NOTICE: string;
+ declare const CHAT_PASSWORD_CHANGED_NOTICE_BN: string;
+ declare const CHAT_PASSWORD_NOTICE_POPUP: string;
+ declare const CHAT_PLAYER_ALREADY_MEMBER_NOTICE: string;
+ declare const CHAT_PLAYER_ALREADY_MEMBER_NOTICE_BN: string;
+ declare const CHAT_PLAYER_BANNED_NOTICE: string;
+ declare const CHAT_PLAYER_BANNED_NOTICE_BN: string;
+ declare const CHAT_PLAYER_INVITED_NOTICE: string;
+ declare const CHAT_PLAYER_INVITED_NOTICE_BN: string;
+ declare const CHAT_PLAYER_INVITE_BANNED_NOTICE: string;
+ declare const CHAT_PLAYER_INVITE_BANNED_NOTICE_BN: string;
+ declare const CHAT_PLAYER_KICKED_NOTICE: string;
+ declare const CHAT_PLAYER_KICKED_NOTICE_BN: string;
+ declare const CHAT_PLAYER_NOT_BANNED_NOTICE: string;
+ declare const CHAT_PLAYER_NOT_BANNED_NOTICE_BN: string;
+ declare const CHAT_PLAYER_NOT_FOUND_NOTICE: string;
+ declare const CHAT_PLAYER_NOT_FOUND_NOTICE_BN: string;
+ declare const CHAT_PLAYER_UNBANNED_NOTICE: string;
+ declare const CHAT_PLAYER_UNBANNED_NOTICE_BN: string;
+ declare const CHAT_PROMOTE: string;
+ declare const CHAT_PROMOTE_SEND: string;
+ declare const CHAT_RAID_BOSS_EMOTE_GET: string;
+ declare const CHAT_RAID_BOSS_WHISPER_GET: string;
+ declare const CHAT_RAID_GET: string;
+ declare const CHAT_RAID_LEADER_GET: string;
+ declare const CHAT_RAID_SEND: string;
+ declare const CHAT_RAID_WARNING_GET: string;
+ declare const CHAT_RAID_WARNING_SEND: string;
+ declare const CHAT_RESTRICTED: string;
+ declare const CHAT_SAY_GET: string;
+ declare const CHAT_SAY_SEND: string;
+ declare const CHAT_SAY_UNKNOWN: string;
+ declare const CHAT_SET_MODERATOR_NOTICE: string;
+ declare const CHAT_SET_MODERATOR_NOTICE_BN: string;
+ declare const CHAT_SET_SPEAK_NOTICE: string;
+ declare const CHAT_SET_SPEAK_NOTICE_BN: string;
+ declare const CHAT_SET_VOICE_NOTICE: string;
+ declare const CHAT_SET_VOICE_NOTICE_BN: string;
+ declare const CHAT_SILENCE: string;
+ declare const CHAT_STYLE: string;
+ declare const CHAT_SUSPENDED_NOTICE: string;
+ declare const CHAT_SUSPENDED_NOTICE_BN: string;
+ declare const CHAT_THROTTLED_NOTICE: string;
+ declare const CHAT_THROTTLED_NOTICE_BN: string;
+ declare const CHAT_UNINVITE_SEND: string;
+ declare const CHAT_UNSET_MODERATOR_NOTICE: string;
+ declare const CHAT_UNSET_MODERATOR_NOTICE_BN: string;
+ declare const CHAT_UNSET_SPEAK_NOTICE: string;
+ declare const CHAT_UNSET_SPEAK_NOTICE_BN: string;
+ declare const CHAT_UNSET_VOICE_NOTICE: string;
+ declare const CHAT_UNSET_VOICE_NOTICE_BN: string;
+ declare const CHAT_UNSILENCE: string;
+ declare const CHAT_VOICE: string;
+ declare const CHAT_VOICE_OFF: string;
+ declare const CHAT_VOICE_OFF_NOTICE: string;
+ declare const CHAT_VOICE_OFF_NOTICE_BN: string;
+ declare const CHAT_VOICE_ON: string;
+ declare const CHAT_VOICE_ON_NOTICE: string;
+ declare const CHAT_VOICE_ON_NOTICE_BN: string;
+ declare const CHAT_WHISPER_GET: string;
+ declare const CHAT_WHISPER_INFORM_GET: string;
+ declare const CHAT_WHISPER_SEND: string;
+ declare const CHAT_WHOLE_WINDOW_CLICKABLE: string;
+ declare const CHAT_WINDOWS_COUNT: string;
+ declare const CHAT_WRONG_FACTION_NOTICE: string;
+ declare const CHAT_WRONG_PASSWORD_NOTICE: string;
+ declare const CHAT_YELL_GET: string;
+ declare const CHAT_YELL_SEND: string;
+ declare const CHAT_YELL_UNKNOWN: string;
+ declare const CHAT_YELL_UNKNOWN_FEMALE: string;
+ declare const CHAT_YOU_CHANGED_NOTICE: string;
+ declare const CHAT_YOU_CHANGED_NOTICE_BN: string;
+ declare const CHAT_YOU_JOINED_NOTICE: string;
+ declare const CHAT_YOU_JOINED_NOTICE_BN: string;
+ declare const CHAT_YOU_LEFT_NOTICE: string;
+ declare const CHAT_YOU_LEFT_NOTICE_BN: string;
+ declare const CHESTSLOT: string;
+ declare const CHOOSE_BOX: string;
+ declare const CHOOSE_RAID: string;
+ declare const CHOOSE_STATIONERY: string;
+ declare const CHOOSE_YOUR_DUNGEON: string;
+ declare const CHOSEN_FOR_GMSURVEY: string;
+ declare const CINEMATIC_SUBTITLES: string;
+ declare const CLASS: string;
+ declare const CLASSIC_STYLE: string;
+ declare const CLASS_COLORS: string;
+ declare const CLASS_SKILLS: string;
+ declare const CLEARED_AFK: string;
+ declare const CLEARED_DND: string;
+ declare const CLEAR_AFK: string;
+ declare const CLEAR_ALL: string;
+ declare const CLEAR_FOCUS: string;
+ declare const CLICK_CAMERA_STYLE: string;
+ declare const CLICK_FOR_ADDITIONAL_QUEST_LOCATIONS: string;
+ declare const CLICK_FOR_DETAILS: string;
+ declare const CLICK_HERE_FOR_MORE_INFO: string;
+ declare const CLICK_TO_ENTER_COMMENT: string;
+ declare const CLICK_TO_INVITE_TO_CONVERSATION: string;
+ declare const CLICK_TO_LEARN: string;
+ declare const CLICK_TO_MOVE: string;
+ declare const CLICK_TO_REMOVE_ADDITIONAL_QUEST_LOCATIONS: string;
+ declare const CLICK_TO_START_CONVERSATION: string;
+ declare const CLIENT_LOGOUT_ALERT: string;
+ declare const CLIENT_RESTART_ALERT: string;
+ declare const CLOSE: string;
+ declare const CLOSES_IN: string;
+ declare const CLOSE_AND_LEAVE_CHAT_CONVERSATION_WINDOW: string;
+ declare const CLOSE_CHAT: string;
+ declare const CLOSE_CHAT_CONVERSATION_WINDOW: string;
+ declare const CLOSE_CHAT_WHISPER_WINDOW: string;
+ declare const CLOSE_CHAT_WINDOW: string;
+ declare const CLOSE_LOG: string;
+ declare const COD: string;
+ declare const COD_AMOUNT: string;
+ declare const COD_CONFIRMATION: string;
+ declare const COD_INSUFFICIENT_MONEY: string;
+ declare const COD_PAYMENT: string;
+ declare const COINPICKUP_CANCEL: string;
+ declare const COLOR: string;
+ declare const COLORBLIND_NAMEWRAPPER_ENEMY: string;
+ declare const COLORBLIND_NAMEWRAPPER_FRIENDLY: string;
+ declare const COLORBLIND_NAMEWRAPPER_NEUTRAL: string;
+ declare const COLORIZE: string;
+ declare const COLORS: string;
+ declare const COLOR_BY_SCHOOL: string;
+ declare const COLOR_PICKER: string;
+ declare const COMBAT: string;
+ declare const COMBATLOGDISABLED: string;
+ declare const COMBATLOGENABLED: string;
+ declare const COMBATLOG_ARENAPOINTSAWARD: string;
+ declare const COMBATLOG_DEFAULTS: string;
+ declare const COMBATLOG_DISHONORGAIN: string;
+ declare const COMBATLOG_FILTER_STRING_CUSTOM_UNIT: string;
+ declare const COMBATLOG_FILTER_STRING_FRIENDLY_UNITS: string;
+ declare const COMBATLOG_FILTER_STRING_HOSTILE_PLAYERS: string;
+ declare const COMBATLOG_FILTER_STRING_HOSTILE_UNITS: string;
+ declare const COMBATLOG_FILTER_STRING_ME: string;
+ declare const COMBATLOG_FILTER_STRING_MY_PET: string;
+ declare const COMBATLOG_FILTER_STRING_NEUTRAL_UNITS: string;
+ declare const COMBATLOG_FILTER_STRING_UNKNOWN_UNITS: string;
+ declare const COMBATLOG_HIGHLIGHT_ABILITY: string;
+ declare const COMBATLOG_HIGHLIGHT_DAMAGE: string;
+ declare const COMBATLOG_HIGHLIGHT_KILL: string;
+ declare const COMBATLOG_HIGHLIGHT_SCHOOL: string;
+ declare const COMBATLOG_HONORAWARD: string;
+ declare const COMBATLOG_HONORGAIN: string;
+ declare const COMBATLOG_HONORGAIN_NO_RANK: string;
+ declare const COMBATLOG_UNKNOWN_UNIT: string;
+ declare const COMBATLOG_XPGAIN_EXHAUSTION1: string;
+ declare const COMBATLOG_XPGAIN_EXHAUSTION1_GROUP: string;
+ declare const COMBATLOG_XPGAIN_EXHAUSTION1_RAID: string;
+ declare const COMBATLOG_XPGAIN_EXHAUSTION2: string;
+ declare const COMBATLOG_XPGAIN_EXHAUSTION2_GROUP: string;
+ declare const COMBATLOG_XPGAIN_EXHAUSTION2_RAID: string;
+ declare const COMBATLOG_XPGAIN_EXHAUSTION4: string;
+ declare const COMBATLOG_XPGAIN_EXHAUSTION4_GROUP: string;
+ declare const COMBATLOG_XPGAIN_EXHAUSTION4_RAID: string;
+ declare const COMBATLOG_XPGAIN_EXHAUSTION5: string;
+ declare const COMBATLOG_XPGAIN_EXHAUSTION5_GROUP: string;
+ declare const COMBATLOG_XPGAIN_EXHAUSTION5_RAID: string;
+ declare const COMBATLOG_XPGAIN_FIRSTPERSON: string;
+ declare const COMBATLOG_XPGAIN_FIRSTPERSON_GROUP: string;
+ declare const COMBATLOG_XPGAIN_FIRSTPERSON_RAID: string;
+ declare const COMBATLOG_XPGAIN_FIRSTPERSON_UNNAMED: string;
+ declare const COMBATLOG_XPGAIN_FIRSTPERSON_UNNAMED_GROUP: string;
+ declare const COMBATLOG_XPGAIN_FIRSTPERSON_UNNAMED_RAID: string;
+ declare const COMBATLOG_XPGAIN_QUEST: string;
+ declare const COMBATLOG_XPLOSS_FIRSTPERSON_UNNAMED: string;
+ declare const COMBATTEXT_LABEL: string;
+ declare const COMBATTEXT_SUBTEXT: string;
+ declare const COMBAT_ENEMY: string;
+ declare const COMBAT_ERROR: string;
+ declare const COMBAT_FACTION_CHANGE: string;
+ declare const COMBAT_HONOR_GAIN: string;
+ declare const COMBAT_LABEL: string;
+ declare const COMBAT_LOG: string;
+ declare const COMBAT_LOG_MENU_BOTH: string;
+ declare const COMBAT_LOG_MENU_EVERYTHING: string;
+ declare const COMBAT_LOG_MENU_INCOMING: string;
+ declare const COMBAT_LOG_MENU_OUTGOING: string;
+ declare const COMBAT_LOG_MENU_OUTGOING_ME: string;
+ declare const COMBAT_LOG_MENU_REVERT: string;
+ declare const COMBAT_LOG_MENU_SAVE: string;
+ declare const COMBAT_LOG_MENU_SPELL_HIDE: string;
+ declare const COMBAT_LOG_MENU_SPELL_LINK: string;
+ declare const COMBAT_LOG_MENU_SPELL_TYPE_HEADER: string;
+ declare const COMBAT_LOG_UNIT_YOU_ENABLED: string;
+ declare const COMBAT_MESSAGES: string;
+ declare const COMBAT_MISC: string;
+ declare const COMBAT_MISC_INFO: string;
+ declare const COMBAT_PARTY: string;
+ declare const COMBAT_RATING_NAME1: string;
+ declare const COMBAT_RATING_NAME10: string;
+ declare const COMBAT_RATING_NAME11: string;
+ declare const COMBAT_RATING_NAME15: string;
+ declare const COMBAT_RATING_NAME2: string;
+ declare const COMBAT_RATING_NAME24: string;
+ declare const COMBAT_RATING_NAME3: string;
+ declare const COMBAT_RATING_NAME4: string;
+ declare const COMBAT_RATING_NAME5: string;
+ declare const COMBAT_RATING_NAME6: string;
+ declare const COMBAT_RATING_NAME7: string;
+ declare const COMBAT_RATING_NAME8: string;
+ declare const COMBAT_RATING_NAME9: string;
+ declare const COMBAT_SELF: string;
+ declare const COMBAT_SUBTEXT: string;
+ declare const COMBAT_TEXT_ABSORB: string;
+ declare const COMBAT_TEXT_ARENA_POINTS_GAINED: string;
+ declare const COMBAT_TEXT_BLOCK: string;
+ declare const COMBAT_TEXT_COMBO_POINTS: string;
+ declare const COMBAT_TEXT_DEFLECT: string;
+ declare const COMBAT_TEXT_DODGE: string;
+ declare const COMBAT_TEXT_EVADE: string;
+ declare const COMBAT_TEXT_FLOAT_MODE_LABEL: string;
+ declare const COMBAT_TEXT_HONOR_GAINED: string;
+ declare const COMBAT_TEXT_IMMUNE: string;
+ declare const COMBAT_TEXT_LABEL: string;
+ declare const COMBAT_TEXT_MISS: string;
+ declare const COMBAT_TEXT_NONE: string;
+ declare const COMBAT_TEXT_PARRY: string;
+ declare const COMBAT_TEXT_REFLECT: string;
+ declare const COMBAT_TEXT_RESIST: string;
+ declare const COMBAT_TEXT_RUNE_BLOOD: string;
+ declare const COMBAT_TEXT_RUNE_DEATH: string;
+ declare const COMBAT_TEXT_RUNE_FROST: string;
+ declare const COMBAT_TEXT_RUNE_UNHOLY: string;
+ declare const COMBAT_TEXT_SCROLL_ARC: string;
+ declare const COMBAT_TEXT_SCROLL_DOWN: string;
+ declare const COMBAT_TEXT_SCROLL_DOWN_TEXT: string;
+ declare const COMBAT_TEXT_SCROLL_UP: string;
+ declare const COMBAT_TEXT_SHOW_AURAS_TEXT: string;
+ declare const COMBAT_TEXT_SHOW_AURA_FADE_TEXT: string;
+ declare const COMBAT_TEXT_SHOW_COMBAT_STATE_TEXT: string;
+ declare const COMBAT_TEXT_SHOW_COMBO_POINTS_TEXT: string;
+ declare const COMBAT_TEXT_SHOW_DODGE_PARRY_MISS_TEXT: string;
+ declare const COMBAT_TEXT_SHOW_ENERGIZE_TEXT: string;
+ declare const COMBAT_TEXT_SHOW_FRIENDLY_NAMES_TEXT: string;
+ declare const COMBAT_TEXT_SHOW_HONOR_GAINED_TEXT: string;
+ declare const COMBAT_TEXT_SHOW_LOW_HEALTH_MANA_TEXT: string;
+ declare const COMBAT_TEXT_SHOW_PERIODIC_ENERGIZE_TEXT: string;
+ declare const COMBAT_TEXT_SHOW_REACTIVES_TEXT: string;
+ declare const COMBAT_TEXT_SHOW_REPUTATION_TEXT: string;
+ declare const COMBAT_TEXT_SHOW_RESISTANCES_TEXT: string;
+ declare const COMBAT_THREAT_DECREASE_0: string;
+ declare const COMBAT_THREAT_DECREASE_1: string;
+ declare const COMBAT_THREAT_DECREASE_2: string;
+ declare const COMBAT_THREAT_INCREASE_1: string;
+ declare const COMBAT_THREAT_INCREASE_3: string;
+ declare const COMBAT_XP_GAIN: string;
+ declare const COMBAT_ZONE: string;
+ declare const COMMAND: string;
+ declare const COMMENT: string;
+ declare const COMMENTS_COLON: string;
+ declare const COMPANIONS: string;
+ declare const COMPARE_ACHIEVEMENTS: string;
+ declare const COMPLAINT_ADDED: string;
+ declare const COMPLETE: string;
+ declare const COMPLETE_QUEST: string;
+ declare const CONFIRM_ACCEPT_PVP_QUEST: string;
+ declare const CONFIRM_ACCEPT_SOCKETS: string;
+ declare const CONFIRM_BATTLEFIELD_ENTRY: string;
+ declare const CONFIRM_BINDER: string;
+ declare const CONFIRM_BUY_BANK_SLOT: string;
+ declare const CONFIRM_BUY_GUILDBANK_TAB: string;
+ declare const CONFIRM_BUY_STABLE_SLOT: string;
+ declare const CONFIRM_COMBAT_FILTER_DEFAULTS: string;
+ declare const CONFIRM_COMBAT_FILTER_DELETE: string;
+ declare const CONFIRM_COMPLETE_EXPENSIVE_QUEST: string;
+ declare const CONFIRM_DELETE_EQUIPMENT_SET: string;
+ declare const CONFIRM_DELETING_CHARACTER_SPECIFIC_BINDINGS: string;
+ declare const CONFIRM_GLYPH_PLACEMENT: string;
+ declare const CONFIRM_GUILD_DISBAND: string;
+ declare const CONFIRM_GUILD_LEAVE: string;
+ declare const CONFIRM_GUILD_PROMOTE: string;
+ declare const CONFIRM_HIGH_COST_ITEM: string;
+ declare const CONFIRM_LEARN_PREVIEW_TALENTS: string;
+ declare const CONFIRM_LEAVE_QUEUE: string;
+ declare const CONFIRM_LOOT_DISTRIBUTION: string;
+ declare const CONFIRM_LOSE_BINDING_CHANGES: string;
+ declare const CONFIRM_OVERWRITE_EQUIPMENT_SET: string;
+ declare const CONFIRM_PET_UNLEARN: string;
+ declare const CONFIRM_PURCHASE_TOKEN_ITEM: string;
+ declare const CONFIRM_REFUND_MAX_ARENA_POINTS: string;
+ declare const CONFIRM_REFUND_MAX_HONOR: string;
+ declare const CONFIRM_REFUND_MAX_HONOR_AND_ARENA: string;
+ declare const CONFIRM_REFUND_TOKEN_ITEM: string;
+ declare const CONFIRM_REMOVE_GLYPH: string;
+ declare const CONFIRM_RESET_INSTANCES: string;
+ declare const CONFIRM_RESET_INTERFACE_SETTINGS: string;
+ declare const CONFIRM_RESET_SETTINGS: string;
+ declare const CONFIRM_SUMMON: string;
+ declare const CONFIRM_TALENT_WIPE: string;
+ declare const CONFIRM_TEAM_DISBAND: string;
+ declare const CONFIRM_TEAM_KICK: string;
+ declare const CONFIRM_TEAM_LEAVE: string;
+ declare const CONFIRM_TEAM_PROMOTE: string;
+ declare const CONFIRM_XP_LOSS: string;
+ declare const CONFIRM_XP_LOSS_AGAIN: string;
+ declare const CONFIRM_XP_LOSS_AGAIN_NO_DURABILITY: string;
+ declare const CONFIRM_XP_LOSS_AGAIN_NO_SICKNESS: string;
+ declare const CONFIRM_XP_LOSS_NO_DURABILITY: string;
+ declare const CONFIRM_XP_LOSS_NO_SICKNESS: string;
+ declare const CONFIRM_XP_LOSS_NO_SICKNESS_NO_DURABILITY: string;
+ declare const CONFIRM_YOUR_ROLE: string;
+ declare const CONSOLIDATE_BUFFS_TEXT: string;
+ declare const CONTAINER_SLOTS: string;
+ declare const CONTESTED_TERRITORY: string;
+ declare const CONTINENT: string;
+ declare const CONTINUE: string;
+ declare const CONTINUED: string;
+ declare const CONTROLS_LABEL: string;
+ declare const CONTROLS_SUBTEXT: string;
+ declare const CONVERSATION_MODE: string;
+ declare const CONVERSATION_MODE_INLINE: string;
+ declare const CONVERSATION_MODE_POPOUT: string;
+ declare const CONVERSATION_NAME: string;
+ declare const CONVERT_TO_RAID: string;
+ declare const COOLDOWN_ON_LEAVE_COMBAT: string;
+ declare const COOLDOWN_REMAINING: string;
+ declare const COPPER_AMOUNT: string;
+ declare const COPPER_AMOUNT_SYMBOL: string;
+ declare const COPPER_AMOUNT_TEXTURE: string;
+ declare const COPY_FILTER: string;
+ declare const COPY_NAME: string;
+ declare const CORPSE: string;
+ declare const CORPSE_RED: string;
+ declare const CORPSE_TOOLTIP: string;
+ declare const COSTS_LABEL: string;
+ declare const CRAFT_IS_MAKEABLE: string;
+ declare const CRAFT_IS_MAKEABLE_TOOLTIP: string;
+ declare const CREATE: string;
+ declare const CREATED_ITEM: string;
+ declare const CREATED_ITEM_MULTIPLE: string;
+ declare const CREATE_ALL: string;
+ declare const CREATE_AUCTION: string;
+ declare const CREATE_CONVERSATION_WITH: string;
+ declare const CREATE_MACROS: string;
+ declare const CREATURE: string;
+ declare const CREATURE_MESSAGES: string;
+ declare const CRIT_ABBR: string;
+ declare const CRUSHING_TRAILER: string;
+ declare const CR_BLOCK_TOOLTIP: string;
+ declare const CR_CRIT_MELEE_TOOLTIP: string;
+ declare const CR_CRIT_RANGED_TOOLTIP: string;
+ declare const CR_DODGE_TOOLTIP: string;
+ declare const CR_EXPERTISE_TOOLTIP: string;
+ declare const CR_HASTE_RATING_TOOLTIP: string;
+ declare const CR_HIT_MELEE_TOOLTIP: string;
+ declare const CR_HIT_RANGED_TOOLTIP: string;
+ declare const CR_HIT_SPELL_TOOLTIP: string;
+ declare const CR_PARRY_TOOLTIP: string;
+ declare const CTRL_KEY: string;
+ declare const CTRL_KEY_TEXT: string;
+ declare const CURRENCY: string;
+ declare const CURRENCY_AMOUNT_REFUND_FORMAT: string;
+ declare const CURRENTLY_EQUIPPED: string;
+ declare const CURRENT_BID: string;
+ declare const CURRENT_PET: string;
+ declare const CURRENT_QUESTS: string;
+ declare const CURRENT_SETTINGS: string;
+ declare const CUSTOM: string;
+ declare const DAILY: string;
+ declare const DAILY_QUESTS_REMAINING: string;
+ declare const DAILY_QUEST_TAG_TEMPLATE: string;
+ declare const DAMAGE: string;
+ declare const DAMAGER: string;
+ declare const DAMAGE_BONUS_TOOLTIP: string;
+ declare const DAMAGE_DONE_TOOLTIP: string;
+ declare const DAMAGE_NUMBER: string;
+ declare const DAMAGE_PER_SECOND: string;
+ declare const DAMAGE_SCHOOL2: string;
+ declare const DAMAGE_SCHOOL3: string;
+ declare const DAMAGE_SCHOOL4: string;
+ declare const DAMAGE_SCHOOL5: string;
+ declare const DAMAGE_SCHOOL6: string;
+ declare const DAMAGE_SCHOOL7: string;
+ declare const DAMAGE_SCHOOL_TEXT: string;
+ declare const DAMAGE_SHIELD: string;
+ declare const DAMAGE_SHIELD_COMBATLOG_TOOLTIP: string;
+ declare const DAMAGE_TEMPLATE: string;
+ declare const DAMAGE_TEMPLATE_WITH_SCHOOL: string;
+ declare const DAMAGE_TOOLTIP: string;
+ declare const DATE_COMPLETED: string;
+ declare const DAYS: string;
+ declare const DAYS_ABBR: string;
+ declare const DAY_ONELETTER_ABBR: string;
+ declare const DEAD: string;
+ declare const DEATHBINDALREADYBOUND: string;
+ declare const DEATHBIND_SUCCESSFUL: string;
+ declare const DEATHS: string;
+ declare const DEATHS_COMBATLOG_TOOLTIP: string;
+ declare const DEATHS_TOOLTIP: string;
+ declare const DEATH_CORPSE_SKINNED: string;
+ declare const DEATH_EFFECT: string;
+ declare const DEATH_RELEASE: string;
+ declare const DEATH_RELEASE_NOTIMER: string;
+ declare const DEATH_RELEASE_SPECTATOR: string;
+ declare const DEATH_RELEASE_TIMER: string;
+ declare const DEBUFF_SYMBOL_CURSE: string;
+ declare const DEBUFF_SYMBOL_DISEASE: string;
+ declare const DEBUFF_SYMBOL_MAGIC: string;
+ declare const DEBUFF_SYMBOL_POISON: string;
+ declare const DEBUG_FRAMESTACK: string;
+ declare const DECLENSION_SET: string;
+ declare const DECLINE: string;
+ declare const DEDE: string;
+ declare const DEFAULT: string;
+ declare const DEFAULTS: string;
+ declare const DEFAULT_AFK_MESSAGE: string;
+ declare const DEFAULT_AGILITY_TOOLTIP: string;
+ declare const DEFAULT_COMBATLOG_FILTER_NAME: string;
+ declare const DEFAULT_DND_MESSAGE: string;
+ declare const DEFAULT_INTELLECT_TOOLTIP: string;
+ declare const DEFAULT_SPIRIT_TOOLTIP: string;
+ declare const DEFAULT_STAMINA_TOOLTIP: string;
+ declare const DEFAULT_STAT1_TOOLTIP: string;
+ declare const DEFAULT_STAT2_TOOLTIP: string;
+ declare const DEFAULT_STAT3_TOOLTIP: string;
+ declare const DEFAULT_STAT4_TOOLTIP: string;
+ declare const DEFAULT_STAT5_TOOLTIP: string;
+ declare const DEFAULT_STATARMOR_TOOLTIP: string;
+ declare const DEFAULT_STATDEFENSE_TOOLTIP: string;
+ declare const DEFAULT_STATSPELLBONUS_TOOLTIP: string;
+ declare const DEFENSE: string;
+ declare const DEFENSE_ABBR: string;
+ declare const DEFENSE_TOOLTIP: string;
+ declare const DEFLECT: string;
+ declare const DELETE: string;
+ declare const DELETE_GOOD_ITEM: string;
+ declare const DELETE_ITEM: string;
+ declare const DELETE_ITEM_CONFIRM_string; string;
+ declare const DELETE_MAIL_CONFIRMATION: string;
+ declare const DELETE_MONEY_CONFIRMATION: string;
+ declare const DEMOTE: string;
+ declare const DEPOSIT: string;
+ declare const DEPOSIT_COLON: string;
+ declare const DEPTH_CONVERGENCE: string;
+ declare const DESERTER: string;
+ declare const DESKTOP_GAMMA: string;
+ declare const DESTROY_GEM: string;
+ declare const DISABLE: string;
+ declare const DISABLE_ADDONS: string;
+ declare const DISABLE_SPAM_FILTER: string;
+ declare const DISGUISE: string;
+ declare const DISHONORABLE_KILLS: string;
+ declare const DISPELS: string;
+ declare const DISPEL_AURA_COMBATLOG_TOOLTIP: string;
+ declare const DISPLAY: string;
+ declare const DISPLAY_ACTIVE_CHANNEL: string;
+ declare const DISPLAY_CHANNEL_PULLOUT: string;
+ declare const DISPLAY_FREE_BAG_SLOTS: string;
+ declare const DISPLAY_LABEL: string;
+ declare const DISPLAY_ON_CHARACTER: string;
+ declare const DISPLAY_ON_CHAR_TOOLTIP: string;
+ declare const DISPLAY_OPTIONS: string;
+ declare const DISPLAY_SUBTEXT: string;
+ declare const DK: string;
+ declare const DMG: string;
+ declare const DND: string;
+ declare const DODGE: string;
+ declare const DODGE_CHANCE: string;
+ declare const DONE: string;
+ declare const DONE_BY: string;
+ declare const DONE_TO: string;
+ declare const DPS_TEMPLATE: string;
+ declare const DRAINS: string;
+ declare const DRESSUP_FRAME: string;
+ declare const DRESSUP_FRAME_INSTRUCTIONS: string;
+ declare const DRUID_INTELLECT_TOOLTIP: string;
+ declare const DRUNK_MESSAGE_ITEM_OTHER1: string;
+ declare const DRUNK_MESSAGE_ITEM_OTHER2: string;
+ declare const DRUNK_MESSAGE_ITEM_OTHER3: string;
+ declare const DRUNK_MESSAGE_ITEM_OTHER4: string;
+ declare const DRUNK_MESSAGE_ITEM_SELF1: string;
+ declare const DRUNK_MESSAGE_ITEM_SELF2: string;
+ declare const DRUNK_MESSAGE_ITEM_SELF3: string;
+ declare const DRUNK_MESSAGE_ITEM_SELF4: string;
+ declare const DRUNK_MESSAGE_OTHER1: string;
+ declare const DRUNK_MESSAGE_OTHER2: string;
+ declare const DRUNK_MESSAGE_OTHER3: string;
+ declare const DRUNK_MESSAGE_OTHER4: string;
+ declare const DRUNK_MESSAGE_SELF1: string;
+ declare const DRUNK_MESSAGE_SELF2: string;
+ declare const DRUNK_MESSAGE_SELF3: string;
+ declare const DRUNK_MESSAGE_SELF4: string;
+ declare const DUEL: string;
+ declare const DUEL_COUNTDOWN: string;
+ declare const DUEL_OUTOFBOUNDS_TIMER: string;
+ declare const DUEL_REQUESTED: string;
+ declare const DUEL_WINNER_KNOCKOUT: string;
+ declare const DUEL_WINNER_RETREAT: string;
+ declare const DUNGEONS_BUTTON: string;
+ declare const DUNGEON_COMPLETED: string;
+ declare const DUNGEON_DIFFICULTY: string;
+ declare const DUNGEON_DIFFICULTY1: string;
+ declare const DUNGEON_DIFFICULTY2: string;
+ declare const DUNGEON_DIFFICULTY3: string;
+ declare const DUNGEON_DIFFICULTY_5PLAYER: string;
+ declare const DUNGEON_DIFFICULTY_5PLAYER_HEROIC: string;
+ declare const DUNGEON_FLOOR_AHNKAHET1: string;
+ declare const DUNGEON_FLOOR_AZJOLNERUB1: string;
+ declare const DUNGEON_FLOOR_AZJOLNERUB2: string;
+ declare const DUNGEON_FLOOR_AZJOLNERUB3: string;
+ declare const DUNGEON_FLOOR_COTSTRATHOLME0: string;
+ declare const DUNGEON_FLOOR_COTSTRATHOLME1: string;
+ declare const DUNGEON_FLOOR_DALARAN1: string;
+ declare const DUNGEON_FLOOR_DALARAN2: string;
+ declare const DUNGEON_FLOOR_DRAKTHARONKEEP1: string;
+ declare const DUNGEON_FLOOR_DRAKTHARONKEEP2: string;
+ declare const DUNGEON_FLOOR_GUNDRAK1: string;
+ declare const DUNGEON_FLOOR_HALLSOFLIGHTNING1: string;
+ declare const DUNGEON_FLOOR_HALLSOFLIGHTNING2: string;
+ declare const DUNGEON_FLOOR_HALLSOFREFLECTION1: string;
+ declare const DUNGEON_FLOOR_ICECROWNCITADEL1: string;
+ declare const DUNGEON_FLOOR_ICECROWNCITADEL2: string;
+ declare const DUNGEON_FLOOR_ICECROWNCITADEL3: string;
+ declare const DUNGEON_FLOOR_ICECROWNCITADEL4: string;
+ declare const DUNGEON_FLOOR_ICECROWNCITADEL5: string;
+ declare const DUNGEON_FLOOR_ICECROWNCITADEL6: string;
+ declare const DUNGEON_FLOOR_ICECROWNCITADEL7: string;
+ declare const DUNGEON_FLOOR_ICECROWNCITADEL8: string;
+ declare const DUNGEON_FLOOR_NAXXRAMAS1: string;
+ declare const DUNGEON_FLOOR_NAXXRAMAS2: string;
+ declare const DUNGEON_FLOOR_NAXXRAMAS3: string;
+ declare const DUNGEON_FLOOR_NAXXRAMAS4: string;
+ declare const DUNGEON_FLOOR_NAXXRAMAS5: string;
+ declare const DUNGEON_FLOOR_NAXXRAMAS6: string;
+ declare const DUNGEON_FLOOR_NEXUS801: string;
+ declare const DUNGEON_FLOOR_NEXUS802: string;
+ declare const DUNGEON_FLOOR_NEXUS803: string;
+ declare const DUNGEON_FLOOR_NEXUS804: string;
+ declare const DUNGEON_FLOOR_PITOFSARON1: string;
+ declare const DUNGEON_FLOOR_THEARGENTCOLISEUM1: string;
+ declare const DUNGEON_FLOOR_THEARGENTCOLISEUM2: string;
+ declare const DUNGEON_FLOOR_THEEYEOFETERNITY1: string;
+ declare const DUNGEON_FLOOR_THEFORGEOFSOULS1: string;
+ declare const DUNGEON_FLOOR_THENEXUS1: string;
+ declare const DUNGEON_FLOOR_THEOBSIDIANSANCTUM1: string;
+ declare const DUNGEON_FLOOR_ULDUAR0: string;
+ declare const DUNGEON_FLOOR_ULDUAR1: string;
+ declare const DUNGEON_FLOOR_ULDUAR2: string;
+ declare const DUNGEON_FLOOR_ULDUAR3: string;
+ declare const DUNGEON_FLOOR_ULDUAR4: string;
+ declare const DUNGEON_FLOOR_ULDUAR5: string;
+ declare const DUNGEON_FLOOR_ULDUAR771: string;
+ declare const DUNGEON_FLOOR_UTGARDEKEEP1: string;
+ declare const DUNGEON_FLOOR_UTGARDEKEEP2: string;
+ declare const DUNGEON_FLOOR_UTGARDEKEEP3: string;
+ declare const DUNGEON_FLOOR_UTGARDEPINNACLE1: string;
+ declare const DUNGEON_FLOOR_UTGARDEPINNACLE2: string;
+ declare const DUNGEON_FLOOR_VAULTOFARCHAVON1: string;
+ declare const DUNGEON_FLOOR_VIOLETHOLD1: string;
+ declare const DUNGEON_GROUP_FOUND_TOOLTIP: string;
+ declare const DUNGEON_NAME_WITH_DIFFICULTY: string;
+ declare const DURABILITY: string;
+ declare const DURABILITYDAMAGE_DEATH: string;
+ declare const DURABILITY_ABBR: string;
+ declare const DURABILITY_TEMPLATE: string;
+ declare const DYNAMIC: string;
+ declare const D_DAYS: string;
+ declare const D_HOURS: string;
+ declare const D_MINUTES: string;
+ declare const D_SECONDS: string;
+ declare const EDIT_TICKET: string;
+ declare const EFFECTS_LABEL: string;
+ declare const EFFECTS_SUBTEXT: string;
+ declare const EJECT_PASSENGER: string;
+ declare const ELITE: string;
+ declare const EMBLEM_BACKGROUND: string;
+ declare const EMBLEM_BORDER: string;
+ declare const EMBLEM_BORDER_COLOR: string;
+ declare const EMBLEM_SYMBOL: string;
+ declare const EMBLEM_SYMBOL_COLOR: string;
+ declare const EMOTE: string;
+ declare const EMOTE100_CMD1: string;
+ declare const EMOTE100_CMD2: string;
+ declare const EMOTE101_CMD: string;
+ declare const EMOTE101_CMD1: string;
+ declare const EMOTE101_CMD2: string;
+ declare const EMOTE101_CMD3: string;
+ declare const EMOTE102_CMD1: string;
+ declare const EMOTE102_CMD2: string;
+ declare const EMOTE103_CMD1: string;
+ declare const EMOTE103_CMD2: string;
+ declare const EMOTE104_CMD1: string;
+ declare const EMOTE104_CMD2: string;
+ declare const EMOTE105_CMD1: string;
+ declare const EMOTE105_CMD2: string;
+ declare const EMOTE106_CMD1: string;
+ declare const EMOTE106_CMD2: string;
+ declare const EMOTE107_CMD1: string;
+ declare const EMOTE107_CMD2: string;
+ declare const EMOTE107_CMD3: string;
+ declare const EMOTE108_CMD1: string;
+ declare const EMOTE108_CMD2: string;
+ declare const EMOTE109_CMD1: string;
+ declare const EMOTE109_CMD2: string;
+ declare const EMOTE109_CMD3: string;
+ declare const EMOTE10_CMD1: string;
+ declare const EMOTE10_CMD2: string;
+ declare const EMOTE10_CMD3: string;
+ declare const EMOTE10_CMD4: string;
+ declare const EMOTE110_CMD1: string;
+ declare const EMOTE110_CMD2: string;
+ declare const EMOTE111_CMD1: string;
+ declare const EMOTE111_CMD2: string;
+ declare const EMOTE112_CMD1: string;
+ declare const EMOTE112_CMD2: string;
+ declare const EMOTE112_CMD3: string;
+ declare const EMOTE112_CMD4: string;
+ declare const EMOTE113_CMD1: string;
+ declare const EMOTE113_CMD2: string;
+ declare const EMOTE114_CMD1: string;
+ declare const EMOTE114_CMD2: string;
+ declare const EMOTE114_CMD3: string;
+ declare const EMOTE115_CMD1: string;
+ declare const EMOTE115_CMD2: string;
+ declare const EMOTE116_CMD1: string;
+ declare const EMOTE116_CMD2: string;
+ declare const EMOTE117_CMD1: string;
+ declare const EMOTE117_CMD2: string;
+ declare const EMOTE118_CMD1: string;
+ declare const EMOTE118_CMD2: string;
+ declare const EMOTE119_CMD1: string;
+ declare const EMOTE119_CMD2: string;
+ declare const EMOTE11_CMD1: string;
+ declare const EMOTE11_CMD2: string;
+ declare const EMOTE120_CMD1: string;
+ declare const EMOTE120_CMD2: string;
+ declare const EMOTE121_CMD1: string;
+ declare const EMOTE121_CMD2: string;
+ declare const EMOTE122_CMD1: string;
+ declare const EMOTE122_CMD2: string;
+ declare const EMOTE123_CMD1: string;
+ declare const EMOTE123_CMD2: string;
+ declare const EMOTE123_CMD3: string;
+ declare const EMOTE123_CMD4: string;
+ declare const EMOTE124_CMD1: string;
+ declare const EMOTE124_CMD2: string;
+ declare const EMOTE125_CMD1: string;
+ declare const EMOTE125_CMD2: string;
+ declare const EMOTE126_CMD1: string;
+ declare const EMOTE126_CMD2: string;
+ declare const EMOTE126_CMD3: string;
+ declare const EMOTE126_CMD4: string;
+ declare const EMOTE127_CMD1: string;
+ declare const EMOTE127_CMD2: string;
+ declare const EMOTE127_CMD3: string;
+ declare const EMOTE127_CMD4: string;
+ declare const EMOTE128_CMD1: string;
+ declare const EMOTE128_CMD2: string;
+ declare const EMOTE129_CMD1: string;
+ declare const EMOTE129_CMD2: string;
+ declare const EMOTE12_CMD1: string;
+ declare const EMOTE12_CMD2: string;
+ declare const EMOTE130_CMD1: string;
+ declare const EMOTE130_CMD2: string;
+ declare const EMOTE130_CMD3: string;
+ declare const EMOTE130_CMD4: string;
+ declare const EMOTE131_CMD1: string;
+ declare const EMOTE131_CMD2: string;
+ declare const EMOTE132_CMD1: string;
+ declare const EMOTE132_CMD2: string;
+ declare const EMOTE133_CMD1: string;
+ declare const EMOTE133_CMD2: string;
+ declare const EMOTE134_CMD1: string;
+ declare const EMOTE134_CMD2: string;
+ declare const EMOTE135_CMD1: string;
+ declare const EMOTE135_CMD2: string;
+ declare const EMOTE136_CMD1: string;
+ declare const EMOTE136_CMD2: string;
+ declare const EMOTE136_CMD3: string;
+ declare const EMOTE136_CMD4: string;
+ declare const EMOTE137_CMD1: string;
+ declare const EMOTE137_CMD2: string;
+ declare const EMOTE138_CMD1: string;
+ declare const EMOTE138_CMD2: string;
+ declare const EMOTE139_CMD1: string;
+ declare const EMOTE139_CMD2: string;
+ declare const EMOTE13_CMD1: string;
+ declare const EMOTE13_CMD2: string;
+ declare const EMOTE13_CMD3: string;
+ declare const EMOTE13_CMD4: string;
+ declare const EMOTE140_CMD1: string;
+ declare const EMOTE140_CMD2: string;
+ declare const EMOTE141_CMD1: string;
+ declare const EMOTE141_CMD2: string;
+ declare const EMOTE142_CMD1: string;
+ declare const EMOTE142_CMD2: string;
+ declare const EMOTE143_CMD1: string;
+ declare const EMOTE143_CMD2: string;
+ declare const EMOTE144_CMD1: string;
+ declare const EMOTE144_CMD2: string;
+ declare const EMOTE145_CMD1: string;
+ declare const EMOTE145_CMD2: string;
+ declare const EMOTE146_CMD1: string;
+ declare const EMOTE146_CMD2: string;
+ declare const EMOTE147_CMD1: string;
+ declare const EMOTE147_CMD2: string;
+ declare const EMOTE148_CMD1: string;
+ declare const EMOTE148_CMD2: string;
+ declare const EMOTE149_CMD1: string;
+ declare const EMOTE149_CMD2: string;
+ declare const EMOTE14_CMD1: string;
+ declare const EMOTE14_CMD2: string;
+ declare const EMOTE150_CMD1: string;
+ declare const EMOTE150_CMD2: string;
+ declare const EMOTE151_CMD1: string;
+ declare const EMOTE151_CMD2: string;
+ declare const EMOTE152_CMD1: string;
+ declare const EMOTE152_CMD2: string;
+ declare const EMOTE153_CMD1: string;
+ declare const EMOTE153_CMD2: string;
+ declare const EMOTE154_CMD1: string;
+ declare const EMOTE154_CMD2: string;
+ declare const EMOTE155_CMD1: string;
+ declare const EMOTE155_CMD2: string;
+ declare const EMOTE156_CMD1: string;
+ declare const EMOTE156_CMD2: string;
+ declare const EMOTE157_CMD1: string;
+ declare const EMOTE157_CMD2: string;
+ declare const EMOTE158_CMD1: string;
+ declare const EMOTE158_CMD2: string;
+ declare const EMOTE159_CMD1: string;
+ declare const EMOTE159_CMD2: string;
+ declare const EMOTE15_CMD1: string;
+ declare const EMOTE15_CMD2: string;
+ declare const EMOTE160_CMD1: string;
+ declare const EMOTE160_CMD2: string;
+ declare const EMOTE161_CMD1: string;
+ declare const EMOTE161_CMD2: string;
+ declare const EMOTE162_CMD1: string;
+ declare const EMOTE162_CMD2: string;
+ declare const EMOTE163_CMD1: string;
+ declare const EMOTE163_CMD2: string;
+ declare const EMOTE164_CMD1: string;
+ declare const EMOTE164_CMD2: string;
+ declare const EMOTE165_CMD1: string;
+ declare const EMOTE165_CMD2: string;
+ declare const EMOTE166_CMD1: string;
+ declare const EMOTE166_CMD2: string;
+ declare const EMOTE167_CMD1: string;
+ declare const EMOTE167_CMD2: string;
+ declare const EMOTE168_CMD1: string;
+ declare const EMOTE168_CMD2: string;
+ declare const EMOTE169_CMD1: string;
+ declare const EMOTE169_CMD2: string;
+ declare const EMOTE16_CMD1: string;
+ declare const EMOTE16_CMD2: string;
+ declare const EMOTE170_CMD1: string;
+ declare const EMOTE170_CMD2: string;
+ declare const EMOTE171_CMD1: string;
+ declare const EMOTE171_CMD2: string;
+ declare const EMOTE17_CMD1: string;
+ declare const EMOTE17_CMD2: string;
+ declare const EMOTE18_CMD1: string;
+ declare const EMOTE18_CMD2: string;
+ declare const EMOTE18_CMD3: string;
+ declare const EMOTE18_CMD4: string;
+ declare const EMOTE19_CMD1: string;
+ declare const EMOTE19_CMD2: string;
+ declare const EMOTE19_CMD3: string;
+ declare const EMOTE19_CMD4: string;
+ declare const EMOTE19_CMD5: string;
+ declare const EMOTE19_CMD6: string;
+ declare const EMOTE1_CMD1: string;
+ declare const EMOTE1_CMD2: string;
+ declare const EMOTE20_CMD1: string;
+ declare const EMOTE20_CMD2: string;
+ declare const EMOTE21_CMD1: string;
+ declare const EMOTE21_CMD2: string;
+ declare const EMOTE21_CMD3: string;
+ declare const EMOTE21_CMD4: string;
+ declare const EMOTE22_CMD1: string;
+ declare const EMOTE22_CMD2: string;
+ declare const EMOTE22_CMD3: string;
+ declare const EMOTE22_CMD4: string;
+ declare const EMOTE22_CMD5: string;
+ declare const EMOTE22_CMD6: string;
+ declare const EMOTE23_CMD1: string;
+ declare const EMOTE23_CMD2: string;
+ declare const EMOTE24_CMD1: string;
+ declare const EMOTE24_CMD2: string;
+ declare const EMOTE25_CMD1: string;
+ declare const EMOTE25_CMD2: string;
+ declare const EMOTE26_CMD1: string;
+ declare const EMOTE26_CMD2: string;
+ declare const EMOTE26_CMD3: string;
+ declare const EMOTE26_CMD4: string;
+ declare const EMOTE26_CMD5: string;
+ declare const EMOTE26_CMD6: string;
+ declare const EMOTE27_CMD1: string;
+ declare const EMOTE27_CMD2: string;
+ declare const EMOTE28_CMD1: string;
+ declare const EMOTE28_CMD2: string;
+ declare const EMOTE29_CMD1: string;
+ declare const EMOTE29_CMD2: string;
+ declare const EMOTE29_CMD3: string;
+ declare const EMOTE29_CMD4: string;
+ declare const EMOTE2_CMD1: string;
+ declare const EMOTE2_CMD2: string;
+ declare const EMOTE304_CMD1: string;
+ declare const EMOTE304_CMD3: string;
+ declare const EMOTE304_CMD4: string;
+ declare const EMOTE306_CMD1: string;
+ declare const EMOTE306_CMD2: string;
+ declare const EMOTE306_CMD3: string;
+ declare const EMOTE306_CMD4: string;
+ declare const EMOTE30_CMD1: string;
+ declare const EMOTE30_CMD2: string;
+ declare const EMOTE30_CMD3: string;
+ declare const EMOTE30_CMD4: string;
+ declare const EMOTE31_CMD1: string;
+ declare const EMOTE31_CMD2: string;
+ declare const EMOTE32_CMD1: string;
+ declare const EMOTE32_CMD2: string;
+ declare const EMOTE32_CMD3: string;
+ declare const EMOTE32_CMD4: string;
+ declare const EMOTE32_CMD5: string;
+ declare const EMOTE32_CMD6: string;
+ declare const EMOTE33_CMD1: string;
+ declare const EMOTE33_CMD2: string;
+ declare const EMOTE34_CMD1: string;
+ declare const EMOTE34_CMD2: string;
+ declare const EMOTE35_CMD1: string;
+ declare const EMOTE35_CMD2: string;
+ declare const EMOTE368_CMD1: string;
+ declare const EMOTE368_CMD2: string;
+ declare const EMOTE369_CMD1: string;
+ declare const EMOTE369_CMD2: string;
+ declare const EMOTE36_CMD1: string;
+ declare const EMOTE36_CMD2: string;
+ declare const EMOTE36_CMD3: string;
+ declare const EMOTE36_CMD4: string;
+ declare const EMOTE370_CMD1: string;
+ declare const EMOTE370_CMD2: string;
+ declare const EMOTE371_CMD1: string;
+ declare const EMOTE371_CMD2: string;
+ declare const EMOTE372_CMD1: string;
+ declare const EMOTE372_CMD2: string;
+ declare const EMOTE373_CMD1: string;
+ declare const EMOTE373_CMD2: string;
+ declare const EMOTE374_CMD1: string;
+ declare const EMOTE374_CMD2: string;
+ declare const EMOTE375_CMD1: string;
+ declare const EMOTE375_CMD2: string;
+ declare const EMOTE376_CMD1: string;
+ declare const EMOTE376_CMD2: string;
+ declare const EMOTE377_CMD1: string;
+ declare const EMOTE377_CMD2: string;
+ declare const EMOTE377_CMD3: string;
+ declare const EMOTE377_CMD4: string;
+ declare const EMOTE37_CMD1: string;
+ declare const EMOTE37_CMD2: string;
+ declare const EMOTE380_CMD1: string;
+ declare const EMOTE380_CMD2: string;
+ declare const EMOTE381_CMD1: string;
+ declare const EMOTE381_CMD2: string;
+ declare const EMOTE382_CMD1: string;
+ declare const EMOTE382_CMD2: string;
+ declare const EMOTE383_CMD1: string;
+ declare const EMOTE383_CMD2: string;
+ declare const EMOTE384_CMD1: string;
+ declare const EMOTE384_CMD2: string;
+ declare const EMOTE384_CMD3: string;
+ declare const EMOTE384_CMD4: string;
+ declare const EMOTE385_CMD1: string;
+ declare const EMOTE385_CMD2: string;
+ declare const EMOTE385_CMD3: string;
+ declare const EMOTE385_CMD4: string;
+ declare const EMOTE386_CMD1: string;
+ declare const EMOTE386_CMD2: string;
+ declare const EMOTE387_CMD1: string;
+ declare const EMOTE387_CMD2: string;
+ declare const EMOTE389_CMD1: string;
+ declare const EMOTE389_CMD2: string;
+ declare const EMOTE38_CMD1: string;
+ declare const EMOTE38_CMD2: string;
+ declare const EMOTE38_CMD3: string;
+ declare const EMOTE38_CMD4: string;
+ declare const EMOTE38_CMD5: string;
+ declare const EMOTE38_CMD6: string;
+ declare const EMOTE390_CMD1: string;
+ declare const EMOTE390_CMD2: string;
+ declare const EMOTE390_CMD3: string;
+ declare const EMOTE390_CMD4: string;
+ declare const EMOTE391_CMD1: string;
+ declare const EMOTE391_CMD2: string;
+ declare const EMOTE392_CMD1: string;
+ declare const EMOTE392_CMD2: string;
+ declare const EMOTE393_CMD1: string;
+ declare const EMOTE393_CMD2: string;
+ declare const EMOTE394_CMD1: string;
+ declare const EMOTE394_CMD2: string;
+ declare const EMOTE395_CMD1: string;
+ declare const EMOTE395_CMD2: string;
+ declare const EMOTE396_CMD1: string;
+ declare const EMOTE396_CMD2: string;
+ declare const EMOTE398_CMD1: string;
+ declare const EMOTE398_CMD2: string;
+ declare const EMOTE399_CMD1: string;
+ declare const EMOTE399_CMD2: string;
+ declare const EMOTE39_CMD1: string;
+ declare const EMOTE39_CMD2: string;
+ declare const EMOTE3_CMD1: string;
+ declare const EMOTE3_CMD2: string;
+ declare const EMOTE3_CMD3: string;
+ declare const EMOTE3_CMD4: string;
+ declare const EMOTE401_CMD1: string;
+ declare const EMOTE401_CMD2: string;
+ declare const EMOTE402_CMD1: string;
+ declare const EMOTE402_CMD2: string;
+ declare const EMOTE403_CMD1: string;
+ declare const EMOTE403_CMD2: string;
+ declare const EMOTE404_CMD1: string;
+ declare const EMOTE404_CMD2: string;
+ declare const EMOTE405_CMD1: string;
+ declare const EMOTE405_CMD2: string;
+ declare const EMOTE406_CMD1: string;
+ declare const EMOTE406_CMD2: string;
+ declare const EMOTE407_CMD1: string;
+ declare const EMOTE407_CMD2: string;
+ declare const EMOTE408_CMD1: string;
+ declare const EMOTE408_CMD2: string;
+ declare const EMOTE409_CMD1: string;
+ declare const EMOTE409_CMD2: string;
+ declare const EMOTE40_CMD1: string;
+ declare const EMOTE40_CMD2: string;
+ declare const EMOTE410_CMD1: string;
+ declare const EMOTE410_CMD2: string;
+ declare const EMOTE411_CMD1: string;
+ declare const EMOTE411_CMD2: string;
+ declare const EMOTE413_CMD1: string;
+ declare const EMOTE413_CMD2: string;
+ declare const EMOTE414_CMD1: string;
+ declare const EMOTE414_CMD2: string;
+ declare const EMOTE415_CMD1: string;
+ declare const EMOTE415_CMD2: string;
+ declare const EMOTE416_CMD1: string;
+ declare const EMOTE416_CMD2: string;
+ declare const EMOTE417_CMD1: string;
+ declare const EMOTE417_CMD2: string;
+ declare const EMOTE418_CMD1: string;
+ declare const EMOTE418_CMD2: string;
+ declare const EMOTE41_CMD1: string;
+ declare const EMOTE41_CMD2: string;
+ declare const EMOTE41_CMD3: string;
+ declare const EMOTE41_CMD4: string;
+ declare const EMOTE420_CMD1: string;
+ declare const EMOTE420_CMD2: string;
+ declare const EMOTE421_CMD1: string;
+ declare const EMOTE421_CMD2: string;
+ declare const EMOTE421_CMD3: string;
+ declare const EMOTE421_CMD4: string;
+ declare const EMOTE422_CMD1: string;
+ declare const EMOTE422_CMD2: string;
+ declare const EMOTE423_CMD1: string;
+ declare const EMOTE423_CMD2: string;
+ declare const EMOTE424_CMD1: string;
+ declare const EMOTE424_CMD2: string;
+ declare const EMOTE425_CMD1: string;
+ declare const EMOTE425_CMD2: string;
+ declare const EMOTE426_CMD1: string;
+ declare const EMOTE426_CMD2: string;
+ declare const EMOTE427_CMD1: string;
+ declare const EMOTE427_CMD2: string;
+ declare const EMOTE428_CMD1: string;
+ declare const EMOTE428_CMD2: string;
+ declare const EMOTE428_CMD3: string;
+ declare const EMOTE428_CMD4: string;
+ declare const EMOTE429_CMD1: string;
+ declare const EMOTE429_CMD2: string;
+ declare const EMOTE42_CMD1: string;
+ declare const EMOTE42_CMD2: string;
+ declare const EMOTE42_CMD3: string;
+ declare const EMOTE42_CMD4: string;
+ declare const EMOTE430_CMD1: string;
+ declare const EMOTE430_CMD2: string;
+ declare const EMOTE431_CMD1: string;
+ declare const EMOTE431_CMD2: string;
+ declare const EMOTE432_CMD1: string;
+ declare const EMOTE432_CMD2: string;
+ declare const EMOTE432_CMD3: string;
+ declare const EMOTE432_CMD4: string;
+ declare const EMOTE433_CMD1: string;
+ declare const EMOTE433_CMD2: string;
+ declare const EMOTE434_CMD1: string;
+ declare const EMOTE434_CMD2: string;
+ declare const EMOTE435_CMD1: string;
+ declare const EMOTE435_CMD2: string;
+ declare const EMOTE436_CMD1: string;
+ declare const EMOTE436_CMD2: string;
+ declare const EMOTE437_CMD1: string;
+ declare const EMOTE437_CMD2: string;
+ declare const EMOTE438_CMD1: string;
+ declare const EMOTE438_CMD2: string;
+ declare const EMOTE43_CMD1: string;
+ declare const EMOTE43_CMD2: string;
+ declare const EMOTE43_CMD3: string;
+ declare const EMOTE43_CMD4: string;
+ declare const EMOTE43_CMD5: string;
+ declare const EMOTE43_CMD6: string;
+ declare const EMOTE440_CMD1: string;
+ declare const EMOTE440_CMD2: string;
+ declare const EMOTE441_CMD1: string;
+ declare const EMOTE441_CMD2: string;
+ declare const EMOTE442_CMD1: string;
+ declare const EMOTE442_CMD2: string;
+ declare const EMOTE443_CMD1: string;
+ declare const EMOTE443_CMD2: string;
+ declare const EMOTE444_CMD1: string;
+ declare const EMOTE444_CMD2: string;
+ declare const EMOTE445_CMD1: string;
+ declare const EMOTE445_CMD2: string;
+ declare const EMOTE446_CMD1: string;
+ declare const EMOTE446_CMD2: string;
+ declare const EMOTE447_CMD1: string;
+ declare const EMOTE447_CMD2: string;
+ declare const EMOTE448_CMD1: string;
+ declare const EMOTE448_CMD2: string;
+ declare const EMOTE449_CMD1: string;
+ declare const EMOTE449_CMD2: string;
+ declare const EMOTE44_CMD1: string;
+ declare const EMOTE44_CMD2: string;
+ declare const EMOTE44_CMD3: string;
+ declare const EMOTE450_CMD1: string;
+ declare const EMOTE450_CMD2: string;
+ declare const EMOTE450_CMD3: string;
+ declare const EMOTE450_CMD4: string;
+ declare const EMOTE450_CMD5: string;
+ declare const EMOTE450_CMD6: string;
+ declare const EMOTE451_CMD1: string;
+ declare const EMOTE451_CMD2: string;
+ declare const EMOTE452_CMD1: string;
+ declare const EMOTE452_CMD2: string;
+ declare const EMOTE45_CMD1: string;
+ declare const EMOTE45_CMD2: string;
+ declare const EMOTE46_CMD1: string;
+ declare const EMOTE46_CMD2: string;
+ declare const EMOTE47_CMD1: string;
+ declare const EMOTE47_CMD2: string;
+ declare const EMOTE48_CMD1: string;
+ declare const EMOTE48_CMD2: string;
+ declare const EMOTE49_CMD1: string;
+ declare const EMOTE49_CMD2: string;
+ declare const EMOTE49_CMD3: string;
+ declare const EMOTE49_CMD4: string;
+ declare const EMOTE4_CMD1: string;
+ declare const EMOTE4_CMD2: string;
+ declare const EMOTE4_CMD3: string;
+ declare const EMOTE4_CMD4: string;
+ declare const EMOTE50_CMD1: string;
+ declare const EMOTE50_CMD2: string;
+ declare const EMOTE50_CMD3: string;
+ declare const EMOTE50_CMD4: string;
+ declare const EMOTE50_CMD5: string;
+ declare const EMOTE50_CMD6: string;
+ declare const EMOTE51_CMD1: string;
+ declare const EMOTE51_CMD2: string;
+ declare const EMOTE52_CMD1: string;
+ declare const EMOTE52_CMD2: string;
+ declare const EMOTE52_CMD3: string;
+ declare const EMOTE52_CMD4: string;
+ declare const EMOTE53_CMD1: string;
+ declare const EMOTE53_CMD2: string;
+ declare const EMOTE54_CMD1: string;
+ declare const EMOTE54_CMD2: string;
+ declare const EMOTE55_CMD1: string;
+ declare const EMOTE55_CMD2: string;
+ declare const EMOTE55_CMD3: string;
+ declare const EMOTE55_CMD4: string;
+ declare const EMOTE55_CMD5: string;
+ declare const EMOTE55_CMD6: string;
+ declare const EMOTE56_CMD1: string;
+ declare const EMOTE56_CMD2: string;
+ declare const EMOTE56_CMD3: string;
+ declare const EMOTE56_CMD4: string;
+ declare const EMOTE57_CMD1: string;
+ declare const EMOTE57_CMD2: string;
+ declare const EMOTE58_CMD1: string;
+ declare const EMOTE58_CMD2: string;
+ declare const EMOTE58_CMD3: string;
+ declare const EMOTE58_CMD4: string;
+ declare const EMOTE58_CMD5: string;
+ declare const EMOTE58_CMD6: string;
+ declare const EMOTE59_CMD1: string;
+ declare const EMOTE59_CMD2: string;
+ declare const EMOTE59_CMD3: string;
+ declare const EMOTE59_CMD4: string;
+ declare const EMOTE5_CMD1: string;
+ declare const EMOTE5_CMD2: string;
+ declare const EMOTE5_CMD3: string;
+ declare const EMOTE5_CMD4: string;
+ declare const EMOTE5_CMD5: string;
+ declare const EMOTE5_CMD6: string;
+ declare const EMOTE60_CMD1: string;
+ declare const EMOTE60_CMD2: string;
+ declare const EMOTE60_CMD3: string;
+ declare const EMOTE61_CMD1: string;
+ declare const EMOTE61_CMD2: string;
+ declare const EMOTE61_CMD3: string;
+ declare const EMOTE61_CMD4: string;
+ declare const EMOTE62_CMD1: string;
+ declare const EMOTE62_CMD2: string;
+ declare const EMOTE62_CMD3: string;
+ declare const EMOTE62_CMD4: string;
+ declare const EMOTE62_CMD5: string;
+ declare const EMOTE62_CMD6: string;
+ declare const EMOTE62_CMD7: string;
+ declare const EMOTE62_CMD8: string;
+ declare const EMOTE63_CMD1: string;
+ declare const EMOTE63_CMD2: string;
+ declare const EMOTE64_CMD1: string;
+ declare const EMOTE64_CMD2: string;
+ declare const EMOTE65_CMD1: string;
+ declare const EMOTE65_CMD2: string;
+ declare const EMOTE66_CMD1: string;
+ declare const EMOTE66_CMD2: string;
+ declare const EMOTE67_CMD1: string;
+ declare const EMOTE67_CMD2: string;
+ declare const EMOTE68_CMD1: string;
+ declare const EMOTE68_CMD2: string;
+ declare const EMOTE68_CMD3: string;
+ declare const EMOTE68_CMD4: string;
+ declare const EMOTE69_CMD1: string;
+ declare const EMOTE69_CMD2: string;
+ declare const EMOTE69_CMD3: string;
+ declare const EMOTE69_CMD4: string;
+ declare const EMOTE6_CMD1: string;
+ declare const EMOTE6_CMD2: string;
+ declare const EMOTE70_CMD1: string;
+ declare const EMOTE70_CMD2: string;
+ declare const EMOTE71_CMD1: string;
+ declare const EMOTE71_CMD2: string;
+ declare const EMOTE72_CMD1: string;
+ declare const EMOTE72_CMD2: string;
+ declare const EMOTE73_CMD1: string;
+ declare const EMOTE73_CMD2: string;
+ declare const EMOTE74_CMD1: string;
+ declare const EMOTE74_CMD2: string;
+ declare const EMOTE75_CMD1: string;
+ declare const EMOTE75_CMD2: string;
+ declare const EMOTE76_CMD1: string;
+ declare const EMOTE76_CMD2: string;
+ declare const EMOTE76_CMD3: string;
+ declare const EMOTE76_CMD4: string;
+ declare const EMOTE77_CMD1: string;
+ declare const EMOTE77_CMD2: string;
+ declare const EMOTE78_CMD1: string;
+ declare const EMOTE78_CMD2: string;
+ declare const EMOTE79_CMD1: string;
+ declare const EMOTE79_CMD2: string;
+ declare const EMOTE7_CMD1: string;
+ declare const EMOTE7_CMD2: string;
+ declare const EMOTE80_CMD1: string;
+ declare const EMOTE80_CMD2: string;
+ declare const EMOTE80_CMD3: string;
+ declare const EMOTE80_CMD4: string;
+ declare const EMOTE80_CMD5: string;
+ declare const EMOTE80_CMD6: string;
+ declare const EMOTE81_CMD1: string;
+ declare const EMOTE81_CMD2: string;
+ declare const EMOTE82_CMD1: string;
+ declare const EMOTE82_CMD2: string;
+ declare const EMOTE82_CMD3: string;
+ declare const EMOTE82_CMD4: string;
+ declare const EMOTE83_CMD1: string;
+ declare const EMOTE83_CMD2: string;
+ declare const EMOTE83_CMD3: string;
+ declare const EMOTE84_CMD1: string;
+ declare const EMOTE84_CMD2: string;
+ declare const EMOTE85_CMD1: string;
+ declare const EMOTE85_CMD2: string;
+ declare const EMOTE86_CMD1: string;
+ declare const EMOTE86_CMD2: string;
+ declare const EMOTE87_CMD1: string;
+ declare const EMOTE87_CMD2: string;
+ declare const EMOTE88_CMD1: string;
+ declare const EMOTE88_CMD2: string;
+ declare const EMOTE89_CMD1: string;
+ declare const EMOTE89_CMD2: string;
+ declare const EMOTE8_CMD1: string;
+ declare const EMOTE8_CMD2: string;
+ declare const EMOTE90_CMD1: string;
+ declare const EMOTE90_CMD2: string;
+ declare const EMOTE91_CMD1: string;
+ declare const EMOTE91_CMD2: string;
+ declare const EMOTE92_CMD1: string;
+ declare const EMOTE92_CMD2: string;
+ declare const EMOTE93_CMD1: string;
+ declare const EMOTE93_CMD2: string;
+ declare const EMOTE94_CMD1: string;
+ declare const EMOTE94_CMD2: string;
+ declare const EMOTE95_CMD1: string;
+ declare const EMOTE95_CMD2: string;
+ declare const EMOTE95_CMD3: string;
+ declare const EMOTE95_CMD4: string;
+ declare const EMOTE96_CMD1: string;
+ declare const EMOTE96_CMD2: string;
+ declare const EMOTE96_CMD3: string;
+ declare const EMOTE96_CMD4: string;
+ declare const EMOTE97_CMD1: string;
+ declare const EMOTE97_CMD2: string;
+ declare const EMOTE98_CMD1: string;
+ declare const EMOTE98_CMD2: string;
+ declare const EMOTE98_CMD3: string;
+ declare const EMOTE98_CMD4: string;
+ declare const EMOTE98_CMD5: string;
+ declare const EMOTE98_CMD6: string;
+ declare const EMOTE99_CMD1: string;
+ declare const EMOTE99_CMD2: string;
+ declare const EMOTE99_CMD3: string;
+ declare const EMOTE99_CMD4: string;
+ declare const EMOTE99_CMD5: string;
+ declare const EMOTE99_CMD6: string;
+ declare const EMOTE99_CMD7: string;
+ declare const EMOTE99_CMD8: string;
+ declare const EMOTE9_CMD1: string;
+ declare const EMOTE9_CMD2: string;
+ declare const EMOTE_MESSAGE: string;
+ declare const EMOTE_STATE_KNEEL: string;
+ declare const EMPTY: string;
+ declare const EMPTY_SOCKET: string;
+ declare const EMPTY_SOCKET_BLUE: string;
+ declare const EMPTY_SOCKET_META: string;
+ declare const EMPTY_SOCKET_NO_COLOR: string;
+ declare const EMPTY_SOCKET_RED: string;
+ declare const EMPTY_SOCKET_YELLOW: string;
+ declare const EMPTY_STABLE_SLOT: string;
+ declare const ENABLE: string;
+ declare const ENABLE_ALL_SHADERS: string;
+ declare const ENABLE_AMBIENCE: string;
+ declare const ENABLE_BGSOUND: string;
+ declare const ENABLE_DSP_EFFECTS: string;
+ declare const ENABLE_EMOTE_SOUNDS: string;
+ declare const ENABLE_ERROR_SPEECH: string;
+ declare const ENABLE_GROUP_SPEECH: string;
+ declare const ENABLE_HARDWARE: string;
+ declare const ENABLE_MICROPHONE: string;
+ declare const ENABLE_MUSIC: string;
+ declare const ENABLE_MUSIC_LOOPING: string;
+ declare const ENABLE_PET_SOUNDS: string;
+ declare const ENABLE_REVERB: string;
+ declare const ENABLE_SOFTWARE_HRTF: string;
+ declare const ENABLE_SOUND: string;
+ declare const ENABLE_SOUNDFX: string;
+ declare const ENABLE_SOUND_AT_CHARACTER: string;
+ declare const ENABLE_STEREO_VIDEO: string;
+ declare const ENABLE_TUTORIAL_TEXT: string;
+ declare const ENABLE_VOICECHAT: string;
+ declare const ENCHANTS: string;
+ declare const ENCHANT_AURA_COMBATLOG_TOOLTIP: string;
+ declare const ENCHANT_CONDITION_AND: string;
+ declare const ENCHANT_CONDITION_EQUAL_COMPARE: string;
+ declare const ENCHANT_CONDITION_EQUAL_VALUE: string;
+ declare const ENCHANT_CONDITION_LESS_VALUE: string;
+ declare const ENCHANT_CONDITION_MORE_COMPARE: string;
+ declare const ENCHANT_CONDITION_MORE_EQUAL_COMPARE: string;
+ declare const ENCHANT_CONDITION_MORE_VALUE: string;
+ declare const ENCHANT_CONDITION_NOT_EQUAL_COMPARE: string;
+ declare const ENCHANT_CONDITION_NOT_EQUAL_VALUE: string;
+ declare const ENCHANT_CONDITION_REQUIRES: string;
+ declare const ENCHANT_ITEM_MIN_SKILL: string;
+ declare const ENCHANT_ITEM_REQ_LEVEL: string;
+ declare const ENCHANT_ITEM_REQ_SKILL: string;
+ declare const ENCHANT_SLOT: string;
+ declare const ENCHSLOT_2HWEAPON: string;
+ declare const ENCHSLOT_WEAPON: string;
+ declare const ENCLOSED_MONEY: string;
+ declare const ENCN: string;
+ declare const ENCRYPTED: string;
+ declare const END_BOUND_TRADEABLE: string;
+ declare const END_REFUND: string;
+ declare const ENEMY: string;
+ declare const ENERGY: string;
+ declare const ENERGY_COST: string;
+ declare const ENERGY_COST_PER_TIME: string;
+ declare const ENGB: string;
+ declare const ENSCRIBE: string;
+ declare const ENTERING_COMBAT: string;
+ declare const ENTER_BATTLE: string;
+ declare const ENTER_CODE: string;
+ declare const ENTER_DUNGEON: string;
+ declare const ENTER_FILTER_NAME: string;
+ declare const ENTER_INVITE_NOTE: string;
+ declare const ENTER_MACRO_LABEL: string;
+ declare const ENTER_NAME_OR_EMAIL: string;
+ declare const ENTIRE_LINE: string;
+ declare const ENTIRE_LINE_COMBATLOG_TOOLTIP: string;
+ declare const ENTW: string;
+ declare const ENUS: string;
+ declare const ENVIRONMENTAL_DAMAGE: string;
+ declare const ENVIRONMENTAL_DAMAGE_COMBATLOG_TOOLTIP: string;
+ declare const ENVIRONMENT_DETAIL: string;
+ declare const EQUIPMENT_MANAGER: string;
+ declare const EQUIPMENT_MANAGER_BAGS_FULL: string;
+ declare const EQUIPMENT_MANAGER_COMBAT_SWAP: string;
+ declare const EQUIPMENT_MANAGER_IGNORE_SLOT: string;
+ declare const EQUIPMENT_MANAGER_IS_DISABLED: string;
+ declare const EQUIPMENT_MANAGER_ITEMS_MISSING_TOOLTIP: string;
+ declare const EQUIPMENT_MANAGER_MISSING_ITEM: string;
+ declare const EQUIPMENT_MANAGER_PLACE_IN_BAGS: string;
+ declare const EQUIPMENT_MANAGER_UNIGNORE_SLOT: string;
+ declare const EQUIPMENT_SETS: string;
+ declare const EQUIPMENT_SETS_TOO_MANY: string;
+ declare const EQUIPSET_EQUIP: string;
+ declare const EQUIP_CONTAINER: string;
+ declare const EQUIP_NO_DROP: string;
+ declare const ERRORS: string;
+ declare const ERROR_CANNOT_BIND: string;
+ declare const ERROR_CAPS: string;
+ declare const ERROR_SLASH_CHANGEACTIONBAR: string;
+ declare const ERROR_SLASH_EQUIP_TO_SLOT: string;
+ declare const ERROR_SLASH_LOOT_SETTHRESHOLD: string;
+ declare const ERROR_SLASH_SWAPACTIONBAR: string;
+ declare const ERROR_SLASH_TEAM_CAPTAIN: string;
+ declare const ERROR_SLASH_TEAM_DISBAND: string;
+ declare const ERROR_SLASH_TEAM_INVITE: string;
+ declare const ERROR_SLASH_TEAM_QUIT: string;
+ declare const ERROR_SLASH_TEAM_UNINVITE: string;
+ declare const ERR_2HANDED_EQUIPPED: string;
+ declare const ERR_2HSKILLNOTFOUND: string;
+ declare const ERR_ABILITY_COOLDOWN: string;
+ declare const ERR_ACHIEVEMENT_WATCH_COMPLETED: string;
+ declare const ERR_ALREADY_INVITED_TO_ARENA_TEAM_S: string;
+ declare const ERR_ALREADY_INVITED_TO_GUILD_S: string;
+ declare const ERR_ALREADY_IN_ARENA_TEAM: string;
+ declare const ERR_ALREADY_IN_ARENA_TEAM_S: string;
+ declare const ERR_ALREADY_IN_GROUP_S: string;
+ declare const ERR_ALREADY_IN_GUILD: string;
+ declare const ERR_ALREADY_IN_GUILD_S: string;
+ declare const ERR_ALREADY_PICKPOCKETED: string;
+ declare const ERR_ALREADY_QUEUED_FOR_SOMETHING_ELSE: string;
+ declare const ERR_ALREADY_TRADING: string;
+ declare const ERR_AMMO_ONLY: string;
+ declare const ERR_APPROACHING_NO_PLAY_TIME: string;
+ declare const ERR_APPROACHING_NO_PLAY_TIME_2: string;
+ declare const ERR_APPROACHING_PARTIAL_PLAY_TIME: string;
+ declare const ERR_APPROACHING_PARTIAL_PLAY_TIME_2: string;
+ declare const ERR_ARENA_EXPIRED_CAIS: string;
+ declare const ERR_ARENA_NO_TEAM_II: string;
+ declare const ERR_ARENA_TEAMS_LOCKED: string;
+ declare const ERR_ARENA_TEAM_CHANGE_FAILED_QUEUED: string;
+ declare const ERR_ARENA_TEAM_CREATE_S: string;
+ declare const ERR_ARENA_TEAM_DISBANDED_S: string;
+ declare const ERR_ARENA_TEAM_FOUNDER_S: string;
+ declare const ERR_ARENA_TEAM_INTERNAL: string;
+ declare const ERR_ARENA_TEAM_INVITE_SS: string;
+ declare const ERR_ARENA_TEAM_JOIN_SS: string;
+ declare const ERR_ARENA_TEAM_LEADER_CHANGED_SSS: string;
+ declare const ERR_ARENA_TEAM_LEADER_IS_SS: string;
+ declare const ERR_ARENA_TEAM_LEADER_LEAVE_S: string;
+ declare const ERR_ARENA_TEAM_LEAVE_SS: string;
+ declare const ERR_ARENA_TEAM_LEVEL_TOO_LOW_I: string;
+ declare const ERR_ARENA_TEAM_NAME_EXISTS_S: string;
+ declare const ERR_ARENA_TEAM_NAME_INVALID: string;
+ declare const ERR_ARENA_TEAM_NOT_ALLIED: string;
+ declare const ERR_ARENA_TEAM_NOT_FOUND: string;
+ declare const ERR_ARENA_TEAM_PARTY_SIZE: string;
+ declare const ERR_ARENA_TEAM_PERMISSIONS: string;
+ declare const ERR_ARENA_TEAM_PLAYER_NOT_FOUND_S: string;
+ declare const ERR_ARENA_TEAM_PLAYER_NOT_IN_TEAM: string;
+ declare const ERR_ARENA_TEAM_PLAYER_NOT_IN_TEAM_SS: string;
+ declare const ERR_ARENA_TEAM_QUIT_S: string;
+ declare const ERR_ARENA_TEAM_REMOVE_SSS: string;
+ declare const ERR_ARENA_TEAM_TARGET_TOO_HIGH_S: string;
+ declare const ERR_ARENA_TEAM_TARGET_TOO_LOW_S: string;
+ declare const ERR_ARENA_TEAM_TOO_MANY_MEMBERS_S: string;
+ declare const ERR_ARENA_TEAM_YOU_JOIN_S: string;
+ declare const ERR_ATTACK_CHANNEL: string;
+ declare const ERR_ATTACK_CHARMED: string;
+ declare const ERR_ATTACK_CONFUSED: string;
+ declare const ERR_ATTACK_DEAD: string;
+ declare const ERR_ATTACK_FLEEING: string;
+ declare const ERR_ATTACK_MOUNTED: string;
+ declare const ERR_ATTACK_PACIFIED: string;
+ declare const ERR_ATTACK_PREVENTED_BY_MECHANIC_S: string;
+ declare const ERR_ATTACK_STUNNED: string;
+ declare const ERR_AUCTION_BAG: string;
+ declare const ERR_AUCTION_BID_INCREMENT: string;
+ declare const ERR_AUCTION_BID_OWN: string;
+ declare const ERR_AUCTION_BID_PLACED: string;
+ declare const ERR_AUCTION_BOUND_ITEM: string;
+ declare const ERR_AUCTION_CONJURED_ITEM: string;
+ declare const ERR_AUCTION_DATABASE_ERROR: string;
+ declare const ERR_AUCTION_ENOUGH_ITEMS: string;
+ declare const ERR_AUCTION_EXPIRED_S: string;
+ declare const ERR_AUCTION_HIGHER_BID: string;
+ declare const ERR_AUCTION_HOUSE_DISABLED: string;
+ declare const ERR_AUCTION_LIMITED_DURATION_ITEM: string;
+ declare const ERR_AUCTION_LOOT_ITEM: string;
+ declare const ERR_AUCTION_MIN_BID: string;
+ declare const ERR_AUCTION_OUTBID_S: string;
+ declare const ERR_AUCTION_QUEST_ITEM: string;
+ declare const ERR_AUCTION_REMOVED: string;
+ declare const ERR_AUCTION_REMOVED_S: string;
+ declare const ERR_AUCTION_REPAIR_ITEM: string;
+ declare const ERR_AUCTION_SOLD_S: string;
+ declare const ERR_AUCTION_STARTED: string;
+ declare const ERR_AUCTION_USED_CHARGES: string;
+ declare const ERR_AUCTION_WON_S: string;
+ declare const ERR_AUCTION_WRAPPED_ITEM: string;
+ declare const ERR_AUTOFOLLOW_TOO_FAR: string;
+ declare const ERR_AUTOLOOT_MONEY_S: string;
+ declare const ERR_BADATTACKFACING: string;
+ declare const ERR_BADATTACKPOS: string;
+ declare const ERR_BAD_ON_USE_ENCHANT: string;
+ declare const ERR_BAD_PLAYER_NAME_S: string;
+ declare const ERR_BAG_FULL: string;
+ declare const ERR_BAG_IN_BAG: string;
+ declare const ERR_BANKSLOT_FAILED_TOO_MANY: string;
+ declare const ERR_BANKSLOT_INSUFFICIENT_FUNDS: string;
+ declare const ERR_BANKSLOT_NOTBANKER: string;
+ declare const ERR_BANK_FULL: string;
+ declare const ERR_BATTLEDGROUND_QUEUED_FOR_RATED: string;
+ declare const ERR_BATTLEGROUND_ALREADY_IN: string;
+ declare const ERR_BATTLEGROUND_CANNOT_QUEUE_FOR_RATED: string;
+ declare const ERR_BATTLEGROUND_INFO_THROTTLED: string;
+ declare const ERR_BATTLEGROUND_JOIN_FAILED: string;
+ declare const ERR_BATTLEGROUND_JOIN_RANGE_INDEX: string;
+ declare const ERR_BATTLEGROUND_JOIN_TIMED_OUT: string;
+ declare const ERR_BATTLEGROUND_NOT_IN_BATTLEGROUND: string;
+ declare const ERR_BATTLEGROUND_NOT_IN_TEAM: string;
+ declare const ERR_BATTLEGROUND_TEAM_LEFT_QUEUE: string;
+ declare const ERR_BATTLEGROUND_TOO_MANY_QUEUES: string;
+ declare const ERR_BG_PLAYER_JOINED_SS: string;
+ declare const ERR_BG_PLAYER_LEFT_S: string;
+ declare const ERR_BN_BROADCAST_THROTTLE: string;
+ declare const ERR_BN_FRIEND_ALREADY: string;
+ declare const ERR_BN_FRIEND_BLOCKED: string;
+ declare const ERR_BN_FRIEND_REQUEST_SENT: string;
+ declare const ERR_BN_FRIEND_SELF: string;
+ declare const ERR_BUTTON_LOCKED: string;
+ declare const ERR_CANNOTCREATEDIRECTORY: string;
+ declare const ERR_CANNOTCREATEFILE: string;
+ declare const ERR_CANNOT_IGNORE_BN_FRIEND: string;
+ declare const ERR_CANTATTACK_NOTSTANDING: string;
+ declare const ERR_CANT_DO_THAT_IN_A_GROUP: string;
+ declare const ERR_CANT_DO_THAT_WHILE_LFM: string;
+ declare const ERR_CANT_EQUIP_EVER: string;
+ declare const ERR_CANT_EQUIP_LEVEL_I: string;
+ declare const ERR_CANT_EQUIP_NEED_TALENT: string;
+ declare const ERR_CANT_EQUIP_RANK: string;
+ declare const ERR_CANT_EQUIP_RATING: string;
+ declare const ERR_CANT_EQUIP_REPUTATION: string;
+ declare const ERR_CANT_EQUIP_SKILL: string;
+ declare const ERR_CANT_INTERACT_SHAPESHIFTED: string;
+ declare const ERR_CANT_SPEAK_LANGAGE: string;
+ declare const ERR_CANT_STACK: string;
+ declare const ERR_CANT_SWAP: string;
+ declare const ERR_CANT_USE_DISARMED: string;
+ declare const ERR_CANT_USE_ITEM: string;
+ declare const ERR_CANT_USE_ITEM_IN_ARENA: string;
+ declare const ERR_CANT_WRAP_BAGS: string;
+ declare const ERR_CANT_WRAP_BOUND: string;
+ declare const ERR_CANT_WRAP_EQUIPPED: string;
+ declare const ERR_CANT_WRAP_STACKABLE: string;
+ declare const ERR_CANT_WRAP_UNIQUE: string;
+ declare const ERR_CANT_WRAP_WRAPPED: string;
+ declare const ERR_CHAT_PLAYER_AMBIGUOUS_S: string;
+ declare const ERR_CHAT_PLAYER_NOT_FOUND_S: string;
+ declare const ERR_CHAT_RESTRICTED: string;
+ declare const ERR_CHAT_THROTTLED: string;
+ declare const ERR_CHAT_WHILE_DEAD: string;
+ declare const ERR_CHAT_WRONG_FACTION: string;
+ declare const ERR_CHEST_IN_USE: string;
+ declare const ERR_CLICK_ON_ITEM_TO_FEED: string;
+ declare const ERR_CLIENT_LOCKED_OUT: string;
+ declare const ERR_COMBAT_DAMAGE_SSI: string;
+ declare const ERR_COMMAND_NEEDS_TARGET: string;
+ declare const ERR_COMPLAINT_IN_SAME_GUILD: string;
+ declare const ERR_COMSAT_CONNECT_FAIL: string;
+ declare const ERR_COMSAT_DISCONNECT: string;
+ declare const ERR_COMSAT_RECONNECT_ATTEMPT: string;
+ declare const ERR_CORPSE_IS_NOT_IN_INSTANCE: string;
+ declare const ERR_CURRENCY_FULL: string;
+ declare const ERR_DANCE_CREATE_DUPLICATE: string;
+ declare const ERR_DANCE_DELETE_FAILED: string;
+ declare const ERR_DANCE_SAVE_FAILED: string;
+ declare const ERR_DEATHBINDALREADYBOUND: string;
+ declare const ERR_DEATHBIND_SUCCESS_S: string;
+ declare const ERR_DECLINE_GROUP_S: string;
+ declare const ERR_DESTROY_NONEMPTY_BAG: string;
+ declare const ERR_DIFFICULTY_CHANGE_ALREADY_STARTED: string;
+ declare const ERR_DIFFICULTY_CHANGE_COMBAT: string;
+ declare const ERR_DIFFICULTY_CHANGE_COOLDOWN_S: string;
+ declare const ERR_DIFFICULTY_CHANGE_ENCOUNTER: string;
+ declare const ERR_DIFFICULTY_CHANGE_PLAYER_BUSY: string;
+ declare const ERR_DIFFICULTY_CHANGE_WORLDSTATE: string;
+ declare const ERR_DISMOUNT_NOPET: string;
+ declare const ERR_DISMOUNT_NOTMOUNTED: string;
+ declare const ERR_DISMOUNT_NOTYOURPET: string;
+ declare const ERR_DOOR_LOCKED: string;
+ declare const ERR_DROP_BOUND_ITEM: string;
+ declare const ERR_DUEL_CANCELLED: string;
+ declare const ERR_DUEL_REQUESTED: string;
+ declare const ERR_DUNGEON_DIFFICULTY_CHANGED_S: string;
+ declare const ERR_DUNGEON_DIFFICULTY_FAILED: string;
+ declare const ERR_EAT_WHILE_MOVNG: string;
+ declare const ERR_EMBLEMERROR_NOTABARDGEOSET: string;
+ declare const ERR_EQUIP_TRADE_ITEM: string;
+ declare const ERR_EXHAUSTION_EXHAUSTED: string;
+ declare const ERR_EXHAUSTION_NORMAL: string;
+ declare const ERR_EXHAUSTION_RESTED: string;
+ declare const ERR_EXHAUSTION_TIRED: string;
+ declare const ERR_EXHAUSTION_WELLRESTED: string;
+ declare const ERR_FEIGN_DEATH_RESISTED: string;
+ declare const ERR_FILTERING_YOU_S: string;
+ declare const ERR_FISH_ESCAPED: string;
+ declare const ERR_FISH_NOT_HOOKED: string;
+ declare const ERR_FOOD_COOLDOWN: string;
+ declare const ERR_FRIEND_ADDED_S: string;
+ declare const ERR_FRIEND_ALREADY_S: string;
+ declare const ERR_FRIEND_DB_ERROR: string;
+ declare const ERR_FRIEND_DELETED: string;
+ declare const ERR_FRIEND_ERROR: string;
+ declare const ERR_FRIEND_LIST_FULL: string;
+ declare const ERR_FRIEND_NOT_FOUND: string;
+ declare const ERR_FRIEND_OFFLINE_S: string;
+ declare const ERR_FRIEND_ONLINE_SS: string;
+ declare const ERR_FRIEND_REMOVED_S: string;
+ declare const ERR_FRIEND_SELF: string;
+ declare const ERR_FRIEND_WRONG_FACTION: string;
+ declare const ERR_GENERIC_NO_TARGET: string;
+ declare const ERR_GENERIC_NO_VALID_TARGETS: string;
+ declare const ERR_GENERIC_STUNNED: string;
+ declare const ERR_GMRESPONSE_DB_ERROR: string;
+ declare const ERR_GROUP_ACTION_THROTTLED: string;
+ declare const ERR_GROUP_DISBANDED: string;
+ declare const ERR_GROUP_FULL: string;
+ declare const ERR_GROUP_JOIN_BATTLEGROUND_DESERTERS: string;
+ declare const ERR_GROUP_JOIN_BATTLEGROUND_FAIL: string;
+ declare const ERR_GROUP_JOIN_BATTLEGROUND_S: string;
+ declare const ERR_GROUP_JOIN_BATTLEGROUND_TOO_MANY: string;
+ declare const ERR_GROUP_SWAP_FAILED: string;
+ declare const ERR_GUILDEMBLEM_COLORSPRESENT: string;
+ declare const ERR_GUILDEMBLEM_INVALIDVENDOR: string;
+ declare const ERR_GUILDEMBLEM_INVALID_TABARD_COLORS: string;
+ declare const ERR_GUILDEMBLEM_NOGUILD: string;
+ declare const ERR_GUILDEMBLEM_NOTENOUGHMONEY: string;
+ declare const ERR_GUILDEMBLEM_NOTGUILDMASTER: string;
+ declare const ERR_GUILDEMBLEM_SAME: string;
+ declare const ERR_GUILDEMBLEM_SUCCESS: string;
+ declare const ERR_GUILD_ACCEPT: string;
+ declare const ERR_GUILD_BANK_BOUND_ITEM: string;
+ declare const ERR_GUILD_BANK_CONJURED_ITEM: string;
+ declare const ERR_GUILD_BANK_EQUIPPED_ITEM: string;
+ declare const ERR_GUILD_BANK_FULL: string;
+ declare const ERR_GUILD_BANK_QUEST_ITEM: string;
+ declare const ERR_GUILD_BANK_WRAPPED_ITEM: string;
+ declare const ERR_GUILD_CREATE_S: string;
+ declare const ERR_GUILD_DECLINE_S: string;
+ declare const ERR_GUILD_DEMOTE_SSS: string;
+ declare const ERR_GUILD_DISBANDED: string;
+ declare const ERR_GUILD_DISBAND_S: string;
+ declare const ERR_GUILD_DISBAND_SELF: string;
+ declare const ERR_GUILD_FOUNDER_S: string;
+ declare const ERR_GUILD_INTERNAL: string;
+ declare const ERR_GUILD_INVITE_S: string;
+ declare const ERR_GUILD_JOIN_S: string;
+ declare const ERR_GUILD_LEADER_CHANGED_SS: string;
+ declare const ERR_GUILD_LEADER_IS_S: string;
+ declare const ERR_GUILD_LEADER_LEAVE: string;
+ declare const ERR_GUILD_LEADER_S: string;
+ declare const ERR_GUILD_LEADER_SELF: string;
+ declare const ERR_GUILD_LEAVE_RESULT: string;
+ declare const ERR_GUILD_LEAVE_S: string;
+ declare const ERR_GUILD_NAME_EXISTS_S: string;
+ declare const ERR_GUILD_NOT_ALLIED: string;
+ declare const ERR_GUILD_NOT_ENOUGH_MONEY: string;
+ declare const ERR_GUILD_PERMISSIONS: string;
+ declare const ERR_GUILD_PLAYER_NOT_FOUND_S: string;
+ declare const ERR_GUILD_PLAYER_NOT_IN_GUILD: string;
+ declare const ERR_GUILD_PLAYER_NOT_IN_GUILD_S: string;
+ declare const ERR_GUILD_PROMOTE_SSS: string;
+ declare const ERR_GUILD_QUIT_S: string;
+ declare const ERR_GUILD_RANKS_LOCKED: string;
+ declare const ERR_GUILD_RANK_IN_USE: string;
+ declare const ERR_GUILD_RANK_TOO_HIGH_S: string;
+ declare const ERR_GUILD_RANK_TOO_LOW_S: string;
+ declare const ERR_GUILD_REMOVE_SELF: string;
+ declare const ERR_GUILD_REMOVE_SS: string;
+ declare const ERR_GUILD_WITHDRAW_LIMIT: string;
+ declare const ERR_IGNORE_ADDED_S: string;
+ declare const ERR_IGNORE_ALREADY_S: string;
+ declare const ERR_IGNORE_AMBIGUOUS: string;
+ declare const ERR_IGNORE_DELETED: string;
+ declare const ERR_IGNORE_FULL: string;
+ declare const ERR_IGNORE_NOT_FOUND: string;
+ declare const ERR_IGNORE_REMOVED_S: string;
+ declare const ERR_IGNORE_SELF: string;
+ declare const ERR_IGNORING_YOU_S: string;
+ declare const ERR_INITIATE_TRADE_S: string;
+ declare const ERR_INSPECT_S: string;
+ declare const ERR_INTERNAL_BAG_ERROR: string;
+ declare const ERR_INVALID_ATTACK_TARGET: string;
+ declare const ERR_INVALID_FOLLOW_TARGET: string;
+ declare const ERR_INVALID_GLYPH_SLOT: string;
+ declare const ERR_INVALID_INSPECT_TARGET: string;
+ declare const ERR_INVALID_ITEM_TARGET: string;
+ declare const ERR_INVALID_PROMOTION_CODE: string;
+ declare const ERR_INVALID_RAID_TARGET: string;
+ declare const ERR_INVALID_TELEPORT_LOCATION: string;
+ declare const ERR_INVITED_ALREADY_IN_GROUP_SS: string;
+ declare const ERR_INVITED_TO_ARENA_TEAM: string;
+ declare const ERR_INVITED_TO_GROUP_SS: string;
+ declare const ERR_INVITED_TO_GUILD: string;
+ declare const ERR_INVITED_TO_GUILD_SSS: string;
+ declare const ERR_INVITE_IN_COMBAT: string;
+ declare const ERR_INVITE_NO_PARTY_SERVER: string;
+ declare const ERR_INVITE_PARTY_BUSY: string;
+ declare const ERR_INVITE_PLAYER_S: string;
+ declare const ERR_INVITE_RESTRICTED: string;
+ declare const ERR_INVITE_SELF: string;
+ declare const ERR_INVITE_UNKNOWN_REALM: string;
+ declare const ERR_INV_FULL: string;
+ declare const ERR_IN_NON_RANDOM_BG: string;
+ declare const ERR_IN_RANDOM_BG: string;
+ declare const ERR_ITEM_CANT_BE_DESTROYED: string;
+ declare const ERR_ITEM_COOLDOWN: string;
+ declare const ERR_ITEM_INVENTORY_FULL_SATCHEL: string;
+ declare const ERR_ITEM_LOCKED: string;
+ declare const ERR_ITEM_MAX_COUNT: string;
+ declare const ERR_ITEM_MAX_COUNT_EQUIPPED_SOCKETED: string;
+ declare const ERR_ITEM_MAX_COUNT_SOCKETED: string;
+ declare const ERR_ITEM_MAX_LIMIT_CATEGORY_COUNT_EXCEEDED_IS: string;
+ declare const ERR_ITEM_MAX_LIMIT_CATEGORY_EQUIPPED_EXCEEDED_IS: string;
+ declare const ERR_ITEM_MAX_LIMIT_CATEGORY_SOCKETED_EXCEEDED_IS: string;
+ declare const ERR_ITEM_NOT_FOUND: string;
+ declare const ERR_ITEM_UNIQUE_EQUIPABLE: string;
+ declare const ERR_ITEM_UNIQUE_EQUIPPABLE: string;
+ declare const ERR_ITEM_UNIQUE_EQUIPPABLE_SOCKETED: string;
+ declare const ERR_JOINED_GROUP_S: string;
+ declare const ERR_KILLED_BY_S: string;
+ declare const ERR_LEARN_ABILITY_S: string;
+ declare const ERR_LEARN_COMPANION_S: string;
+ declare const ERR_LEARN_RECIPE_S: string;
+ declare const ERR_LEARN_SPELL_S: string;
+ declare const ERR_LEFT_GROUP_S: string;
+ declare const ERR_LEFT_GROUP_YOU: string;
+ declare const ERR_LFG_CANT_USE_BATTLEGROUND: string;
+ declare const ERR_LFG_CANT_USE_DUNGEONS: string;
+ declare const ERR_LFG_DESERTER_PARTY: string;
+ declare const ERR_LFG_DESERTER_PLAYER: string;
+ declare const ERR_LFG_GET_INFO_TIMEOUT: string;
+ declare const ERR_LFG_GROUP_FULL: string;
+ declare const ERR_LFG_INVALID_SLOT: string;
+ declare const ERR_LFG_JOINED_LIST: string;
+ declare const ERR_LFG_JOINED_QUEUE: string;
+ declare const ERR_LFG_LEADER_IS_LFM_S: string;
+ declare const ERR_LFG_LEFT_LIST: string;
+ declare const ERR_LFG_LEFT_QUEUE: string;
+ declare const ERR_LFG_MEMBERS_NOT_PRESENT: string;
+ declare const ERR_LFG_MISMATCHED_SLOTS: string;
+ declare const ERR_LFG_NO_LFG_OBJECT: string;
+ declare const ERR_LFG_NO_ROLES_SELECTED: string;
+ declare const ERR_LFG_NO_SLOTS_PARTY: string;
+ declare const ERR_LFG_NO_SLOTS_PLAYER: string;
+ declare const ERR_LFG_NO_SLOTS_SELECTED: string;
+ declare const ERR_LFG_PARTY_PLAYERS_FROM_DIFFERENT_REALMS: string;
+ declare const ERR_LFG_PENDING: string;
+ declare const ERR_LFG_PLAYER_DECLINED_ROLE_CHECK: string;
+ declare const ERR_LFG_PROPOSAL_DECLINED_PARTY: string;
+ declare const ERR_LFG_PROPOSAL_DECLINED_SELF: string;
+ declare const ERR_LFG_PROPOSAL_FAILED: string;
+ declare const ERR_LFG_RANDOM_COOLDOWN_PARTY: string;
+ declare const ERR_LFG_RANDOM_COOLDOWN_PLAYER: string;
+ declare const ERR_LFG_ROLE_CHECK_ABORTED: string;
+ declare const ERR_LFG_ROLE_CHECK_FAILED: string;
+ declare const ERR_LFG_ROLE_CHECK_FAILED_NOT_VIABLE: string;
+ declare const ERR_LFG_ROLE_CHECK_FAILED_TIMEOUT: string;
+ declare const ERR_LFG_ROLE_CHECK_INITIATED: string;
+ declare const ERR_LFG_TOO_MANY_MEMBERS: string;
+ declare const ERR_LOGGING_OUT: string;
+ declare const ERR_LOGOUT_FAILED: string;
+ declare const ERR_LOOT_BAD_FACING: string;
+ declare const ERR_LOOT_CANT_LOOT_THAT: string;
+ declare const ERR_LOOT_CANT_LOOT_THAT_NOW: string;
+ declare const ERR_LOOT_DIDNT_KILL: string;
+ declare const ERR_LOOT_GONE: string;
+ declare const ERR_LOOT_LOCKED: string;
+ declare const ERR_LOOT_MASTER_INV_FULL: string;
+ declare const ERR_LOOT_MASTER_OTHER: string;
+ declare const ERR_LOOT_MASTER_UNIQUE_ITEM: string;
+ declare const ERR_LOOT_NOTSTANDING: string;
+ declare const ERR_LOOT_NO_UI: string;
+ declare const ERR_LOOT_PLAYER_NOT_FOUND: string;
+ declare const ERR_LOOT_ROLL_PENDING: string;
+ declare const ERR_LOOT_STUNNED: string;
+ declare const ERR_LOOT_TOO_FAR: string;
+ declare const ERR_LOOT_WHILE_INVULNERABLE: string;
+ declare const ERR_MAIL_ATTACHMENT_EXPIRED: string;
+ declare const ERR_MAIL_BAG: string;
+ declare const ERR_MAIL_BOUND_ITEM: string;
+ declare const ERR_MAIL_CONJURED_ITEM: string;
+ declare const ERR_MAIL_DATABASE_ERROR: string;
+ declare const ERR_MAIL_INVALID_ATTACHMENT: string;
+ declare const ERR_MAIL_INVALID_ATTACHMENT_SLOT: string;
+ declare const ERR_MAIL_LIMITED_DURATION_ITEM: string;
+ declare const ERR_MAIL_QUEST_ITEM: string;
+ declare const ERR_MAIL_REACHED_CAP: string;
+ declare const ERR_MAIL_SENT: string;
+ declare const ERR_MAIL_TARGET_NOT_FOUND: string;
+ declare const ERR_MAIL_TOO_MANY_ATTACHMENTS: string;
+ declare const ERR_MAIL_TO_SELF: string;
+ declare const ERR_MAIL_WRAPPED_COD: string;
+ declare const ERR_MAX_SOCKETS: string;
+ declare const ERR_MEETING_STONE_GROUP_FULL: string;
+ declare const ERR_MEETING_STONE_INVALID_LEVEL: string;
+ declare const ERR_MEETING_STONE_INVALID_TARGET: string;
+ declare const ERR_MEETING_STONE_IN_PROGRESS: string;
+ declare const ERR_MEETING_STONE_IN_QUEUE_S: string;
+ declare const ERR_MEETING_STONE_LEFT_QUEUE_S: string;
+ declare const ERR_MEETING_STONE_MEMBER_ADDED_S: string;
+ declare const ERR_MEETING_STONE_MEMBER_STILL_IN_QUEUE: string;
+ declare const ERR_MEETING_STONE_MUST_BE_LEADER: string;
+ declare const ERR_MEETING_STONE_NEED_PARTY: string;
+ declare const ERR_MEETING_STONE_NOT_FOUND: string;
+ declare const ERR_MEETING_STONE_NOT_LEADER: string;
+ declare const ERR_MEETING_STONE_NO_RAID_GROUP: string;
+ declare const ERR_MEETING_STONE_OTHER_MEMBER_LEFT: string;
+ declare const ERR_MEETING_STONE_SUCCESS: string;
+ declare const ERR_MEETING_STONE_TARGET_INVALID_LEVEL: string;
+ declare const ERR_MEETING_STONE_TARGET_NOT_IN_PARTY: string;
+ declare const ERR_MOUNT_ALREADYMOUNTED: string;
+ declare const ERR_MOUNT_FORCEDDISMOUNT: string;
+ declare const ERR_MOUNT_INVALIDMOUNTEE: string;
+ declare const ERR_MOUNT_LOOTING: string;
+ declare const ERR_MOUNT_NOTMOUNTABLE: string;
+ declare const ERR_MOUNT_NOTYOURPET: string;
+ declare const ERR_MOUNT_OTHER: string;
+ declare const ERR_MOUNT_RACECANTMOUNT: string;
+ declare const ERR_MOUNT_SHAPESHIFTED: string;
+ declare const ERR_MOUNT_TOOFARAWAY: string;
+ declare const ERR_MULTI_CAST_ACTION_TOTEM_S: string;
+ declare const ERR_MUST_EQUIP_ITEM: string;
+ declare const ERR_MUST_REPAIR_DURABILITY: string;
+ declare const ERR_NAME_CONSECUTIVE_SPACES: string;
+ declare const ERR_NAME_DECLENSION_DOESNT_MATCH_BASE_NAME: string;
+ declare const ERR_NAME_INVALID: string;
+ declare const ERR_NAME_INVALID_SPACE: string;
+ declare const ERR_NAME_MIXED_LANGUAGES: string;
+ declare const ERR_NAME_NO_NAME: string;
+ declare const ERR_NAME_PROFANE: string;
+ declare const ERR_NAME_RESERVED: string;
+ declare const ERR_NAME_RUSSIAN_CONSECUTIVE_SILENT_CHARACTERS: string;
+ declare const ERR_NAME_RUSSIAN_SILENT_CHARACTER_AT_BEGINNING_OR_END: string;
+ declare const ERR_NAME_THREE_CONSECUTIVE: string;
+ declare const ERR_NAME_TOO_LONG: string;
+ declare const ERR_NAME_TOO_LONG2: string;
+ declare const ERR_NAME_TOO_SHORT: string;
+ declare const ERR_NEWTAXIPATH: string;
+ declare const ERR_NEW_GUIDE_S: string;
+ declare const ERR_NEW_GUIDE_YOU: string;
+ declare const ERR_NEW_LEADER_S: string;
+ declare const ERR_NEW_LEADER_YOU: string;
+ declare const ERR_NEW_LOOT_MASTER_S: string;
+ declare const ERR_NOAMMO_S: string;
+ declare const ERR_NOEMOTEWHILERUNNING: string;
+ declare const ERR_NOTYOURPET: string;
+ declare const ERR_NOT_A_BAG: string;
+ declare const ERR_NOT_BARBER_SITTING: string;
+ declare const ERR_NOT_DURING_ARENA_MATCH: string;
+ declare const ERR_NOT_ENOUGH_ARENA_POINTS: string;
+ declare const ERR_NOT_ENOUGH_GOLD: string;
+ declare const ERR_NOT_ENOUGH_HONOR_POINTS: string;
+ declare const ERR_NOT_ENOUGH_MONEY: string;
+ declare const ERR_NOT_EQUIPPABLE: string;
+ declare const ERR_NOT_IN_BATTLEGROUND: string;
+ declare const ERR_NOT_IN_COMBAT: string;
+ declare const ERR_NOT_IN_GROUP: string;
+ declare const ERR_NOT_IN_RAID: string;
+ declare const ERR_NOT_LEADER: string;
+ declare const ERR_NOT_OWNER: string;
+ declare const ERR_NOT_SAME_ACCOUNT: string;
+ declare const ERR_NOT_WHILE_DISARMED: string;
+ declare const ERR_NOT_WHILE_FALLING: string;
+ declare const ERR_NOT_WHILE_FATIGUED: string;
+ declare const ERR_NOT_WHILE_MOUNTED: string;
+ declare const ERR_NOT_WHILE_SHAPESHIFTED: string;
+ declare const ERR_NO_ARENA_CHARTER: string;
+ declare const ERR_NO_ATTACK_TARGET: string;
+ declare const ERR_NO_BANK_HERE: string;
+ declare const ERR_NO_BANK_SLOT: string;
+ declare const ERR_NO_GUILD_CHARTER: string;
+ declare const ERR_NO_ITEMS_WHILE_SHAPESHIFTED: string;
+ declare const ERR_NO_PET: string;
+ declare const ERR_NO_REPLY_TARGET: string;
+ declare const ERR_NO_SLOT_AVAILABLE: string;
+ declare const ERR_NULL_PETNAME: string;
+ declare const ERR_OBJECT_IS_BUSY: string;
+ declare const ERR_ONLY_ONE_AMMO: string;
+ declare const ERR_ONLY_ONE_BOLT: string;
+ declare const ERR_ONLY_ONE_QUIVER: string;
+ declare const ERR_OUT_OF_ENERGY: string;
+ declare const ERR_OUT_OF_FOCUS: string;
+ declare const ERR_OUT_OF_HEALTH: string;
+ declare const ERR_OUT_OF_MANA: string;
+ declare const ERR_OUT_OF_POWER_DISPLAY: string;
+ declare const ERR_OUT_OF_RAGE: string;
+ declare const ERR_OUT_OF_RANGE: string;
+ declare const ERR_OUT_OF_RUNES: string;
+ declare const ERR_OUT_OF_RUNIC_POWER: string;
+ declare const ERR_PARTY_LFG_BOOT_COOLDOWN_S: string;
+ declare const ERR_PARTY_LFG_BOOT_DUNGEON_COMPLETE: string;
+ declare const ERR_PARTY_LFG_BOOT_IN_COMBAT: string;
+ declare const ERR_PARTY_LFG_BOOT_IN_PROGRESS: string;
+ declare const ERR_PARTY_LFG_BOOT_LIMIT: string;
+ declare const ERR_PARTY_LFG_BOOT_LOOT_ROLLS: string;
+ declare const ERR_PARTY_LFG_BOOT_NOT_ELIGIBLE_S: string;
+ declare const ERR_PARTY_LFG_BOOT_TOO_FEW_PLAYERS: string;
+ declare const ERR_PARTY_LFG_BOOT_VOTE_FAILED: string;
+ declare const ERR_PARTY_LFG_BOOT_VOTE_SUCCEEDED: string;
+ declare const ERR_PARTY_LFG_INVITE_RAID_LOCKED: string;
+ declare const ERR_PARTY_LFG_TELEPORT_IN_COMBAT: string;
+ declare const ERR_PARTY_TARGET_AMBIGUOUS: string;
+ declare const ERR_PASSIVE_ABILITY: string;
+ declare const ERR_PETITION_ALREADY_SIGNED: string;
+ declare const ERR_PETITION_ALREADY_SIGNED_OTHER: string;
+ declare const ERR_PETITION_CREATOR: string;
+ declare const ERR_PETITION_DECLINED_S: string;
+ declare const ERR_PETITION_FULL: string;
+ declare const ERR_PETITION_IN_GUILD: string;
+ declare const ERR_PETITION_NOT_ENOUGH_SIGNATURES: string;
+ declare const ERR_PETITION_NOT_SAME_SERVER: string;
+ declare const ERR_PETITION_OFFERED_S: string;
+ declare const ERR_PETITION_RESTRICTED_ACCOUNT: string;
+ declare const ERR_PETITION_SIGNED: string;
+ declare const ERR_PETITION_SIGNED_S: string;
+ declare const ERR_PET_BROKEN: string;
+ declare const ERR_PET_LEARN_ABILITY_S: string;
+ declare const ERR_PET_LEARN_SPELL_S: string;
+ declare const ERR_PET_NOT_RENAMEABLE: string;
+ declare const ERR_PET_SPELL_AFFECTING_COMBAT: string;
+ declare const ERR_PET_SPELL_ALREADY_KNOWN_S: string;
+ declare const ERR_PET_SPELL_DEAD: string;
+ declare const ERR_PET_SPELL_NOT_BEHIND: string;
+ declare const ERR_PET_SPELL_OUT_OF_RANGE: string;
+ declare const ERR_PET_SPELL_ROOTED: string;
+ declare const ERR_PET_SPELL_TARGETS_DEAD: string;
+ declare const ERR_PET_SPELL_UNLEARNED_S: string;
+ declare const ERR_PLAYERLIST_JOINED_BATTLE: string;
+ declare const ERR_PLAYERLIST_LEFT_BATTLE: string;
+ declare const ERR_PLAYERS_JOINED_BATTLE_D: string;
+ declare const ERR_PLAYERS_LEFT_BATTLE_D: string;
+ declare const ERR_PLAYER_BUSY_S: string;
+ declare const ERR_PLAYER_DEAD: string;
+ declare const ERR_PLAYER_DIED_S: string;
+ declare const ERR_PLAYER_DIFFICULTY_CHANGED_S: string;
+ declare const ERR_PLAYER_JOINED_BATTLE_D: string;
+ declare const ERR_PLAYER_LEFT_BATTLE_D: string;
+ declare const ERR_PLAYER_SILENCED: string;
+ declare const ERR_PLAYER_SILENCED_ECHO: string;
+ declare const ERR_PLAYER_UNSILENCED: string;
+ declare const ERR_PLAYER_UNSILENCED_ECHO: string;
+ declare const ERR_PLAYER_WRONG_FACTION: string;
+ declare const ERR_PLAY_TIME_EXCEEDED: string;
+ declare const ERR_POTION_COOLDOWN: string;
+ declare const ERR_PROFANE_CHAT_NAME: string;
+ declare const ERR_PROFICIENCY_GAINED_S: string;
+ declare const ERR_PROFICIENCY_NEEDED: string;
+ declare const ERR_PURCHASE_LEVEL_TOO_LOW: string;
+ declare const ERR_PVP_TOGGLE_OFF: string;
+ declare const ERR_PVP_TOGGLE_ON: string;
+ declare const ERR_QUEST_ACCEPTED_S: string;
+ declare const ERR_QUEST_ADD_FOUND_SII: string;
+ declare const ERR_QUEST_ADD_ITEM_SII: string;
+ declare const ERR_QUEST_ADD_KILL_SII: string;
+ declare const ERR_QUEST_ADD_PLAYER_KILL_SII: string;
+ declare const ERR_QUEST_ALREADY_DONE: string;
+ declare const ERR_QUEST_ALREADY_DONE_DAILY: string;
+ declare const ERR_QUEST_ALREADY_ON: string;
+ declare const ERR_QUEST_COMPLETE_S: string;
+ declare const ERR_QUEST_FAILED_BAG_FULL_S: string;
+ declare const ERR_QUEST_FAILED_CAIS: string;
+ declare const ERR_QUEST_FAILED_EXPANSION: string;
+ declare const ERR_QUEST_FAILED_LOW_LEVEL: string;
+ declare const ERR_QUEST_FAILED_MAX_COUNT_S: string;
+ declare const ERR_QUEST_FAILED_MISSING_ITEMS: string;
+ declare const ERR_QUEST_FAILED_NOT_ENOUGH_MONEY: string;
+ declare const ERR_QUEST_FAILED_S: string;
+ declare const ERR_QUEST_FAILED_TOO_MANY_DAILY_QUESTS_I: string;
+ declare const ERR_QUEST_FAILED_WRONG_RACE: string;
+ declare const ERR_QUEST_FORCE_REMOVED_S: string;
+ declare const ERR_QUEST_LOG_FULL: string;
+ declare const ERR_QUEST_MUST_CHOOSE: string;
+ declare const ERR_QUEST_NEED_PREREQS: string;
+ declare const ERR_QUEST_OBJECTIVE_COMPLETE_S: string;
+ declare const ERR_QUEST_ONLY_ONE_TIMED: string;
+ declare const ERR_QUEST_PUSH_ACCEPTED_S: string;
+ declare const ERR_QUEST_PUSH_ALREADY_DONE_S: string;
+ declare const ERR_QUEST_PUSH_BUSY_S: string;
+ declare const ERR_QUEST_PUSH_DECLINED_S: string;
+ declare const ERR_QUEST_PUSH_DIFFERENT_SERVER_DAILY_S: string;
+ declare const ERR_QUEST_PUSH_INVALID_S: string;
+ declare const ERR_QUEST_PUSH_LOG_FULL_S: string;
+ declare const ERR_QUEST_PUSH_NOT_DAILY_S: string;
+ declare const ERR_QUEST_PUSH_NOT_IN_PARTY_S: string;
+ declare const ERR_QUEST_PUSH_ONQUEST_S: string;
+ declare const ERR_QUEST_PUSH_SUCCESS_S: string;
+ declare const ERR_QUEST_PUSH_TIMER_EXPIRED_S: string;
+ declare const ERR_QUEST_REWARD_EXP_I: string;
+ declare const ERR_QUEST_REWARD_ITEM_MULT_IS: string;
+ declare const ERR_QUEST_REWARD_ITEM_S: string;
+ declare const ERR_QUEST_REWARD_MONEY_S: string;
+ declare const ERR_QUEST_UNKNOWN_COMPLETE: string;
+ declare const ERR_RAID_DIFFICULTY_CHANGED_S: string;
+ declare const ERR_RAID_DIFFICULTY_FAILED: string;
+ declare const ERR_RAID_DISALLOWED_BY_LEVEL: string;
+ declare const ERR_RAID_GROUP_FULL: string;
+ declare const ERR_RAID_GROUP_LOWLEVEL: string;
+ declare const ERR_RAID_GROUP_ONLY: string;
+ declare const ERR_RAID_GROUP_REQUIREMENTS_UNMATCH: string;
+ declare const ERR_RAID_LEADER_READY_CHECK_START_S: string;
+ declare const ERR_RAID_LOCKOUT_CHANGED_S: string;
+ declare const ERR_RAID_MEMBER_ADDED_S: string;
+ declare const ERR_RAID_MEMBER_REMOVED_S: string;
+ declare const ERR_RAID_YOU_JOINED: string;
+ declare const ERR_RAID_YOU_LEFT: string;
+ declare const ERR_READY_CHECK_IN_PROGRESS: string;
+ declare const ERR_READY_CHECK_THROTTLED: string;
+ declare const ERR_RECEIVE_ITEM_S: string;
+ declare const ERR_REFER_A_FRIEND_DIFFERENT_FACTION: string;
+ declare const ERR_REFER_A_FRIEND_GRANT_LEVEL_MAX_I: string;
+ declare const ERR_REFER_A_FRIEND_INSUFFICIENT_GRANTABLE_LEVELS: string;
+ declare const ERR_REFER_A_FRIEND_INSUF_EXPAN_LVL: string;
+ declare const ERR_REFER_A_FRIEND_NOT_NOW: string;
+ declare const ERR_REFER_A_FRIEND_NOT_REFERRED_BY: string;
+ declare const ERR_REFER_A_FRIEND_SUMMON_COOLDOWN: string;
+ declare const ERR_REFER_A_FRIEND_SUMMON_LEVEL_MAX_I: string;
+ declare const ERR_REFER_A_FRIEND_SUMMON_OFFLINE_S: string;
+ declare const ERR_REFER_A_FRIEND_TARGET_TOO_HIGH: string;
+ declare const ERR_REFER_A_FRIEND_TOO_FAR: string;
+ declare const ERR_REMOVE_FROM_PVP_QUEUE_FACTION_CHANGE_NONE: string;
+ declare const ERR_REMOVE_FROM_PVP_QUEUE_GRANT_LEVEL: string;
+ declare const ERR_REMOVE_FROM_PVP_QUEUE_XP_GAIN: string;
+ declare const ERR_RESTRICTED_ACCOUNT: string;
+ declare const ERR_SCALING_STAT_ITEM_LEVEL_EXCEEDED: string;
+ declare const ERR_SET_LOOT_FREEFORALL: string;
+ declare const ERR_SET_LOOT_GROUP: string;
+ declare const ERR_SET_LOOT_MASTER: string;
+ declare const ERR_SET_LOOT_NBG: string;
+ declare const ERR_SET_LOOT_ROUNDROBIN: string;
+ declare const ERR_SET_LOOT_THRESHOLD_S: string;
+ declare const ERR_SHAPESHIFT_FORM_CANNOT_EQUIP: string;
+ declare const ERR_SKILL_GAINED_S: string;
+ declare const ERR_SKILL_UP_SI: string;
+ declare const ERR_SLOT_EMPTY: string;
+ declare const ERR_SOCKETING_META_GEM_ONLY_IN_METASLOT: string;
+ declare const ERR_SOCKETING_REQUIRES_META_GEM: string;
+ declare const ERR_SPECIFY_MASTER_LOOTER: string;
+ declare const ERR_SPELL_ALREADY_KNOWN_S: string;
+ declare const ERR_SPELL_COOLDOWN: string;
+ declare const ERR_SPELL_FAILED_ALREADY_AT_FULL_HEALTH: string;
+ declare const ERR_SPELL_FAILED_ALREADY_AT_FULL_MANA: string;
+ declare const ERR_SPELL_FAILED_ALREADY_AT_FULL_POWER_S: string;
+ declare const ERR_SPELL_FAILED_EQUIPPED_ITEM: string;
+ declare const ERR_SPELL_FAILED_EQUIPPED_ITEM_CLASS_S: string;
+ declare const ERR_SPELL_FAILED_NOTUNSHEATHED: string;
+ declare const ERR_SPELL_FAILED_REAGENTS: string;
+ declare const ERR_SPELL_FAILED_REAGENTS_GENERIC: string;
+ declare const ERR_SPELL_FAILED_S: string;
+ declare const ERR_SPELL_FAILED_SHAPESHIFT_FORM_S: string;
+ declare const ERR_SPELL_FAILED_TOTEMS: string;
+ declare const ERR_SPELL_OUT_OF_RANGE: string;
+ declare const ERR_SPELL_UNLEARNED_S: string;
+ declare const ERR_SPLIT_FAILED: string;
+ declare const ERR_SYSTEM_DISABLED: string;
+ declare const ERR_TALENT_WIPE_ERROR: string;
+ declare const ERR_TAME_FAILED: string;
+ declare const ERR_TARGET_LOGGING_OUT: string;
+ declare const ERR_TARGET_NOT_IN_GROUP_S: string;
+ declare const ERR_TARGET_NOT_IN_INSTANCE_S: string;
+ declare const ERR_TARGET_STUNNED: string;
+ declare const ERR_TAXINOPATH: string;
+ declare const ERR_TAXINOPATHS: string;
+ declare const ERR_TAXINOSUCHPATH: string;
+ declare const ERR_TAXINOTENOUGHMONEY: string;
+ declare const ERR_TAXINOTSTANDING: string;
+ declare const ERR_TAXINOTVISITED: string;
+ declare const ERR_TAXINOVENDORNEARBY: string;
+ declare const ERR_TAXIPLAYERALREADYMOUNTED: string;
+ declare const ERR_TAXIPLAYERBUSY: string;
+ declare const ERR_TAXIPLAYERMOVING: string;
+ declare const ERR_TAXIPLAYERSHAPESHIFTED: string;
+ declare const ERR_TAXISAMENODE: string;
+ declare const ERR_TAXITOOFARAWAY: string;
+ declare const ERR_TAXIUNSPECIFIEDSERVERERROR: string;
+ declare const ERR_TICKET_ALREADY_EXISTS: string;
+ declare const ERR_TICKET_CREATE_ERROR: string;
+ declare const ERR_TICKET_DB_ERROR: string;
+ declare const ERR_TICKET_NO_TEXT: string;
+ declare const ERR_TICKET_TEXT_TOO_LONG: string;
+ declare const ERR_TICKET_UPDATE_ERROR: string;
+ declare const ERR_TOOBUSYTOFOLLOW: string;
+ declare const ERR_TOO_FAR_TO_ATTACK: string;
+ declare const ERR_TOO_FAR_TO_INTERACT: string;
+ declare const ERR_TOO_FEW_TO_SPLIT: string;
+ declare const ERR_TOO_MANY_CHAT_CHANNELS: string;
+ declare const ERR_TOO_MANY_SOCKETS: string;
+ declare const ERR_TOO_MANY_SPECIAL_BAGS: string;
+ declare const ERR_TOO_MUCH_GOLD: string;
+ declare const ERR_TRADE_BAG: string;
+ declare const ERR_TRADE_BAG_FULL: string;
+ declare const ERR_TRADE_BLOCKED_S: string;
+ declare const ERR_TRADE_BOUND_ITEM: string;
+ declare const ERR_TRADE_CANCELLED: string;
+ declare const ERR_TRADE_COMPLETE: string;
+ declare const ERR_TRADE_EQUIPPED_BAG: string;
+ declare const ERR_TRADE_GROUND_ITEM: string;
+ declare const ERR_TRADE_MAX_COUNT_EXCEEDED: string;
+ declare const ERR_TRADE_NOT_ON_TAPLIST: string;
+ declare const ERR_TRADE_QUEST_ITEM: string;
+ declare const ERR_TRADE_REQUEST_S: string;
+ declare const ERR_TRADE_SELF: string;
+ declare const ERR_TRADE_TARGET_BAG_FULL: string;
+ declare const ERR_TRADE_TARGET_DEAD: string;
+ declare const ERR_TRADE_TARGET_MAX_COUNT_EXCEEDED: string;
+ declare const ERR_TRADE_TARGET_MAX_LIMIT_CATEGORY_COUNT_EXCEEDED_IS: string;
+ declare const ERR_TRADE_TEMP_ENCHANT_BOUND: string;
+ declare const ERR_TRADE_TOO_FAR: string;
+ declare const ERR_TRADE_WRONG_REALM: string;
+ declare const ERR_UNHEALTHY_TIME: string;
+ declare const ERR_UNINVITE_YOU: string;
+ declare const ERR_UNIT_NOT_FOUND: string;
+ declare const ERR_UNKNOWN_MACRO_OPTION_S: string;
+ declare const ERR_USER_SQUELCHED: string;
+ declare const ERR_USE_BAD_ANGLE: string;
+ declare const ERR_USE_CANT_IMMUNE: string;
+ declare const ERR_USE_CANT_OPEN: string;
+ declare const ERR_USE_DESTROYED: string;
+ declare const ERR_USE_LOCKED: string;
+ declare const ERR_USE_LOCKED_WITH_ITEM_S: string;
+ declare const ERR_USE_LOCKED_WITH_SPELL_KNOWN_SI: string;
+ declare const ERR_USE_LOCKED_WITH_SPELL_S: string;
+ declare const ERR_USE_OBJECT_MOVING: string;
+ declare const ERR_USE_PREVENTED_BY_MECHANIC_S: string;
+ declare const ERR_USE_SPELL_FOCUS: string;
+ declare const ERR_USE_TOO_FAR: string;
+ declare const ERR_VENDOR_DOESNT_BUY: string;
+ declare const ERR_VENDOR_HATES_YOU: string;
+ declare const ERR_VENDOR_MISSING_TURNINS: string;
+ declare const ERR_VENDOR_NOT_INTERESTED: string;
+ declare const ERR_VENDOR_SOLD_OUT: string;
+ declare const ERR_VENDOR_TOO_FAR: string;
+ declare const ERR_VOICESESSION_FULL: string;
+ declare const ERR_VOICE_CHAT_PARENTAL_DISABLE_ALL: string;
+ declare const ERR_VOICE_CHAT_PARENTAL_DISABLE_MIC: string;
+ declare const ERR_VOICE_IGNORE_ADDED_S: string;
+ declare const ERR_VOICE_IGNORE_ALREADY_S: string;
+ declare const ERR_VOICE_IGNORE_AMBIGUOUS: string;
+ declare const ERR_VOICE_IGNORE_DELETED: string;
+ declare const ERR_VOICE_IGNORE_FULL: string;
+ declare const ERR_VOICE_IGNORE_NOT_FOUND: string;
+ declare const ERR_VOICE_IGNORE_REMOVED_S: string;
+ declare const ERR_VOICE_IGNORE_SELF: string;
+ declare const ERR_WRONG_BAG_TYPE: string;
+ declare const ERR_WRONG_BAG_TYPE_SUBCLASS: string;
+ declare const ERR_WRONG_DIRECTION_FOR_ATTACK: string;
+ declare const ERR_WRONG_SLOT: string;
+ declare const ERR_YELL_RESTRICTED: string;
+ declare const ERR_ZONE_EXPLORED: string;
+ declare const ERR_ZONE_EXPLORED_XP: string;
+ declare const ESES: string;
+ declare const ESMX: string;
+ declare const EVADE: string;
+ declare const EVENTS_LABEL: string;
+ declare const EXAMPLE_SPELL_FIREBALL: string;
+ declare const EXAMPLE_SPELL_FROSTBOLT: string;
+ declare const EXAMPLE_TARGET_MONSTER: string;
+ declare const EXAMPLE_TEXT: string;
+ declare const EXHAUSTION_LABEL: string;
+ declare const EXHAUST_TOOLTIP1: string;
+ declare const EXHAUST_TOOLTIP2: string;
+ declare const EXHAUST_TOOLTIP3: string;
+ declare const EXHAUST_TOOLTIP4: string;
+ declare const EXIT: string;
+ declare const EXIT_GAME: string;
+ declare const EXOTICS: string;
+ declare const EXPANSION_NAME0: string;
+ declare const EXPANSION_NAME1: string;
+ declare const EXPANSION_NAME2: string;
+ declare const EXPERIENCE_COLON: string;
+ declare const EXPERTISE_ABBR: string;
+ declare const EXTENDED: string;
+ declare const EXTEND_RAID_LOCK: string;
+ declare const EXTRA_ATTACKS: string;
+ declare const EYE_SEPARATION: string;
+ declare const English: string;
+ declare const FACIAL_HAIR_EARRINGS: string;
+ declare const FACIAL_HAIR_FEATURES: string;
+ declare const FACIAL_HAIR_HAIR: string;
+ declare const FACIAL_HAIR_HORNS: string;
+ declare const FACIAL_HAIR_MARKINGS: string;
+ declare const FACIAL_HAIR_NORMAL: string;
+ declare const FACIAL_HAIR_PIERCINGS: string;
+ declare const FACIAL_HAIR_TUSKS: string;
+ declare const FACING_WRONG_DIRECTION: string;
+ declare const FACTION: string;
+ declare const FACTION_ALLIANCE: string;
+ declare const FACTION_CONTROLLED_TERRITORY: string;
+ declare const FACTION_HORDE: string;
+ declare const FACTION_INACTIVE: string;
+ declare const FACTION_OTHER: string;
+ declare const FACTION_STANDING_CHANGED: string;
+ declare const FACTION_STANDING_DECREASED: string;
+ declare const FACTION_STANDING_DECREASED_GENERIC: string;
+ declare const FACTION_STANDING_INCREASED: string;
+ declare const FACTION_STANDING_INCREASED_BONUS: string;
+ declare const FACTION_STANDING_INCREASED_GENERIC: string;
+ declare const FACTION_STANDING_LABEL1: string;
+ declare const FACTION_STANDING_LABEL1_FEMALE: string;
+ declare const FACTION_STANDING_LABEL2: string;
+ declare const FACTION_STANDING_LABEL2_FEMALE: string;
+ declare const FACTION_STANDING_LABEL3: string;
+ declare const FACTION_STANDING_LABEL3_FEMALE: string;
+ declare const FACTION_STANDING_LABEL4: string;
+ declare const FACTION_STANDING_LABEL4_FEMALE: string;
+ declare const FACTION_STANDING_LABEL5: string;
+ declare const FACTION_STANDING_LABEL5_FEMALE: string;
+ declare const FACTION_STANDING_LABEL6: string;
+ declare const FACTION_STANDING_LABEL6_FEMALE: string;
+ declare const FACTION_STANDING_LABEL7: string;
+ declare const FACTION_STANDING_LABEL7_FEMALE: string;
+ declare const FACTION_STANDING_LABEL8: string;
+ declare const FACTION_STANDING_LABEL8_FEMALE: string;
+ declare const FAILED: string;
+ declare const FAILURES: string;
+ declare const FAR: string;
+ declare const FARCLIP: string;
+ declare const FEATURES_LABEL: string;
+ declare const FEATURES_SUBTEXT: string;
+ declare const FEATURE_BECOMES_AVAILABLE_AT_LEVEL: string;
+ declare const FEAT_OF_STRENGTH_DESCRIPTION: string;
+ declare const FEEDPET_LOG_FIRSTPERSON: string;
+ declare const FEEDPET_LOG_THIRDPERSON: string;
+ declare const FEETSLOT: string;
+ declare const FEMALE: string;
+ declare const FERAL_DRUID_ITEM_AP: string;
+ declare const FILTER: string;
+ declare const FILTERS: string;
+ declare const FILTER_BY_ENEMIES_COMBATLOG_TOOLTIP: string;
+ declare const FILTER_BY_FRIENDS_COMBATLOG_TOOLTIP: string;
+ declare const FILTER_BY_HOSTILE_PLAYERS_COMBATLOG_TOOLTIP: string;
+ declare const FILTER_BY_ME_COMBATLOG_TOOLTIP: string;
+ declare const FILTER_BY_NEUTRAL_COMBATLOG_TOOLTIP: string;
+ declare const FILTER_BY_PET_COMBATLOG_TOOLTIP: string;
+ declare const FILTER_BY_UNKNOWN_COMBATLOG_TOOLTIP: string;
+ declare const FILTER_NAME: string;
+ declare const FILTER_TO_FRIENDS_COMBATLOG_TOOLTIP: string;
+ declare const FILTER_TO_HOSTILE_COMBATLOG_TOOLTIP: string;
+ declare const FILTER_TO_HOSTILE_PLAYERS_COMBATLOG_TOOLTIP: string;
+ declare const FILTER_TO_ME_COMBATLOG_TOOLTIP: string;
+ declare const FILTER_TO_NEUTRAL_COMBATLOG_TOOLTIP: string;
+ declare const FILTER_TO_PET_COMBATLOG_TOOLTIP: string;
+ declare const FILTER_TO_UNKNOWN_COMBATLOG_TOOLTIP: string;
+ declare const FIND_A_GROUP: string;
+ declare const FIND_DUNGEON: string;
+ declare const FINGER0SLOT: string;
+ declare const FINGER0SLOT_UNIQUE: string;
+ declare const FINGER1SLOT: string;
+ declare const FINGER1SLOT_UNIQUE: string;
+ declare const FIRST_AVAILABLE: string;
+ declare const FIRST_AVAILABLE_TOOLTIP: string;
+ declare const FIRST_NUMBER_CAP: string;
+ declare const FIX_LAG: string;
+ declare const FLAG_COUNT_TEMPLATE: string;
+ declare const FLOOR: string;
+ declare const FLOOR_NUMBER: string;
+ declare const FOCUS: string;
+ declare const FOCUSTARGET: string;
+ declare const FOCUS_CAST_KEY_TEXT: string;
+ declare const FOCUS_COST: string;
+ declare const FOCUS_COST_PER_TIME: string;
+ declare const FOCUS_TOKEN_NOT_FOUND: string;
+ declare const FOLLOW: string;
+ declare const FOLLOW_TERRAIN: string;
+ declare const FONT_SIZE: string;
+ declare const FONT_SIZE_TEMPLATE: string;
+ declare const FOOD_TIMER: string;
+ declare const FOREIGN_SERVER_LABEL: string;
+ declare const FORMATED_HOURS: string;
+ declare const FORMATTING: string;
+ declare const FPS_ABBR: string;
+ declare const FRAMERATE_LABEL: string;
+ declare const FREE_FOR_ALL_TERRITORY: string;
+ declare const FRFR: string;
+ declare const FRIEND: string;
+ declare const FRIENDLY: string;
+ declare const FRIENDS: string;
+ declare const FRIENDS_FRIENDS_CHOICE_EVERYONE: string;
+ declare const FRIENDS_FRIENDS_CHOICE_MUTUAL: string;
+ declare const FRIENDS_FRIENDS_CHOICE_POTENTIAL: string;
+ declare const FRIENDS_FRIENDS_HEADER: string;
+ declare const FRIENDS_FRIENDS_MUTUAL_TEXT: string;
+ declare const FRIENDS_FRIENDS_REQUESTED_TEXT: string;
+ declare const FRIENDS_FRIENDS_WAITING: string;
+ declare const FRIENDS_LEVEL_TEMPLATE: string;
+ declare const FRIENDS_LIST: string;
+ declare const FRIENDS_LIST_AVAILABLE: string;
+ declare const FRIENDS_LIST_AWAY: string;
+ declare const FRIENDS_LIST_BUSY: string;
+ declare const FRIENDS_LIST_ENTER_TEXT: string;
+ declare const FRIENDS_LIST_NOTE_OFFLINE_TEMPLATE: string;
+ declare const FRIENDS_LIST_NOTE_TEMPLATE: string;
+ declare const FRIENDS_LIST_OFFLINE: string;
+ declare const FRIENDS_LIST_OFFLINE_TEMPLATE: string;
+ declare const FRIENDS_LIST_ONLINE: string;
+ declare const FRIENDS_LIST_PLAYING: string;
+ declare const FRIENDS_LIST_REALM: string;
+ declare const FRIENDS_LIST_STATUS_TOOLTIP: string;
+ declare const FRIENDS_LIST_TEMPLATE: string;
+ declare const FRIENDS_LIST_WOW_TEMPLATE: string;
+ declare const FRIENDS_LIST_ZONE: string;
+ declare const FRIENDS_TOOLTIP_TOO_MANY_CHARACTERS: string;
+ declare const FRIENDS_TOOLTIP_WOW_TOON_TEMPLATE: string;
+ declare const FROM: string;
+ declare const FUEL: string;
+ declare const FULLDATE: string;
+ declare const FULLDATE_AND_TIME: string;
+ declare const FULLDATE_MONTH_APRIL: string;
+ declare const FULLDATE_MONTH_AUGUST: string;
+ declare const FULLDATE_MONTH_DECEMBER: string;
+ declare const FULLDATE_MONTH_FEBRUARY: string;
+ declare const FULLDATE_MONTH_JANUARY: string;
+ declare const FULLDATE_MONTH_JULY: string;
+ declare const FULLDATE_MONTH_JUNE: string;
+ declare const FULLDATE_MONTH_MARCH: string;
+ declare const FULLDATE_MONTH_MAY: string;
+ declare const FULLDATE_MONTH_NOVEMBER: string;
+ declare const FULLDATE_MONTH_OCTOBER: string;
+ declare const FULLDATE_MONTH_SEPTEMBER: string;
+ declare const FULL_SCREEN_GLOW: string;
+ declare const FULL_SIZE_FOCUS_FRAME_TEXT: string;
+ declare const FULL_TEXT_COMBATLOG_TOOLTIP: string;
+ declare const GAIN_EXPERIENCE: string;
+ declare const GAME: string;
+ declare const GAMEFIELD_DESELECT_TEXT: string;
+ declare const GAMEOPTIONS_MENU: string;
+ declare const GAMES: string;
+ declare const GAMETIME_TOOLTIP_CALENDAR_INVITES: string;
+ declare const GAMETIME_TOOLTIP_TOGGLE_CALENDAR: string;
+ declare const GAMETIME_TOOLTIP_TOGGLE_CLOCK: string;
+ declare const GAME_SOUND_OUTPUT: string;
+ declare const GAME_VERSION_LABEL: string;
+ declare const GAMMA: string;
+ declare const GEARSETS_POPUP_TEXT: string;
+ declare const GEARSETS_TITLE: string;
+ declare const GENERAL: string;
+ declare const GENERAL_LABEL: string;
+ declare const GENERAL_MACROS: string;
+ declare const GENERAL_SPELLS: string;
+ declare const GENERAL_SUBTEXT: string;
+ declare const GIVE_LOOT: string;
+ declare const GLANCING_TRAILER: string;
+ declare const GLOBAL_CHANNELS: string;
+ declare const GLYPHS: string;
+ declare const GLYPH_EMPTY: string;
+ declare const GLYPH_EMPTY_DESC: string;
+ declare const GLYPH_FILLED: string;
+ declare const GLYPH_INACTIVE: string;
+ declare const GLYPH_LOCKED: string;
+ declare const GLYPH_SLOT_REMOVE_TOOLTIP: string;
+ declare const GLYPH_SLOT_TOOLTIP1: string;
+ declare const GLYPH_SLOT_TOOLTIP2: string;
+ declare const GLYPH_SLOT_TOOLTIP3: string;
+ declare const GLYPH_SLOT_TOOLTIP4: string;
+ declare const GLYPH_SLOT_TOOLTIP5: string;
+ declare const GLYPH_SLOT_TOOLTIP6: string;
+ declare const GMSURVEYRATING1: string;
+ declare const GMSURVEYRATING2: string;
+ declare const GMSURVEYRATING3: string;
+ declare const GMSURVEYRATING4: string;
+ declare const GMSURVEYRATING5: string;
+ declare const GMSURVEY_BLOCK_TEXT: string;
+ declare const GMSURVEY_EXCELLENT: string;
+ declare const GMSURVEY_POOR: string;
+ declare const GMSURVEY_REQUEST_TEXT: string;
+ declare const GMSURVEY_SUBMITTED: string;
+ declare const GMSURVEY_TITLE: string;
+ declare const GM_CHAT: string;
+ declare const GM_CHAT_LAST_SESSION: string;
+ declare const GM_CHAT_OPEN: string;
+ declare const GM_CHAT_STATUS_READY: string;
+ declare const GM_CHAT_STATUS_READY_DESCRIPTION: string;
+ declare const GM_EMAIL_NAME: string;
+ declare const GM_RESPONSE_ALERT: string;
+ declare const GM_RESPONSE_FRAME_HEADER: string;
+ declare const GM_RESPONSE_ISSUE_HEADER: string;
+ declare const GM_RESPONSE_MESSAGE_HEADER: string;
+ declare const GM_RESPONSE_MORE_HELP: string;
+ declare const GM_RESPONSE_POPUP_MUST_RESOLVE_RESPONSE: string;
+ declare const GM_RESPONSE_POPUP_NEED_MORE_HELP_WARNING: string;
+ declare const GM_RESPONSE_POPUP_RESOLVE_CONFIRM: string;
+ declare const GM_RESPONSE_POPUP_VIEW_RESPONSE: string;
+ declare const GM_RESPONSE_RESOLVE: string;
+ declare const GM_SURVEY_NOT_APPLICABLE: string;
+ declare const GM_TICKET_ESCALATED: string;
+ declare const GM_TICKET_HIGH_VOLUME: string;
+ declare const GM_TICKET_SERVICE_SOON: string;
+ declare const GM_TICKET_UNAVAILABLE: string;
+ declare const GM_TICKET_WAIT_TIME: string;
+ declare const GOLD_AMOUNT: string;
+ declare const GOLD_AMOUNT_SYMBOL: string;
+ declare const GOLD_AMOUNT_TEXTURE: string;
+ declare const GOLD_PER_DAY: string;
+ declare const GOODBYE: string;
+ declare const GOSSIP_OPTIONS: string;
+ declare const GREED: string;
+ declare const GREED_NEWBIE: string;
+ declare const GROUND_DENSITY: string;
+ declare const GROUND_RADIUS: string;
+ declare const GROUP: string;
+ declare const GROUPS: string;
+ declare const GROUP_INVITE: string;
+ declare const GUIDE: string;
+ declare const GUIDE_TOOLTIP: string;
+ declare const GUILD: string;
+ declare const GUILDADDRANK_BUTTON_TOOLTIP: string;
+ declare const GUILDBANK_AVAILABLE_MONEY: string;
+ declare const GUILDBANK_BUYTAB_MONEY_FORMAT: string;
+ declare const GUILDBANK_DEPOSIT: string;
+ declare const GUILDBANK_DEPOSIT_FORMAT: string;
+ declare const GUILDBANK_DEPOSIT_MONEY_FORMAT: string;
+ declare const GUILDBANK_INFO_TITLE_FORMAT: string;
+ declare const GUILDBANK_LOG_QUANTITY: string;
+ declare const GUILDBANK_LOG_TITLE_FORMAT: string;
+ declare const GUILDBANK_MOVE_FORMAT: string;
+ declare const GUILDBANK_NAME_CONFIG: string;
+ declare const GUILDBANK_POPUP_TEXT: string;
+ declare const GUILDBANK_REMAINING_MONEY: string;
+ declare const GUILDBANK_REPAIR: string;
+ declare const GUILDBANK_REPAIR_MONEY_FORMAT: string;
+ declare const GUILDBANK_TAB_COLON: string;
+ declare const GUILDBANK_TAB_DEPOSIT_ONLY: string;
+ declare const GUILDBANK_TAB_FULL_ACCESS: string;
+ declare const GUILDBANK_TAB_LOCKED: string;
+ declare const GUILDBANK_TAB_NUMBER: string;
+ declare const GUILDBANK_TAB_WITHDRAW_ONLY: string;
+ declare const GUILDBANK_WITHDRAW: string;
+ declare const GUILDBANK_WITHDRAWFORTAB_MONEY_FORMAT: string;
+ declare const GUILDBANK_WITHDRAW_FORMAT: string;
+ declare const GUILDBANK_WITHDRAW_MONEY_FORMAT: string;
+ declare const GUILDCONTROL: string;
+ declare const GUILDCONTROL_ALLOWRANK: string;
+ declare const GUILDCONTROL_DEPOSIT_ITEMS: string;
+ declare const GUILDCONTROL_OPTION1: string;
+ declare const GUILDCONTROL_OPTION10: string;
+ declare const GUILDCONTROL_OPTION11: string;
+ declare const GUILDCONTROL_OPTION12: string;
+ declare const GUILDCONTROL_OPTION13: string;
+ declare const GUILDCONTROL_OPTION14: string;
+ declare const GUILDCONTROL_OPTION15: string;
+ declare const GUILDCONTROL_OPTION15_TOOLTIP: string;
+ declare const GUILDCONTROL_OPTION16: string;
+ declare const GUILDCONTROL_OPTION16_TOOLTIP: string;
+ declare const GUILDCONTROL_OPTION17: string;
+ declare const GUILDCONTROL_OPTION2: string;
+ declare const GUILDCONTROL_OPTION3: string;
+ declare const GUILDCONTROL_OPTION4: string;
+ declare const GUILDCONTROL_OPTION5: string;
+ declare const GUILDCONTROL_OPTION6: string;
+ declare const GUILDCONTROL_OPTION7: string;
+ declare const GUILDCONTROL_OPTION8: string;
+ declare const GUILDCONTROL_OPTION9: string;
+ declare const GUILDCONTROL_RANKLABEL: string;
+ declare const GUILDCONTROL_SELECTRANK: string;
+ declare const GUILDCONTROL_UPDATE_TEXT: string;
+ declare const GUILDCONTROL_VIEW_TAB: string;
+ declare const GUILDCONTROL_WITHDRAW_GOLD: string;
+ declare const GUILDCONTROL_WITHDRAW_ITEMS: string;
+ declare const GUILDEVENT_TYPE_DEMOTE: string;
+ declare const GUILDEVENT_TYPE_INVITE: string;
+ declare const GUILDEVENT_TYPE_JOIN: string;
+ declare const GUILDEVENT_TYPE_PROMOTE: string;
+ declare const GUILDEVENT_TYPE_QUIT: string;
+ declare const GUILDEVENT_TYPE_REMOVE: string;
+ declare const GUILDMEMBER_ALERT: string;
+ declare const GUILDMOTD_BUTTON_TOOLTIP: string;
+ declare const GUILDNOTE_BUTTON_TOOLTIP: string;
+ declare const GUILDOFFICERNOTE_BUTTON_TOOLTIP: string;
+ declare const GUILDREMOVERANK_BUTTON_TOOLTIP: string;
+ declare const GUILD_ACHIEVEMENT: string;
+ declare const GUILD_BANK: string;
+ declare const GUILD_BANK_LOG: string;
+ declare const GUILD_BANK_LOG_TIME: string;
+ declare const GUILD_BANK_MONEY_LOG: string;
+ declare const GUILD_BANK_TAB_INFO: string;
+ declare const GUILD_CHARTER: string;
+ declare const GUILD_CHARTER_CREATOR: string;
+ declare const GUILD_CHARTER_PURCHASE: string;
+ declare const GUILD_CHARTER_REGISTER: string;
+ declare const GUILD_CHARTER_TEMPLATE: string;
+ declare const GUILD_CHARTER_TITLE: string;
+ declare const GUILD_CHAT: string;
+ declare const GUILD_CREST_DESIGN: string;
+ declare const GUILD_EVENT_LOG: string;
+ declare const GUILD_FRAME_TITLE: string;
+ declare const GUILD_HELP_TEXT_LINE1: string;
+ declare const GUILD_HELP_TEXT_LINE2: string;
+ declare const GUILD_HELP_TEXT_LINE3: string;
+ declare const GUILD_HELP_TEXT_LINE4: string;
+ declare const GUILD_HELP_TEXT_LINE5: string;
+ declare const GUILD_HELP_TEXT_LINE6: string;
+ declare const GUILD_HELP_TEXT_LINE7: string;
+ declare const GUILD_HELP_TEXT_LINE8: string;
+ declare const GUILD_HELP_TEXT_LINE9: string;
+ declare const GUILD_HELP_TEXT_LINE10: string;
+ declare const GUILD_HELP_TEXT_LINE11: string;
+ declare const GUILD_HELP_TEXT_LINE12: string;
+ declare const GUILD_HELP_TEXT_LINE13: string;
+ declare const GUILD_INFORMATION: string;
+ declare const GUILD_INFO_EDITLABEL: string;
+ declare const GUILD_INFO_TEMPLATE: string;
+ declare const GUILD_INVITATION: string;
+ declare const GUILD_LEAVE: string;
+ declare const GUILD_MEMBER_OPTIONS: string;
+ declare const GUILD_MEMBER_TEMPLATE: string;
+ declare const GUILD_MESSAGE: string;
+ declare const GUILD_MOTD: string;
+ declare const GUILD_MOTD_EDITLABEL: string;
+ declare const GUILD_MOTD_LABEL: string;
+ declare const GUILD_MOTD_LABEL2: string;
+ declare const GUILD_MOTD_TEMPLATE: string;
+ declare const GUILD_NAME: string;
+ declare const GUILD_NAME_TEMPLATE: string;
+ declare const GUILD_NOTES_LABEL: string;
+ declare const GUILD_NOTE_EDITLABEL: string;
+ declare const GUILD_NOT_ALLIED_S: string;
+ declare const GUILD_OFFICERNOTES_LABEL: string;
+ declare const GUILD_OFFICERNOTE_EDITLABEL: string;
+ declare const GUILD_OFFICER_NOTE: string;
+ declare const GUILD_ONLINE_LABEL: string;
+ declare const GUILD_PETITION_LEADER_INSTRUCTIONS: string;
+ declare const GUILD_PETITION_MEMBER_INSTRUCTIONS: string;
+ declare const GUILD_PROMOTE: string;
+ declare const GUILD_RANK0_DESC: string;
+ declare const GUILD_RANK1_DESC: string;
+ declare const GUILD_RANK2_DESC: string;
+ declare const GUILD_RANK3_DESC: string;
+ declare const GUILD_RANK4_DESC: string;
+ declare const GUILD_REGISTRAR_PURCHASE_TEXT: string;
+ declare const GUILD_ROSTER_TEMPLATE: string;
+ declare const GUILD_STATUS: string;
+ declare const GUILD_TEMPLATE: string;
+ declare const GUILD_TITLE_TEMPLATE: string;
+ declare const GUILD_TOTAL: string;
+ declare const GUILD_TOTALONLINE: string;
+ declare const HAIR_HORNS_COLOR: string;
+ declare const HAIR_HORNS_STYLE: string;
+ declare const HAIR_NORMAL_COLOR: string;
+ declare const HAIR_NORMAL_STYLE: string;
+ declare const HANDSSLOT: string;
+ declare const HAPPINESS: string;
+ declare const HARASSMENT: string;
+ declare const HARASSMENT_POLICY_TEXT: string;
+ declare const HARASSMENT_TEXT: string;
+ declare const HARDWARE: string;
+ declare const HARDWARE_CURSOR: string;
+ declare const HARMFUL_AURA_COMBATLOG_TOOLTIP: string;
+ declare const HATRED: string;
+ declare const HAVE_MAIL: string;
+ declare const HAVE_MAIL_FROM: string;
+ declare const HEADSLOT: string;
+ declare const HEAD_BOB: string;
+ declare const HEALER: string;
+ declare const HEALING_DONE_TOOLTIP: string;
+ declare const HEALS: string;
+ declare const HEALTH: string;
+ declare const HEALTH_COLON: string;
+ declare const HEALTH_COST: string;
+ declare const HEALTH_COST_PER_TIME: string;
+ declare const HEALTH_LOW: string;
+ declare const HELPFRAME_ACCOUNT_BULLET1: string;
+ declare const HELPFRAME_ACCOUNT_BULLET2: string;
+ declare const HELPFRAME_ACCOUNT_BULLET3: string;
+ declare const HELPFRAME_ACCOUNT_BULLET4: string;
+ declare const HELPFRAME_ACCOUNT_BULLET_TITLE1: string;
+ declare const HELPFRAME_ACCOUNT_BUTTON_TEXT: string;
+ declare const HELPFRAME_ACCOUNT_ENDTEXT: string;
+ declare const HELPFRAME_ACCOUNT_TEXT: string;
+ declare const HELPFRAME_ACCOUNT_TITLE: string;
+ declare const HELPFRAME_BUG_BUTTON_DESCRIPTION: string;
+ declare const HELPFRAME_BUG_BUTTON_TEXT: string;
+ declare const HELPFRAME_CHARACTER_BULLET1: string;
+ declare const HELPFRAME_CHARACTER_BULLET2: string;
+ declare const HELPFRAME_CHARACTER_BULLET3: string;
+ declare const HELPFRAME_CHARACTER_BULLET4: string;
+ declare const HELPFRAME_CHARACTER_BULLET5: string;
+ declare const HELPFRAME_CHARACTER_BULLET_TITLE1: string;
+ declare const HELPFRAME_CHARACTER_BUTTON_TEXT: string;
+ declare const HELPFRAME_CHARACTER_TEXT: string;
+ declare const HELPFRAME_CHARACTER_TITLE: string;
+ declare const HELPFRAME_ENVIRONMENTAL_BULLET1: string;
+ declare const HELPFRAME_ENVIRONMENTAL_BULLET2: string;
+ declare const HELPFRAME_ENVIRONMENTAL_BULLET3: string;
+ declare const HELPFRAME_ENVIRONMENTAL_BULLET4: string;
+ declare const HELPFRAME_ENVIRONMENTAL_BULLET5: string;
+ declare const HELPFRAME_ENVIRONMENTAL_BULLET6: string;
+ declare const HELPFRAME_ENVIRONMENTAL_BULLET_TITLE1: string;
+ declare const HELPFRAME_ENVIRONMENTAL_BULLET_TITLE2: string;
+ declare const HELPFRAME_ENVIRONMENTAL_BUTTON_TEXT: string;
+ declare const HELPFRAME_ENVIRONMENTAL_TEXT: string;
+ declare const HELPFRAME_ENVIRONMENTAL_TITLE: string;
+ declare const HELPFRAME_GENERAL_BUTTON_DESCRIPTION: string;
+ declare const HELPFRAME_GENERAL_BUTTON_TEXT: string;
+ declare const HELPFRAME_GMTALK_ISSUE1: string;
+ declare const HELPFRAME_GMTALK_ISSUE1_HEADER: string;
+ declare const HELPFRAME_GMTALK_ISSUE2: string;
+ declare const HELPFRAME_GMTALK_ISSUE2_HEADER: string;
+ declare const HELPFRAME_GMTALK_ISSUE3: string;
+ declare const HELPFRAME_GMTALK_ISSUE3_HEADER: string;
+ declare const HELPFRAME_GMTALK_TEXT1: string;
+ declare const HELPFRAME_GMTALK_TEXT2: string;
+ declare const HELPFRAME_GMTALK_TITLE: string;
+ declare const HELPFRAME_GM_BUTTON_DESCRIPTION: string;
+ declare const HELPFRAME_GM_BUTTON_TEXT: string;
+ declare const HELPFRAME_GUILD_BULLET1: string;
+ declare const HELPFRAME_GUILD_BULLET2: string;
+ declare const HELPFRAME_GUILD_BULLET3: string;
+ declare const HELPFRAME_GUILD_BULLET_TITLE1: string;
+ declare const HELPFRAME_GUILD_BUTTON_TEXT: string;
+ declare const HELPFRAME_GUILD_TEXT: string;
+ declare const HELPFRAME_GUILD_TITLE: string;
+ declare const HELPFRAME_HARASSMENT_BUTTON_DESCRIPTION: string;
+ declare const HELPFRAME_HARASSMENT_BUTTON_TEXT: string;
+ declare const HELPFRAME_HOME_TEXT: string;
+ declare const HELPFRAME_ITEM_BULLET1: string;
+ declare const HELPFRAME_ITEM_BULLET2: string;
+ declare const HELPFRAME_ITEM_BULLET3: string;
+ declare const HELPFRAME_ITEM_BULLET4: string;
+ declare const HELPFRAME_ITEM_BULLET5: string;
+ declare const HELPFRAME_ITEM_BULLET6: string;
+ declare const HELPFRAME_ITEM_BULLET7: string;
+ declare const HELPFRAME_ITEM_BULLET_TITLE1: string;
+ declare const HELPFRAME_ITEM_BULLET_TITLE2: string;
+ declare const HELPFRAME_ITEM_BUTTON_TEXT: string;
+ declare const HELPFRAME_ITEM_TEXT: string;
+ declare const HELPFRAME_ITEM_TITLE: string;
+ declare const HELPFRAME_LAG_TEXT1: string;
+ declare const HELPFRAME_LAG_TITLE: string;
+ declare const HELPFRAME_NONQUEST_BULLET1: string;
+ declare const HELPFRAME_NONQUEST_BULLET2: string;
+ declare const HELPFRAME_NONQUEST_BULLET3: string;
+ declare const HELPFRAME_NONQUEST_BULLET4: string;
+ declare const HELPFRAME_NONQUEST_BULLET5: string;
+ declare const HELPFRAME_NONQUEST_BULLET6: string;
+ declare const HELPFRAME_NONQUEST_BULLET7: string;
+ declare const HELPFRAME_NONQUEST_BULLET_TITLE1: string;
+ declare const HELPFRAME_NONQUEST_BULLET_TITLE2: string;
+ declare const HELPFRAME_NONQUEST_BUTTON_TEXT: string;
+ declare const HELPFRAME_NONQUEST_TEXT: string;
+ declare const HELPFRAME_NONQUEST_TITLE: string;
+ declare const HELPFRAME_OPENTICKET_EDITTEXT: string;
+ declare const HELPFRAME_OPENTICKET_FOLLOWUPTEXT: string;
+ declare const HELPFRAME_OPENTICKET_TEXT: string;
+ declare const HELPFRAME_OTHER_BUTTON_DESCRIPTION: string;
+ declare const HELPFRAME_OTHER_BUTTON_TEXT: string;
+ declare const HELPFRAME_QUEST_BULLET1: string;
+ declare const HELPFRAME_QUEST_BULLET2: string;
+ declare const HELPFRAME_QUEST_BULLET3: string;
+ declare const HELPFRAME_QUEST_BULLET4: string;
+ declare const HELPFRAME_QUEST_BULLET5: string;
+ declare const HELPFRAME_QUEST_BULLET_TITLE1: string;
+ declare const HELPFRAME_QUEST_BULLET_TITLE2: string;
+ declare const HELPFRAME_QUEST_BUTTON_TEXT: string;
+ declare const HELPFRAME_QUEST_TEXT: string;
+ declare const HELPFRAME_QUEST_TITLE: string;
+ declare const HELPFRAME_REPORTISSUE_BULLET1: string;
+ declare const HELPFRAME_REPORTISSUE_BULLET2: string;
+ declare const HELPFRAME_REPORTISSUE_BULLET_TITLE1: string;
+ declare const HELPFRAME_REPORTISSUE_TEXT1: string;
+ declare const HELPFRAME_REPORTISSUE_TEXT2: string;
+ declare const HELPFRAME_REPORTISSUE_TITLE: string;
+ declare const HELPFRAME_REPORTLAG_TEXT1: string;
+ declare const HELPFRAME_STUCK_BUTTON_DESCRIPTION: string;
+ declare const HELPFRAME_STUCK_BUTTON_TEXT: string;
+ declare const HELPFRAME_STUCK_TEXT1: string;
+ declare const HELPFRAME_STUCK_TITLE: string;
+ declare const HELPFRAME_SUGGESTION_BUTTON_DESCRIPTION: string;
+ declare const HELPFRAME_SUGGESTION_BUTTON_TEXT: string;
+ declare const HELPFRAME_TECHNICAL_BULLET1: string;
+ declare const HELPFRAME_TECHNICAL_BULLET2: string;
+ declare const HELPFRAME_TECHNICAL_BULLET3: string;
+ declare const HELPFRAME_TECHNICAL_BULLET4: string;
+ declare const HELPFRAME_TECHNICAL_BULLET5: string;
+ declare const HELPFRAME_TECHNICAL_BULLET6: string;
+ declare const HELPFRAME_TECHNICAL_BULLET7: string;
+ declare const HELPFRAME_TECHNICAL_BULLET_TITLE1: string;
+ declare const HELPFRAME_TECHNICAL_BULLET_TITLE2: string;
+ declare const HELPFRAME_TECHNICAL_BUTTON_TEXT: string;
+ declare const HELPFRAME_TECHNICAL_TEXT: string;
+ declare const HELPFRAME_TECHNICAL_TITLE: string;
+ declare const HELPFRAME_WELCOME_TEXT1: string;
+ declare const HELPFRAME_WELCOME_TITLE: string;
+ declare const HELP_BUTTON: string;
+ declare const HELP_FRAME_TITLE: string;
+ declare const HELP_LABEL: string;
+ declare const HELP_SUBTEXT: string;
+ declare const HELP_TEXT_LINE1: string;
+ declare const HELP_TEXT_LINE2: string;
+ declare const HELP_TEXT_LINE3: string;
+ declare const HELP_TEXT_LINE4: string;
+ declare const HELP_TEXT_LINE5: string;
+ declare const HELP_TEXT_LINE6: string;
+ declare const HELP_TEXT_LINE7: string;
+ declare const HELP_TEXT_LINE8: string;
+ declare const HELP_TEXT_LINE9: string;
+ declare const HELP_TEXT_LINE10: string;
+ declare const HELP_TEXT_LINE11: string;
+ declare const HELP_TEXT_LINE12: string;
+ declare const HELP_TEXT_LINE13: string;
+ declare const HELP_TEXT_LINE14: string;
+ declare const HELP_TEXT_LINE15: string;
+ declare const HELP_TEXT_SIMPLE: string;
+ declare const HELP_TICKET_ABANDON: string;
+ declare const HELP_TICKET_ABANDON_CONFIRM: string;
+ declare const HELP_TICKET_EDIT: string;
+ declare const HELP_TICKET_EDIT_ABANDON: string;
+ declare const HELP_TICKET_OPEN: string;
+ declare const HELP_TICKET_QUEUE_DISABLED: string;
+ declare const HEROIC_PREFIX: string;
+ declare const HERTZ: string;
+ declare const HIDE: string;
+ declare const HIDE_OUTDOOR_WORLD_STATE_TEXT: string;
+ declare const HIDE_PARTY_INTERFACE_TEXT: string;
+ declare const HIDE_PULLOUT_BG: string;
+ declare const HIGH: string;
+ declare const HIGHLIGHTING: string;
+ declare const HIGHLIGHT_ABILITY_COMBATLOG_TOOLTIP: string;
+ declare const HIGHLIGHT_DAMAGE_COMBATLOG_TOOLTIP: string;
+ declare const HIGHLIGHT_KILL_COMBATLOG_TOOLTIP: string;
+ declare const HIGHLIGHT_SCHOOL_COMBATLOG_TOOLTIP: string;
+ declare const HIGH_BIDDER: string;
+ declare const HIT: string;
+ declare const HK: string;
+ declare const HOME: string;
+ declare const HOME_INN: string;
+ declare const HONOR: string;
+ declare const HONORABLE_KILLS: string;
+ declare const HONORABLE_KILLS_TOOLTIP: string;
+ declare const HONOR_CONTRIBUTION_POINTS: string;
+ declare const HONOR_ESTIMATED_TOOLTIP: string;
+ declare const HONOR_GAINED: string;
+ declare const HONOR_GAINED_TOOLTIP: string;
+ declare const HONOR_HIGHEST_RANK: string;
+ declare const HONOR_LASTWEEK: string;
+ declare const HONOR_LIFETIME: string;
+ declare const HONOR_POINTS: string;
+ declare const HONOR_STANDING: string;
+ declare const HONOR_THIS_SESSION: string;
+ declare const HONOR_TODAY: string;
+ declare const HONOR_YESTERDAY: string;
+ declare const HOSTILE: string;
+ declare const HOURS: string;
+ declare const HOURS_ABBR: string;
+ declare const HOUR_ONELETTER_ABBR: string;
+ declare const HP: string;
+ declare const HP_TEMPLATE: string;
+ declare const HUNTER_AGILITY_TOOLTIP: string;
+ declare const HUNTER_INTELLECT_TOOLTIP: string;
+ declare const ICON_TAG_RAID_TARGET_CIRCLE1: string;
+ declare const ICON_TAG_RAID_TARGET_CIRCLE2: string;
+ declare const ICON_TAG_RAID_TARGET_CROSS1: string;
+ declare const ICON_TAG_RAID_TARGET_CROSS2: string;
+ declare const ICON_TAG_RAID_TARGET_DIAMOND1: string;
+ declare const ICON_TAG_RAID_TARGET_DIAMOND2: string;
+ declare const ICON_TAG_RAID_TARGET_MOON1: string;
+ declare const ICON_TAG_RAID_TARGET_MOON2: string;
+ declare const ICON_TAG_RAID_TARGET_SKULL1: string;
+ declare const ICON_TAG_RAID_TARGET_SKULL2: string;
+ declare const ICON_TAG_RAID_TARGET_SQUARE1: string;
+ declare const ICON_TAG_RAID_TARGET_SQUARE2: string;
+ declare const ICON_TAG_RAID_TARGET_STAR1: string;
+ declare const ICON_TAG_RAID_TARGET_STAR2: string;
+ declare const ICON_TAG_RAID_TARGET_TRIANGLE1: string;
+ declare const ICON_TAG_RAID_TARGET_TRIANGLE2: string;
+ declare const ID: string;
+ declare const IDLE_MESSAGE: string;
+ declare const IGNORE: string;
+ declare const IGNORED: string;
+ declare const IGNORE_DIALOG: string;
+ declare const IGNORE_ERRORS: string;
+ declare const IGNORE_LIST: string;
+ declare const IGNORE_PLAYER: string;
+ declare const IGR_BILLING_NAG_DIALOG: string;
+ declare const IMMUNE: string;
+ declare const IMPORTANT_PEOPLE_IN_GROUP: string;
+ declare const IM_STYLE: string;
+ declare const INBOX: string;
+ declare const INBOX_TOO_MUCH_MAIL: string;
+ declare const INBOX_TOO_MUCH_MAIL_TOOLTIP: string;
+ declare const INCOMPLETE: string;
+ declare const INCREASE_POTENTIAL: string;
+ declare const INDIVIDUALS: string;
+ declare const INPUT_CHINESE: string;
+ declare const INPUT_JAPANESE: string;
+ declare const INPUT_KOREAN: string;
+ declare const INPUT_ROMAN: string;
+ declare const INSCRIPTION: string;
+ declare const INSPECT: string;
+ declare const INSPECT_NOTIFY: string;
+ declare const INSTANCE: string;
+ declare const INSTANCE_BOOT_TIMER: string;
+ declare const INSTANCE_DIFFICULTY_FORMAT: string;
+ declare const INSTANCE_ID: string;
+ declare const INSTANCE_LEAVE: string;
+ declare const INSTANCE_LOCK_SEPARATOR: string;
+ declare const INSTANCE_LOCK_TIMER: string;
+ declare const INSTANCE_LOCK_TIMER_PREVIOUSLY_SAVED: string;
+ declare const INSTANCE_RESET_FAILED: string;
+ declare const INSTANCE_RESET_FAILED_OFFLINE: string;
+ declare const INSTANCE_RESET_FAILED_ZONING: string;
+ declare const INSTANCE_RESET_SUCCESS: string;
+ declare const INSTANCE_SAVED: string;
+ declare const INSTANCE_SHUTDOWN_MESSAGE: string;
+ declare const INSTANCE_UNAVAILABLE_OTHER_EXPANSION_TOO_LOW: string;
+ declare const INSTANCE_UNAVAILABLE_OTHER_GEAR_TOO_HIGH: string;
+ declare const INSTANCE_UNAVAILABLE_OTHER_GEAR_TOO_LOW: string;
+ declare const INSTANCE_UNAVAILABLE_OTHER_LEVEL_TOO_HIGH: string;
+ declare const INSTANCE_UNAVAILABLE_OTHER_LEVEL_TOO_LOW: string;
+ declare const INSTANCE_UNAVAILABLE_OTHER_MISSING_ITEM: string;
+ declare const INSTANCE_UNAVAILABLE_OTHER_OTHER: string;
+ declare const INSTANCE_UNAVAILABLE_OTHER_QUEST_NOT_COMPLETED: string;
+ declare const INSTANCE_UNAVAILABLE_OTHER_RAID_LOCKED: string;
+ declare const INSTANCE_UNAVAILABLE_SELF_EXPANSION_TOO_LOW: string;
+ declare const INSTANCE_UNAVAILABLE_SELF_GEAR_TOO_HIGH: string;
+ declare const INSTANCE_UNAVAILABLE_SELF_GEAR_TOO_LOW: string;
+ declare const INSTANCE_UNAVAILABLE_SELF_LEVEL_TOO_HIGH: string;
+ declare const INSTANCE_UNAVAILABLE_SELF_LEVEL_TOO_LOW: string;
+ declare const INSTANCE_UNAVAILABLE_SELF_MISSING_ITEM: string;
+ declare const INSTANCE_UNAVAILABLE_SELF_OTHER: string;
+ declare const INSTANCE_UNAVAILABLE_SELF_QUEST_NOT_COMPLETED: string;
+ declare const INSTANCE_UNAVAILABLE_SELF_RAID_LOCKED: string;
+ declare const INT: string;
+ declare const INTELLECT_COLON: string;
+ declare const INTELLECT_TOOLTIP: string;
+ declare const INTERFACE_ACTION_BLOCKED: string;
+ declare const INTERFACE_OPTIONS: string;
+ declare const INTERNAL_STRING_ERROR: string;
+ declare const INTERRUPT: string;
+ declare const INTERRUPTED: string;
+ declare const INTERRUPTS: string;
+ declare const INT_GENERAL_DURATION_DAYS: string;
+ declare const INT_GENERAL_DURATION_HOURS: string;
+ declare const INT_GENERAL_DURATION_MIN: string;
+ declare const INT_GENERAL_DURATION_SEC: string;
+ declare const INT_SPELL_DURATION_DAYS: string;
+ declare const INT_SPELL_DURATION_HOURS: string;
+ declare const INT_SPELL_DURATION_MIN: string;
+ declare const INT_SPELL_DURATION_SEC: string;
+ declare const INT_SPELL_POINTS_SPREAD_TEMPLATE: string;
+ declare const INVENTORY_FULL: string;
+ declare const INVENTORY_TOOLTIP: string;
+ declare const INVERT_MOUSE: string;
+ declare const INVITATION: string;
+ declare const INVITE: string;
+ declare const INVITE_CONVERSATION_INSTRUCTIONS: string;
+ declare const INVITE_FRIEND_TO_CONVERSATION: string;
+ declare const INVITE_TO_CONVERSATION: string;
+ declare const INVTYPE_2HWEAPON: string;
+ declare const INVTYPE_AMMO: string;
+ declare const INVTYPE_BAG: string;
+ declare const INVTYPE_BODY: string;
+ declare const INVTYPE_CHEST: string;
+ declare const INVTYPE_CLOAK: string;
+ declare const INVTYPE_FEET: string;
+ declare const INVTYPE_FINGER: string;
+ declare const INVTYPE_HAND: string;
+ declare const INVTYPE_HEAD: string;
+ declare const INVTYPE_HOLDABLE: string;
+ declare const INVTYPE_LEGS: string;
+ declare const INVTYPE_NECK: string;
+ declare const INVTYPE_QUIVER: string;
+ declare const INVTYPE_RANGED: string;
+ declare const INVTYPE_RANGEDRIGHT: string;
+ declare const INVTYPE_RELIC: string;
+ declare const INVTYPE_ROBE: string;
+ declare const INVTYPE_SHIELD: string;
+ declare const INVTYPE_SHOULDER: string;
+ declare const INVTYPE_TABARD: string;
+ declare const INVTYPE_THROWN: string;
+ declare const INVTYPE_TRINKET: string;
+ declare const INVTYPE_WAIST: string;
+ declare const INVTYPE_WEAPON: string;
+ declare const INVTYPE_WEAPONMAINHAND: string;
+ declare const INVTYPE_WEAPONMAINHAND_PET: string;
+ declare const INVTYPE_WEAPONOFFHAND: string;
+ declare const INVTYPE_WRIST: string;
+ declare const ITEMPRESENTINOFFHAND: string;
+ declare const ITEMS: string;
+ declare const ITEMSLOTTEXT: string;
+ declare const ITEMS_EQUIPPED: string;
+ declare const ITEMS_IN_INVENTORY: string;
+ declare const ITEMS_NOT_IN_INVENTORY: string;
+ declare const ITEMS_VARIABLE_QUANTITY: string;
+ declare const ITEM_ACCOUNTBOUND: string;
+ declare const ITEM_BIND_ON_EQUIP: string;
+ declare const ITEM_BIND_ON_PICKUP: string;
+ declare const ITEM_BIND_ON_USE: string;
+ declare const ITEM_BIND_QUEST: string;
+ declare const ITEM_BIND_TO_ACCOUNT: string;
+ declare const ITEM_CANT_BE_DESTROYED: string;
+ declare const ITEM_CLASSES_ALLOWED: string;
+ declare const ITEM_CONJURED: string;
+ declare const ITEM_COOLDOWN_TIME: string;
+ declare const ITEM_COOLDOWN_TIME_DAYS: string;
+ declare const ITEM_COOLDOWN_TIME_HOURS: string;
+ declare const ITEM_COOLDOWN_TIME_MIN: string;
+ declare const ITEM_COOLDOWN_TIME_SEC: string;
+ declare const ITEM_COOLDOWN_TOTAL: string;
+ declare const ITEM_COOLDOWN_TOTAL_DAYS: string;
+ declare const ITEM_COOLDOWN_TOTAL_HOURS: string;
+ declare const ITEM_COOLDOWN_TOTAL_MIN: string;
+ declare const ITEM_COOLDOWN_TOTAL_SEC: string;
+ declare const ITEM_CREATED_BY: string;
+ declare const ITEM_DELTA_DESCRIPTION: string;
+ declare const ITEM_DISENCHANT_ANY_SKILL: string;
+ declare const ITEM_DISENCHANT_MIN_SKILL: string;
+ declare const ITEM_DISENCHANT_NOT_DISENCHANTABLE: string;
+ declare const ITEM_DURATION_DAYS: string;
+ declare const ITEM_DURATION_HOURS: string;
+ declare const ITEM_DURATION_MIN: string;
+ declare const ITEM_DURATION_SEC: string;
+ declare const ITEM_ENCHANT_DISCLAIMER: string;
+ declare const ITEM_ENCHANT_TIME_LEFT_DAYS: string;
+ declare const ITEM_ENCHANT_TIME_LEFT_HOURS: string;
+ declare const ITEM_ENCHANT_TIME_LEFT_MIN: string;
+ declare const ITEM_ENCHANT_TIME_LEFT_SEC: string;
+ declare const ITEM_HEROIC: string;
+ declare const ITEM_HEROIC_EPIC: string;
+ declare const ITEM_LEVEL: string;
+ declare const ITEM_LEVEL_AND_MIN: string;
+ declare const ITEM_LEVEL_RANGE: string;
+ declare const ITEM_LEVEL_RANGE_CURRENT: string;
+ declare const ITEM_LIMIT_CATEGORY: string;
+ declare const ITEM_LIMIT_CATEGORY_MULTIPLE: string;
+ declare const ITEM_LOOT: string;
+ declare const ITEM_MILLABLE: string;
+ declare const ITEM_MIN_LEVEL: string;
+ declare const ITEM_MIN_SKILL: string;
+ declare const ITEM_MISSING: string;
+ declare const ITEM_MOD_AGILITY: string;
+ declare const ITEM_MOD_AGILITY_SHORT: string;
+ declare const ITEM_MOD_ARMOR_PENETRATION_RATING: string;
+ declare const ITEM_MOD_ARMOR_PENETRATION_RATING_SHORT: string;
+ declare const ITEM_MOD_ATTACK_POWER: string;
+ declare const ITEM_MOD_ATTACK_POWER_SHORT: string;
+ declare const ITEM_MOD_BLOCK_RATING: string;
+ declare const ITEM_MOD_BLOCK_RATING_SHORT: string;
+ declare const ITEM_MOD_BLOCK_VALUE: string;
+ declare const ITEM_MOD_BLOCK_VALUE_SHORT: string;
+ declare const ITEM_MOD_CRIT_MELEE_RATING: string;
+ declare const ITEM_MOD_CRIT_MELEE_RATING_SHORT: string;
+ declare const ITEM_MOD_CRIT_RANGED_RATING: string;
+ declare const ITEM_MOD_CRIT_RANGED_RATING_SHORT: string;
+ declare const ITEM_MOD_CRIT_RATING: string;
+ declare const ITEM_MOD_CRIT_RATING_SHORT: string;
+ declare const ITEM_MOD_CRIT_SPELL_RATING: string;
+ declare const ITEM_MOD_CRIT_SPELL_RATING_SHORT: string;
+ declare const ITEM_MOD_CRIT_TAKEN_MELEE_RATING: string;
+ declare const ITEM_MOD_CRIT_TAKEN_MELEE_RATING_SHORT: string;
+ declare const ITEM_MOD_CRIT_TAKEN_RANGED_RATING: string;
+ declare const ITEM_MOD_CRIT_TAKEN_RANGED_RATING_SHORT: string;
+ declare const ITEM_MOD_CRIT_TAKEN_RATING: string;
+ declare const ITEM_MOD_CRIT_TAKEN_RATING_SHORT: string;
+ declare const ITEM_MOD_CRIT_TAKEN_SPELL_RATING: string;
+ declare const ITEM_MOD_CRIT_TAKEN_SPELL_RATING_SHORT: string;
+ declare const ITEM_MOD_DAMAGE_PER_SECOND_SHORT: string;
+ declare const ITEM_MOD_DEFENSE_SKILL_RATING: string;
+ declare const ITEM_MOD_DEFENSE_SKILL_RATING_SHORT: string;
+ declare const ITEM_MOD_DODGE_RATING: string;
+ declare const ITEM_MOD_DODGE_RATING_SHORT: string;
+ declare const ITEM_MOD_EXPERTISE_RATING: string;
+ declare const ITEM_MOD_EXPERTISE_RATING_SHORT: string;
+ declare const ITEM_MOD_FERAL_ATTACK_POWER: string;
+ declare const ITEM_MOD_FERAL_ATTACK_POWER_SHORT: string;
+ declare const ITEM_MOD_HASTE_MELEE_RATING: string;
+ declare const ITEM_MOD_HASTE_MELEE_RATING_SHORT: string;
+ declare const ITEM_MOD_HASTE_RANGED_RATING: string;
+ declare const ITEM_MOD_HASTE_RANGED_RATING_SHORT: string;
+ declare const ITEM_MOD_HASTE_RATING: string;
+ declare const ITEM_MOD_HASTE_RATING_SHORT: string;
+ declare const ITEM_MOD_HASTE_SPELL_RATING: string;
+ declare const ITEM_MOD_HASTE_SPELL_RATING_SHORT: string;
+ declare const ITEM_MOD_HEALTH: string;
+ declare const ITEM_MOD_HEALTH_REGEN: string;
+ declare const ITEM_MOD_HEALTH_REGENERATION: string;
+ declare const ITEM_MOD_HEALTH_REGENERATION_SHORT: string;
+ declare const ITEM_MOD_HEALTH_REGEN_SHORT: string;
+ declare const ITEM_MOD_HEALTH_SHORT: string;
+ declare const ITEM_MOD_HIT_MELEE_RATING: string;
+ declare const ITEM_MOD_HIT_MELEE_RATING_SHORT: string;
+ declare const ITEM_MOD_HIT_RANGED_RATING: string;
+ declare const ITEM_MOD_HIT_RANGED_RATING_SHORT: string;
+ declare const ITEM_MOD_HIT_RATING: string;
+ declare const ITEM_MOD_HIT_RATING_SHORT: string;
+ declare const ITEM_MOD_HIT_SPELL_RATING: string;
+ declare const ITEM_MOD_HIT_SPELL_RATING_SHORT: string;
+ declare const ITEM_MOD_HIT_TAKEN_MELEE_RATING: string;
+ declare const ITEM_MOD_HIT_TAKEN_MELEE_RATING_SHORT: string;
+ declare const ITEM_MOD_HIT_TAKEN_RANGED_RATING: string;
+ declare const ITEM_MOD_HIT_TAKEN_RANGED_RATING_SHORT: string;
+ declare const ITEM_MOD_HIT_TAKEN_RATING: string;
+ declare const ITEM_MOD_HIT_TAKEN_RATING_SHORT: string;
+ declare const ITEM_MOD_HIT_TAKEN_SPELL_RATING: string;
+ declare const ITEM_MOD_HIT_TAKEN_SPELL_RATING_SHORT: string;
+ declare const ITEM_MOD_INTELLECT: string;
+ declare const ITEM_MOD_INTELLECT_SHORT: string;
+ declare const ITEM_MOD_MANA: string;
+ declare const ITEM_MOD_MANA_REGENERATION: string;
+ declare const ITEM_MOD_MANA_REGENERATION_SHORT: string;
+ declare const ITEM_MOD_MANA_SHORT: string;
+ declare const ITEM_MOD_MELEE_ATTACK_POWER_SHORT: string;
+ declare const ITEM_MOD_PARRY_RATING: string;
+ declare const ITEM_MOD_PARRY_RATING_SHORT: string;
+ declare const ITEM_MOD_POWER_REGEN0_SHORT: string;
+ declare const ITEM_MOD_POWER_REGEN1_SHORT: string;
+ declare const ITEM_MOD_POWER_REGEN2_SHORT: string;
+ declare const ITEM_MOD_POWER_REGEN3_SHORT: string;
+ declare const ITEM_MOD_POWER_REGEN4_SHORT: string;
+ declare const ITEM_MOD_POWER_REGEN5_SHORT: string;
+ declare const ITEM_MOD_POWER_REGEN6_SHORT: string;
+ declare const ITEM_MOD_RANGED_ATTACK_POWER: string;
+ declare const ITEM_MOD_RANGED_ATTACK_POWER_SHORT: string;
+ declare const ITEM_MOD_RESILIENCE_RATING: string;
+ declare const ITEM_MOD_RESILIENCE_RATING_SHORT: string;
+ declare const ITEM_MOD_SPELL_DAMAGE_DONE: string;
+ declare const ITEM_MOD_SPELL_DAMAGE_DONE_SHORT: string;
+ declare const ITEM_MOD_SPELL_HEALING_DONE: string;
+ declare const ITEM_MOD_SPELL_HEALING_DONE_SHORT: string;
+ declare const ITEM_MOD_SPELL_PENETRATION: string;
+ declare const ITEM_MOD_SPELL_PENETRATION_SHORT: string;
+ declare const ITEM_MOD_SPELL_POWER: string;
+ declare const ITEM_MOD_SPELL_POWER_SHORT: string;
+ declare const ITEM_MOD_SPIRIT: string;
+ declare const ITEM_MOD_SPIRIT_SHORT: string;
+ declare const ITEM_MOD_STAMINA: string;
+ declare const ITEM_MOD_STAMINA_SHORT: string;
+ declare const ITEM_MOD_STRENGTH: string;
+ declare const ITEM_MOD_STRENGTH_SHORT: string;
+ declare const ITEM_MOUSE_OVER: string;
+ declare const ITEM_NAMES: string;
+ declare const ITEM_NAMES_SHOW_BRACES_COMBATLOG_TOOLTIP: string;
+ declare const ITEM_NO_DROP: string;
+ declare const ITEM_OPENABLE: string;
+ declare const ITEM_PROPOSED_ENCHANT: string;
+ declare const ITEM_PROSPECTABLE: string;
+ declare const ITEM_PURCHASED_COLON: string;
+ declare const ITEM_QUALITY0_DESC: string;
+ declare const ITEM_QUALITY1_DESC: string;
+ declare const ITEM_QUALITY2_DESC: string;
+ declare const ITEM_QUALITY3_DESC: string;
+ declare const ITEM_QUALITY4_DESC: string;
+ declare const ITEM_QUALITY5_DESC: string;
+ declare const ITEM_QUALITY6_DESC: string;
+ declare const ITEM_QUALITY7_DESC: string;
+ declare const ITEM_QUANTITY_TEMPLATE: string;
+ declare const ITEM_RACES_ALLOWED: string;
+ declare const ITEM_RANDOM_ENCHANT: string;
+ declare const ITEM_READABLE: string;
+ declare const ITEM_REFUND_MSG: string;
+ declare const ITEM_REQ_ARENA_RATING: string;
+ declare const ITEM_REQ_ARENA_RATING_3V3: string;
+ declare const ITEM_REQ_ARENA_RATING_5V5: string;
+ declare const ITEM_REQ_PURCHASE_GROUP: string;
+ declare const ITEM_REQ_REPUTATION: string;
+ declare const ITEM_REQ_SKILL: string;
+ declare const ITEM_RESIST_ALL: string;
+ declare const ITEM_RESIST_SINGLE: string;
+ declare const ITEM_SET_BONUS: string;
+ declare const ITEM_SET_BONUS_GRAY: string;
+ declare const ITEM_SET_NAME: string;
+ declare const ITEM_SIGNABLE: string;
+ declare const ITEM_SLOTS_IGNORED: string;
+ declare const ITEM_SOCKETABLE: string;
+ declare const ITEM_SOCKETING: string;
+ declare const ITEM_SOCKET_BONUS: string;
+ declare const ITEM_SOLD_COLON: string;
+ declare const ITEM_SOULBOUND: string;
+ declare const ITEM_SPELL_CHARGES: string;
+ declare const ITEM_SPELL_CHARGES_NONE: string;
+ declare const ITEM_SPELL_EFFECT: string;
+ declare const ITEM_SPELL_KNOWN: string;
+ declare const ITEM_SPELL_TRIGGER_ONEQUIP: string;
+ declare const ITEM_SPELL_TRIGGER_ONPROC: string;
+ declare const ITEM_SPELL_TRIGGER_ONUSE: string;
+ declare const ITEM_STARTS_QUEST: string;
+ declare const ITEM_SUFFIX_TEMPLATE: string;
+ declare const ITEM_TEXT_FROM: string;
+ declare const ITEM_UNIQUE: string;
+ declare const ITEM_UNIQUE_EQUIPPABLE: string;
+ declare const ITEM_UNIQUE_MULTIPLE: string;
+ declare const ITEM_UNSELLABLE: string;
+ declare const ITEM_WRAPPED_BY: string;
+ declare const ITEM_WRITTEN_BY: string;
+ declare const ITEM_WRONG_CLASS: string;
+ declare const ITEM_WRONG_RACE: string;
+ declare const ITUNES_SHOW_ALL_TRACK_CHANGES: string;
+ declare const ITUNES_SHOW_ALL_TRACK_CHANGES_TOOLTIP: string;
+ declare const ITUNES_SHOW_FEEDBACK: string;
+ declare const ITUNES_SHOW_FEEDBACK_TOOLTIP: string;
+ declare const JOIN: string;
+ declare const JOINED_PARTY: string;
+ declare const JOIN_AS_GROUP: string;
+ declare const JOIN_AS_GROUP_TOOLTIP: string;
+ declare const JOIN_AS_PARTY: string;
+ declare const JOIN_NEW_CHANNEL: string;
+ declare const KBASE_ARTICLE_COUNT: string;
+ declare const KBASE_ARTICLE_ID: string;
+ declare const KBASE_CHARSTUCK: string;
+ declare const KBASE_DEFAULT_SEARCH_TEXT: string;
+ declare const KBASE_ERROR_LOAD_FAILURE: string;
+ declare const KBASE_ERROR_NO_RESULTS: string;
+ declare const KBASE_GMTALK: string;
+ declare const KBASE_HOT_ISSUE: string;
+ declare const KBASE_LAG: string;
+ declare const KBASE_RECENTLY_UPDATED: string;
+ declare const KBASE_REPORTISSUE: string;
+ declare const KBASE_SEARCH_RESULTS: string;
+ declare const KBASE_TOP_ISSUES: string;
+ declare const KEY1: string;
+ declare const KEY2: string;
+ declare const KEYBINDINGFRAME_MOUSEWHEEL_ERROR: string;
+ declare const KEYRING: string;
+ declare const KEY_APOSTROPHE: string;
+ declare const KEY_BACKSLASH: string;
+ declare const KEY_BACKSPACE: string;
+ declare const KEY_BACKSPACE_MAC: string;
+ declare const KEY_BINDING: string;
+ declare const KEY_BINDINGS: string;
+ declare const KEY_BINDINGS_MAC: string;
+ declare const KEY_BOUND: string;
+ declare const KEY_BUTTON1: string;
+ declare const KEY_BUTTON10: string;
+ declare const KEY_BUTTON11: string;
+ declare const KEY_BUTTON12: string;
+ declare const KEY_BUTTON13: string;
+ declare const KEY_BUTTON14: string;
+ declare const KEY_BUTTON15: string;
+ declare const KEY_BUTTON16: string;
+ declare const KEY_BUTTON17: string;
+ declare const KEY_BUTTON18: string;
+ declare const KEY_BUTTON19: string;
+ declare const KEY_BUTTON2: string;
+ declare const KEY_BUTTON20: string;
+ declare const KEY_BUTTON21: string;
+ declare const KEY_BUTTON22: string;
+ declare const KEY_BUTTON23: string;
+ declare const KEY_BUTTON24: string;
+ declare const KEY_BUTTON25: string;
+ declare const KEY_BUTTON26: string;
+ declare const KEY_BUTTON27: string;
+ declare const KEY_BUTTON28: string;
+ declare const KEY_BUTTON29: string;
+ declare const KEY_BUTTON3: string;
+ declare const KEY_BUTTON30: string;
+ declare const KEY_BUTTON31: string;
+ declare const KEY_BUTTON4: string;
+ declare const KEY_BUTTON5: string;
+ declare const KEY_BUTTON6: string;
+ declare const KEY_BUTTON7: string;
+ declare const KEY_BUTTON8: string;
+ declare const KEY_BUTTON9: string;
+ declare const KEY_COMMA: string;
+ declare const KEY_DELETE: string;
+ declare const KEY_DELETE_MAC: string;
+ declare const KEY_DOWN: string;
+ declare const KEY_END: string;
+ declare const KEY_ENTER: string;
+ declare const KEY_ENTER_MAC: string;
+ declare const KEY_ESCAPE: string;
+ declare const KEY_HOME: string;
+ declare const KEY_INSERT: string;
+ declare const KEY_INSERT_MAC: string;
+ declare const KEY_LEFT: string;
+ declare const KEY_LEFTBRACKET: string;
+ declare const KEY_MINUS: string;
+ declare const KEY_MOUSEWHEELDOWN: string;
+ declare const KEY_MOUSEWHEELUP: string;
+ declare const KEY_NUMLOCK: string;
+ declare const KEY_NUMLOCK_MAC: string;
+ declare const KEY_NUMPAD0: string;
+ declare const KEY_NUMPAD1: string;
+ declare const KEY_NUMPAD2: string;
+ declare const KEY_NUMPAD3: string;
+ declare const KEY_NUMPAD4: string;
+ declare const KEY_NUMPAD5: string;
+ declare const KEY_NUMPAD6: string;
+ declare const KEY_NUMPAD7: string;
+ declare const KEY_NUMPAD8: string;
+ declare const KEY_NUMPAD9: string;
+ declare const KEY_NUMPADDECIMAL: string;
+ declare const KEY_NUMPADDIVIDE: string;
+ declare const KEY_NUMPADMINUS: string;
+ declare const KEY_NUMPADMULTIPLY: string;
+ declare const KEY_NUMPADPLUS: string;
+ declare const KEY_PAGEDOWN: string;
+ declare const KEY_PAGEUP: string;
+ declare const KEY_PAUSE: string;
+ declare const KEY_PAUSE_MAC: string;
+ declare const KEY_PERIOD: string;
+ declare const KEY_PLUS: string;
+ declare const KEY_PRINTSCREEN: string;
+ declare const KEY_PRINTSCREEN_MAC: string;
+ declare const KEY_RIGHT: string;
+ declare const KEY_RIGHTBRACKET: string;
+ declare const KEY_SCROLLLOCK: string;
+ declare const KEY_SCROLLLOCK_MAC: string;
+ declare const KEY_SEMICOLON: string;
+ declare const KEY_SLASH: string;
+ declare const KEY_SPACE: string;
+ declare const KEY_TAB: string;
+ declare const KEY_TILDE: string;
+ declare const KEY_UNBOUND_ERROR: string;
+ declare const KEY_UP: string;
+ declare const KILLING_BLOWS: string;
+ declare const KILLING_BLOW_TOOLTIP: string;
+ declare const KILLS: string;
+ declare const KILLS_COMBATLOG_TOOLTIP: string;
+ declare const KILLS_PVP: string;
+ declare const KNOWLEDGEBASE_FRAME_TITLE: string;
+ declare const KNOWLEDGE_BASE: string;
+ declare const KNOWN_TALENTS_HEADER: string;
+ declare const KOKR: string;
+ declare const LABEL_NOTE: string;
+ declare const LALT_KEY_TEXT: string;
+ declare const LANGUAGE: string;
+ declare const LANGUAGES_LABEL: string;
+ declare const LANGUAGES_SUBTEXT: string;
+ declare const LASTONLINE: string;
+ declare const LASTONLINE_DAYS: string;
+ declare const LASTONLINE_HOURS: string;
+ declare const LASTONLINE_MINS: string;
+ declare const LASTONLINE_MINUTES: string;
+ declare const LASTONLINE_MONTHS: string;
+ declare const LASTONLINE_SECS: string;
+ declare const LASTONLINE_YEARS: string;
+ declare const LAST_ONLINE_COLON: string;
+ declare const LATEST_UNLOCKED_ACHIEVEMENTS: string;
+ declare const LATEST_UPDATED_STATS: string;
+ declare const LAUGH_WORD1: string;
+ declare const LAUGH_WORD2: string;
+ declare const LAUGH_WORD3: string;
+ declare const LAUGH_WORD4: string;
+ declare const LAUGH_WORD5: string;
+ declare const LAUGH_WORD6: string;
+ declare const LAUGH_WORD7: string;
+ declare const LAUGH_WORD8: string;
+ declare const LAUGH_WORD9: string;
+ declare const LCTRL_KEY_TEXT: string;
+ declare const LEADER: string;
+ declare const LEADER_TOOLTIP: string;
+ declare const LEARN: string;
+ declare const LEARN_SKILL_TEMPLATE: string;
+ declare const LEAVE_ALL: string;
+ declare const LEAVE_ARENA: string;
+ declare const LEAVE_BATTLEGROUND: string;
+ declare const LEAVE_CONVERSATION: string;
+ declare const LEAVE_QUEUE: string;
+ declare const LEAVE_VEHICLE: string;
+ declare const LEAVE_ZONE: string;
+ declare const LEAVING_COMBAT: string;
+ declare const LEFT_PARTY: string;
+ declare const LEGSSLOT: string;
+ declare const LESS_THAN_ONE_MINUTE: string;
+ declare const LEVEL: string;
+ declare const LEVEL_ABBR: string;
+ declare const LEVEL_GAINED: string;
+ declare const LEVEL_GRANT: string;
+ declare const LEVEL_RANGE: string;
+ declare const LEVEL_REQUIRED: string;
+ declare const LEVEL_TOO_LOW: string;
+ declare const LEVEL_UP: string;
+ declare const LEVEL_UP_CHAR_POINTS: string;
+ declare const LEVEL_UP_HEALTH: string;
+ declare const LEVEL_UP_HEALTH_MANA: string;
+ declare const LEVEL_UP_SKILL_POINTS: string;
+ declare const LEVEL_UP_STAT: string;
+ declare const LFD_HOLIDAY_REWARD_EXPLANATION1: string;
+ declare const LFD_HOLIDAY_REWARD_EXPLANATION2: string;
+ declare const LFD_LEVEL_FORMAT_RANGE: string;
+ declare const LFD_LEVEL_FORMAT_SINGLE: string;
+ declare const LFD_RANDOM_EXPLANATION: string;
+ declare const LFD_RANDOM_REWARD_EXPLANATION1: string;
+ declare const LFD_RANDOM_REWARD_EXPLANATION2: string;
+ declare const LFD_RANDOM_REWARD_PUG_EXPLANATION: string;
+ declare const LFD_REWARDS: string;
+ declare const LFGWIZARD_TITLE: string;
+ declare const LFG_DESERTER_OTHER: string;
+ declare const LFG_DESERTER_YOU: string;
+ declare const LFG_DISABLED_LFM_TOOLTIP: string;
+ declare const LFG_DISABLED_PARTY_TOOLTIP: string;
+ declare const LFG_LABEL: string;
+ declare const LFG_OFFER_CONTINUE: string;
+ declare const LFG_RANDOM_COOLDOWN_OTHER: string;
+ declare const LFG_RANDOM_COOLDOWN_YOU: string;
+ declare const LFG_ROLES_TITLE: string;
+ declare const LFG_ROLE_CHECK_ROLE_CHOSEN: string;
+ declare const LFG_STATISTIC_AVERAGE_WAIT: string;
+ declare const LFG_STATISTIC_AVERAGE_WAIT_UNKNOWN: string;
+ declare const LFG_STATISTIC_MATCHES_MADE: string;
+ declare const LFG_STATISTIC_PARTIES_IN_QUEUE: string;
+ declare const LFG_STATISTIC_PLAYERS_IN_QUEUE: string;
+ declare const LFG_TITLE: string;
+ declare const LFG_TOOLTIP_ROLES: string;
+ declare const LFG_TYPE_ANY_DUNGEON: string;
+ declare const LFG_TYPE_ANY_HEROIC_DUNGEON: string;
+ declare const LFG_TYPE_BATTLEGROUND: string;
+ declare const LFG_TYPE_DAILY_DUNGEON: string;
+ declare const LFG_TYPE_DAILY_HEROIC_DUNGEON: string;
+ declare const LFG_TYPE_DUNGEON: string;
+ declare const LFG_TYPE_HEROIC_DUNGEON: string;
+ declare const LFG_TYPE_NONE: string;
+ declare const LFG_TYPE_QUEST: string;
+ declare const LFG_TYPE_RAID: string;
+ declare const LFG_TYPE_RANDOM_DUNGEON: string;
+ declare const LFG_TYPE_ZONE: string;
+ declare const LFM_DISABLED_LFG_TOOLTIP: string;
+ declare const LFM_NAME_TEMPLATE: string;
+ declare const LFM_NUM_RAID_MEMBER_TEMPLATE: string;
+ declare const LFM_TITLE: string;
+ declare const LINK_TRADESKILL_TOOLTIP: string;
+ declare const LIST_ME: string;
+ declare const LIST_MY_GROUP: string;
+ declare const LOCALE_INFORMATION: string;
+ declare const LOCATION_COLON: string;
+ declare const LOCK: string;
+ declare const LOCKED: string;
+ declare const LOCKED_WITH_ITEM: string;
+ declare const LOCKED_WITH_SPELL: string;
+ declare const LOCKED_WITH_SPELL_KNOWN: string;
+ declare const LOCK_ACTIONBAR_TEXT: string;
+ declare const LOCK_BATTLEFIELDMINIMAP: string;
+ declare const LOCK_CHANNELPULLOUT_LABEL: string;
+ declare const LOCK_EXPIRE: string;
+ declare const LOCK_FOCUS_FRAME: string;
+ declare const LOCK_WINDOW: string;
+ declare const LOGOUT: string;
+ declare const LOG_PERIODIC_EFFECTS: string;
+ declare const LOOKING: string;
+ declare const LOOKING_FOR: string;
+ declare const LOOKING_FOR_DUNGEON: string;
+ declare const LOOKING_FOR_GROUP_LABEL: string;
+ declare const LOOKING_FOR_GROUP_LABEL2: string;
+ declare const LOOKING_FOR_GROUP_TEXT: string;
+ declare const LOOKING_FOR_MORE: string;
+ declare const LOOKING_FOR_MORE_TEXT: string;
+ declare const LOOKING_FOR_RAID: string;
+ declare const LOOK_FOR_GROUP: string;
+ declare const LOOK_FOR_MORE: string;
+ declare const LOOT: string;
+ declare const LOOTER: string;
+ declare const LOOT_FREE_FOR_ALL: string;
+ declare const LOOT_GONE: string;
+ declare const LOOT_GROUP_LOOT: string;
+ declare const LOOT_ITEM: string;
+ declare const LOOT_ITEM_CREATED_SELF: string;
+ declare const LOOT_ITEM_CREATED_SELF_MULTIPLE: string;
+ declare const LOOT_ITEM_MULTIPLE: string;
+ declare const LOOT_ITEM_PUSHED_SELF: string;
+ declare const LOOT_ITEM_PUSHED_SELF_MULTIPLE: string;
+ declare const LOOT_ITEM_SELF: string;
+ declare const LOOT_ITEM_SELF_MULTIPLE: string;
+ declare const LOOT_KEY_TEXT: string;
+ declare const LOOT_MASTER_LOOTER: string;
+ declare const LOOT_METHOD: string;
+ declare const LOOT_MONEY: string;
+ declare const LOOT_MONEY_SPLIT: string;
+ declare const LOOT_NEED_BEFORE_GREED: string;
+ declare const LOOT_NEXT_PAGE: string;
+ declare const LOOT_NO_DROP: string;
+ declare const LOOT_NO_DROP_DISENCHANT: string;
+ declare const LOOT_PROMOTE: string;
+ declare const LOOT_ROLL_ALL_PASSED: string;
+ declare const LOOT_ROLL_DISENCHANT: string;
+ declare const LOOT_ROLL_DISENCHANT_SELF: string;
+ declare const LOOT_ROLL_GREED: string;
+ declare const LOOT_ROLL_GREED_SELF: string;
+ declare const LOOT_ROLL_INELIGIBLE_REASON1: string;
+ declare const LOOT_ROLL_INELIGIBLE_REASON2: string;
+ declare const LOOT_ROLL_INELIGIBLE_REASON3: string;
+ declare const LOOT_ROLL_INELIGIBLE_REASON4: string;
+ declare const LOOT_ROLL_INELIGIBLE_REASON5: string;
+ declare const LOOT_ROLL_NEED: string;
+ declare const LOOT_ROLL_NEED_SELF: string;
+ declare const LOOT_ROLL_PASSED: string;
+ declare const LOOT_ROLL_PASSED_AUTO: string;
+ declare const LOOT_ROLL_PASSED_AUTO_FEMALE: string;
+ declare const LOOT_ROLL_PASSED_SELF: string;
+ declare const LOOT_ROLL_PASSED_SELF_AUTO: string;
+ declare const LOOT_ROLL_ROLLED_DE: string;
+ declare const LOOT_ROLL_ROLLED_GREED: string;
+ declare const LOOT_ROLL_ROLLED_NEED: string;
+ declare const LOOT_ROLL_WON: string;
+ declare const LOOT_ROLL_WON_NO_SPAM_DE: string;
+ declare const LOOT_ROLL_WON_NO_SPAM_GREED: string;
+ declare const LOOT_ROLL_WON_NO_SPAM_NEED: string;
+ declare const LOOT_ROLL_YOU_WON: string;
+ declare const LOOT_ROLL_YOU_WON_NO_SPAM_DE: string;
+ declare const LOOT_ROLL_YOU_WON_NO_SPAM_GREED: string;
+ declare const LOOT_ROLL_YOU_WON_NO_SPAM_NEED: string;
+ declare const LOOT_ROUND_ROBIN: string;
+ declare const LOOT_THRESHOLD: string;
+ declare const LOOT_UNDER_MOUSE_TEXT: string;
+ declare const LOSS: string;
+ declare const LOW: string;
+ declare const LSHIFT_KEY_TEXT: string;
+ declare const LUA_ERROR: string;
+ declare const MACRO: string;
+ declare const MACROFRAME_CHAR_LIMIT: string;
+ declare const MACROS: string;
+ declare const MACRO_ACTION_FORBIDDEN: string;
+ declare const MACRO_HELP_TEXT_LINE1: string;
+ declare const MACRO_HELP_TEXT_LINE2: string;
+ declare const MACRO_HELP_TEXT_LINE3: string;
+ declare const MACRO_HELP_TEXT_LINE4: string;
+ declare const MACRO_HELP_TEXT_LINE5: string;
+ declare const MACRO_POPUP_CHOOSE_ICON: string;
+ declare const MACRO_POPUP_TEXT: string;
+ declare const MAC_OPTIONS: string;
+ declare const MAGE_INTELLECT_TOOLTIP: string;
+ declare const MAGIC_RESISTANCES_COLON: string;
+ declare const MAIL_COD_ERROR: string;
+ declare const MAIL_COD_ERROR_COLORBLIND: string;
+ declare const MAIL_LABEL: string;
+ declare const MAIL_LETTER_TOOLTIP: string;
+ declare const MAIL_LOOT_KEY_TEXT: string;
+ declare const MAIL_MULTIPLE_ITEMS: string;
+ declare const MAIL_REPLY_PREFIX: string;
+ declare const MAIL_RETURN: string;
+ declare const MAIL_SUBJECT_LABEL: string;
+ declare const MAIL_TO_LABEL: string;
+ declare const MAINASSIST: string;
+ declare const MAINHANDSLOT: string;
+ declare const MAINMENUBAR_FPS_LABEL: string;
+ declare const MAINMENUBAR_LATENCY_LABEL: string;
+ declare const MAINMENU_BUTTON: string;
+ declare const MAINTANK: string;
+ declare const MAIN_ASSIST: string;
+ declare const MAIN_MENU: string;
+ declare const MAIN_TANK: string;
+ declare const MAJOR_GLYPH: string;
+ declare const MAKE_INTERACTABLE: string;
+ declare const MAKE_MODERATOR: string;
+ declare const MAKE_UNINTERACTABLE: string;
+ declare const MALE: string;
+ declare const MANA: string;
+ declare const MANAGE_ACCOUNT: string;
+ declare const MANAGE_ACCOUNT_URL: string;
+ declare const MANA_COLON: string;
+ declare const MANA_COST: string;
+ declare const MANA_COST_PER_TIME: string;
+ declare const MANA_LOW: string;
+ declare const MANA_REGEN: string;
+ declare const MANA_REGEN_ABBR: string;
+ declare const MANA_REGEN_FROM_SPIRIT: string;
+ declare const MANA_REGEN_TOOLTIP: string;
+ declare const MAP_QUEST_DIFFICULTY_TEXT: string;
+ declare const MARKED_AFK: string;
+ declare const MARKED_AFK_MESSAGE: string;
+ declare const MARKED_DND: string;
+ declare const MASTERY_POINTS_SPENT: string;
+ declare const MASTER_LOOTER: string;
+ declare const MASTER_VOLUME: string;
+ declare const MATCHMAKING_MATCH_S: string;
+ declare const MATCHMAKING_PENDING: string;
+ declare const MAXIMUM: string;
+ declare const MAX_FOLLOW_DIST: string;
+ declare const MAX_HP_TEMPLATE: string;
+ declare const MEETINGSTONE_LEVEL: string;
+ declare const MEETINGSTONE_TOOLTIP: string;
+ declare const MELEE: string;
+ declare const MELEE_ATTACK: string;
+ declare const MELEE_ATTACK_POWER: string;
+ declare const MELEE_ATTACK_POWER_TOOLTIP: string;
+ declare const MELEE_COMBATLOG_TOOLTIP: string;
+ declare const MELEE_CRIT_CHANCE: string;
+ declare const MELEE_RANGE: string;
+ declare const MEMBERS: string;
+ declare const MERCHANT: string;
+ declare const MERCHANT_ARENA_POINTS: string;
+ declare const MERCHANT_BUYBACK: string;
+ declare const MERCHANT_HONOR_POINTS: string;
+ declare const MERCHANT_PAGE_NUMBER: string;
+ declare const MERCHANT_STOCK: string;
+ declare const MESSAGE_SOURCES: string;
+ declare const MESSAGE_TYPES: string;
+ declare const META_GEM: string;
+ declare const MILLISECONDS_ABBR: string;
+ declare const MINIMAP_LABEL: string;
+ declare const MINIMAP_TRACKING_AUCTIONEER: string;
+ declare const MINIMAP_TRACKING_BANKER: string;
+ declare const MINIMAP_TRACKING_BATTLEMASTER: string;
+ declare const MINIMAP_TRACKING_FLIGHTMASTER: string;
+ declare const MINIMAP_TRACKING_INNKEEPER: string;
+ declare const MINIMAP_TRACKING_MAILBOX: string;
+ declare const MINIMAP_TRACKING_REPAIR: string;
+ declare const MINIMAP_TRACKING_STABLEMASTER: string;
+ declare const MINIMAP_TRACKING_TOOLTIP_NONE: string;
+ declare const MINIMAP_TRACKING_TRAINER_CLASS: string;
+ declare const MINIMAP_TRACKING_TRAINER_PROFESSION: string;
+ declare const MINIMAP_TRACKING_TRIVIAL_QUESTS: string;
+ declare const MINIMAP_TRACKING_VENDOR_AMMO: string;
+ declare const MINIMAP_TRACKING_VENDOR_FOOD: string;
+ declare const MINIMAP_TRACKING_VENDOR_POISON: string;
+ declare const MINIMAP_TRACKING_VENDOR_REAGENT: string;
+ declare const MINIMIZE: string;
+ declare const MINIMUM: string;
+ declare const MINOR_GLYPH: string;
+ declare const MINS_ABBR: string;
+ declare const MINUTES: string;
+ declare const MINUTES_ABBR: string;
+ declare const MINUTE_ONELETTER_ABBR: string;
+ declare const MISCELLANEOUS: string;
+ declare const MISS: string;
+ declare const MISSES: string;
+ declare const MODE: string;
+ declare const MODIFIERS_COLON: string;
+ declare const MONEY: string;
+ declare const MONEY_COLON: string;
+ declare const MONEY_LOOT: string;
+ declare const MONSTER_BOSS_EMOTE: string;
+ declare const MONSTER_BOSS_WHISPER: string;
+ declare const MONTH_APRIL: string;
+ declare const MONTH_AUGUST: string;
+ declare const MONTH_DECEMBER: string;
+ declare const MONTH_FEBRUARY: string;
+ declare const MONTH_JANUARY: string;
+ declare const MONTH_JULY: string;
+ declare const MONTH_JUNE: string;
+ declare const MONTH_MARCH: string;
+ declare const MONTH_MAY: string;
+ declare const MONTH_NOVEMBER: string;
+ declare const MONTH_OCTOBER: string;
+ declare const MONTH_SEPTEMBER: string;
+ declare const MORE_REAGENTS: string;
+ declare const MOTD_COLON: string;
+ declare const MOUNT: string;
+ declare const MOUNTS: string;
+ declare const MOUSE_LABEL: string;
+ declare const MOUSE_LOOK_SPEED: string;
+ declare const MOUSE_SENSITIVITY: string;
+ declare const MOUSE_SUBTEXT: string;
+ declare const MOVE_FILTER_DOWN: string;
+ declare const MOVE_FILTER_UP: string;
+ declare const MOVE_TO_CONVERSATION_WINDOW: string;
+ declare const MOVE_TO_INACTIVE: string;
+ declare const MOVE_TO_NEW_WINDOW: string;
+ declare const MOVE_TO_WHISPER_WINDOW: string;
+ declare const MOVIE_RECORDING_AIC: string;
+ declare const MOVIE_RECORDING_AIC_TOOLTIP: string;
+ declare const MOVIE_RECORDING_CANCEL_CONFIRMATION: string;
+ declare const MOVIE_RECORDING_CODEC_TOOLTIP: string;
+ declare const MOVIE_RECORDING_COMPRESSBUTTON: string;
+ declare const MOVIE_RECORDING_COMPRESSDIALOG: string;
+ declare const MOVIE_RECORDING_COMPRESSING: string;
+ declare const MOVIE_RECORDING_COMPRESSING_CANCEL_NEWBIE_TOOLTIP: string;
+ declare const MOVIE_RECORDING_COMPRESSING_CANCEL_TOOLTIP: string;
+ declare const MOVIE_RECORDING_COMPRESSION: string;
+ declare const MOVIE_RECORDING_COMPRESSION_STARTED: string;
+ declare const MOVIE_RECORDING_COMPRESS_TOOLTIP: string;
+ declare const MOVIE_RECORDING_DATA_RATE: string;
+ declare const MOVIE_RECORDING_DATA_RATE_TOOLTIP: string;
+ declare const MOVIE_RECORDING_DV: string;
+ declare const MOVIE_RECORDING_DV_TOOLTIP: string;
+ declare const MOVIE_RECORDING_ENABLE_COMPRESSION: string;
+ declare const MOVIE_RECORDING_ENABLE_COMPRESSION_TOOLTIP: string;
+ declare const MOVIE_RECORDING_ENABLE_CURSOR: string;
+ declare const MOVIE_RECORDING_ENABLE_CURSOR_TOOLTIP: string;
+ declare const MOVIE_RECORDING_ENABLE_GUI: string;
+ declare const MOVIE_RECORDING_ENABLE_GUI_TOOLTIP: string;
+ declare const MOVIE_RECORDING_ENABLE_ICON: string;
+ declare const MOVIE_RECORDING_ENABLE_ICON_TOOLTIP: string;
+ declare const MOVIE_RECORDING_ENABLE_RECOVER: string;
+ declare const MOVIE_RECORDING_ENABLE_RECOVER_TOOLTIP: string;
+ declare const MOVIE_RECORDING_ENABLE_SOUND: string;
+ declare const MOVIE_RECORDING_ENABLE_SOUND_TOOLTIP: string;
+ declare const MOVIE_RECORDING_FPS_FOURTH: string;
+ declare const MOVIE_RECORDING_FPS_HALF: string;
+ declare const MOVIE_RECORDING_FPS_THIRD: string;
+ declare const MOVIE_RECORDING_FRAMERATE: string;
+ declare const MOVIE_RECORDING_FRAMERATE_TOOLTIP: string;
+ declare const MOVIE_RECORDING_FULL_RESOLUTION: string;
+ declare const MOVIE_RECORDING_GUI_OFF: string;
+ declare const MOVIE_RECORDING_GUI_ON: string;
+ declare const MOVIE_RECORDING_H264: string;
+ declare const MOVIE_RECORDING_H264_TOOLTIP: string;
+ declare const MOVIE_RECORDING_MJPEG: string;
+ declare const MOVIE_RECORDING_MJPEG_TOOLTIP: string;
+ declare const MOVIE_RECORDING_MPEG4: string;
+ declare const MOVIE_RECORDING_MPEG4_TOOLTIP: string;
+ declare const MOVIE_RECORDING_PIXLET: string;
+ declare const MOVIE_RECORDING_QUALITY_TOOLTIP: string;
+ declare const MOVIE_RECORDING_RECORDING: string;
+ declare const MOVIE_RECORDING_RECORDING_STARTED: string;
+ declare const MOVIE_RECORDING_RECORDING_STOPPED: string;
+ declare const MOVIE_RECORDING_RECOVERING: string;
+ declare const MOVIE_RECORDING_RESOLUTION_TOOLTIP: string;
+ declare const MOVIE_RECORDING_TIME: string;
+ declare const MOVIE_RECORDING_TIME_TOOLTIP: string;
+ declare const MOVIE_RECORDING_UNCOMPRESSED_RGB: string;
+ declare const MOVIE_RECORDING_WARNING_COMPRESSING: string;
+ declare const MOVIE_RECORDING_WARNING_DISK_FULL: string;
+ declare const MOVIE_RECORDING_WARNING_NO_MOVIE: string;
+ declare const MOVIE_RECORDING_WARNING_PERF: string;
+ declare const MOVIE_RECORDING_WARNING_REQUIREMENTS: string;
+ declare const MP: string;
+ declare const MULTIPLE_DUNGEONS: string;
+ declare const MULTISAMPLE: string;
+ declare const MULTISAMPLING_FORMAT_string; string;
+ declare const MULTI_CAST_TOOLTIP_NO_TOTEM: string;
+ declare const MUSIC_DISABLED: string;
+ declare const MUSIC_ENABLED: string;
+ declare const MUSIC_VOLUME: string;
+ declare const MUTE: string;
+ declare const MUTED: string;
+ declare const MUTED_LIST: string;
+ declare const MUTE_PLAYER: string;
+ declare const NAME: string;
+ declare const NAMES_LABEL: string;
+ declare const NAMES_SUBTEXT: string;
+ declare const NAME_CHAT_WINDOW: string;
+ declare const NEAR: string;
+ declare const NECKSLOT: string;
+ declare const NEED: string;
+ declare const NEED_NEWBIE: string;
+ declare const NET_PROMOTER_HIGH: string;
+ declare const NET_PROMOTER_LOW: string;
+ declare const NEVER: string;
+ declare const NEW: string;
+ declare const NEWBIE_TOOLTIP_ABANDONQUEST: string;
+ declare const NEWBIE_TOOLTIP_ACHIEVEMENT: string;
+ declare const NEWBIE_TOOLTIP_ADDFRIEND: string;
+ declare const NEWBIE_TOOLTIP_ADDMEMBER: string;
+ declare const NEWBIE_TOOLTIP_ADDTEAMMEMBER: string;
+ declare const NEWBIE_TOOLTIP_ALLIANCE: string;
+ declare const NEWBIE_TOOLTIP_AUTO_JOIN_VOICE: string;
+ declare const NEWBIE_TOOLTIP_BATTLEFIELDMINIMAP_OPTIONS: string;
+ declare const NEWBIE_TOOLTIP_BATTLEFIELD_GROUP_JOIN: string;
+ declare const NEWBIE_TOOLTIP_CHANNELPULLOUT_OPTIONS: string;
+ declare const NEWBIE_TOOLTIP_CHANNELTAB: string;
+ declare const NEWBIE_TOOLTIP_CHARACTER: string;
+ declare const NEWBIE_TOOLTIP_CHATMENU: string;
+ declare const NEWBIE_TOOLTIP_CHATOPTIONS: string;
+ declare const NEWBIE_TOOLTIP_CHAT_OVERFLOW: string;
+ declare const NEWBIE_TOOLTIP_DEMOTE: string;
+ declare const NEWBIE_TOOLTIP_DISHONORABLE_KILLS: string;
+ declare const NEWBIE_TOOLTIP_DISPLAY_CHANNEL_PULLOUT: string;
+ declare const NEWBIE_TOOLTIP_ENCHANTSLOT: string;
+ declare const NEWBIE_TOOLTIP_ENTER_BATTLEGROUND: string;
+ declare const NEWBIE_TOOLTIP_EQUIPMENT_MANAGER: string;
+ declare const NEWBIE_TOOLTIP_EQUIPMENT_MANAGER_IGNORE_SLOT: string;
+ declare const NEWBIE_TOOLTIP_EQUIPMENT_MANAGER_PLACE_IN_BAGS: string;
+ declare const NEWBIE_TOOLTIP_EQUIPMENT_MANAGER_UNIGNORE_SLOT: string;
+ declare const NEWBIE_TOOLTIP_FIRST_AVAILABLE: string;
+ declare const NEWBIE_TOOLTIP_FRAMERATE: string;
+ declare const NEWBIE_TOOLTIP_FRIENDSTAB: string;
+ declare const NEWBIE_TOOLTIP_GROUPINVITE: string;
+ declare const NEWBIE_TOOLTIP_GUILDCONTROL: string;
+ declare const NEWBIE_TOOLTIP_GUILDGROUPINVITE: string;
+ declare const NEWBIE_TOOLTIP_GUILDPUBLICNOTE: string;
+ declare const NEWBIE_TOOLTIP_GUILDREMOVE: string;
+ declare const NEWBIE_TOOLTIP_GUILDTAB: string;
+ declare const NEWBIE_TOOLTIP_GUILD_INFORMATION: string;
+ declare const NEWBIE_TOOLTIP_GUILD_MEMBER_OPTIONS: string;
+ declare const NEWBIE_TOOLTIP_HEALTHBAR: string;
+ declare const NEWBIE_TOOLTIP_HELP: string;
+ declare const NEWBIE_TOOLTIP_HONORABLE_KILLS: string;
+ declare const NEWBIE_TOOLTIP_HONOR_CONTRIBUTION_POINTS: string;
+ declare const NEWBIE_TOOLTIP_HONOR_STANDING: string;
+ declare const NEWBIE_TOOLTIP_HORDE: string;
+ declare const NEWBIE_TOOLTIP_IGNOREPLAYER: string;
+ declare const NEWBIE_TOOLTIP_IGNORETAB: string;
+ declare const NEWBIE_TOOLTIP_LATENCY: string;
+ declare const NEWBIE_TOOLTIP_LFGPARENT: string;
+ declare const NEWBIE_TOOLTIP_LFMTAB: string;
+ declare const NEWBIE_TOOLTIP_MAINMENU: string;
+ declare const NEWBIE_TOOLTIP_MANABAR0: string;
+ declare const NEWBIE_TOOLTIP_MANABAR1: string;
+ declare const NEWBIE_TOOLTIP_MANABAR2: string;
+ declare const NEWBIE_TOOLTIP_MANABAR3: string;
+ declare const NEWBIE_TOOLTIP_MANABAR4: string;
+ declare const NEWBIE_TOOLTIP_MEMORY: string;
+ declare const NEWBIE_TOOLTIP_MINIMAPTOGGLE: string;
+ declare const NEWBIE_TOOLTIP_MUTEPLAYER: string;
+ declare const NEWBIE_TOOLTIP_PARTYOPTIONS: string;
+ declare const NEWBIE_TOOLTIP_PLAYEROPTIONS: string;
+ declare const NEWBIE_TOOLTIP_PROMOTE: string;
+ declare const NEWBIE_TOOLTIP_PVP: string;
+ declare const NEWBIE_TOOLTIP_PVPFFA: string;
+ declare const NEWBIE_TOOLTIP_QUESTLOG: string;
+ declare const NEWBIE_TOOLTIP_RAF_SUMMON_LINKED: string;
+ declare const NEWBIE_TOOLTIP_RAIDTAB: string;
+ declare const NEWBIE_TOOLTIP_RANK: string;
+ declare const NEWBIE_TOOLTIP_RANK_POSITION: string;
+ declare const NEWBIE_TOOLTIP_REMOVEFRIEND: string;
+ declare const NEWBIE_TOOLTIP_REMOVEPLAYER: string;
+ declare const NEWBIE_TOOLTIP_SENDMESSAGE: string;
+ declare const NEWBIE_TOOLTIP_SHAREQUEST: string;
+ declare const NEWBIE_TOOLTIP_SOCIAL: string;
+ declare const NEWBIE_TOOLTIP_SPELLBOOK: string;
+ declare const NEWBIE_TOOLTIP_STOPIGNORE: string;
+ declare const NEWBIE_TOOLTIP_STOPWATCH_PLAYPAUSEBUTTON: string;
+ declare const NEWBIE_TOOLTIP_STOPWATCH_RESETBUTTON: string;
+ declare const NEWBIE_TOOLTIP_TALENTS: string;
+ declare const NEWBIE_TOOLTIP_TRACKQUEST: string;
+ declare const NEWBIE_TOOLTIP_UNIT_DUEL: string;
+ declare const NEWBIE_TOOLTIP_UNIT_FOLLOW: string;
+ declare const NEWBIE_TOOLTIP_UNIT_FREE_FOR_ALL: string;
+ declare const NEWBIE_TOOLTIP_UNIT_GROUP_LOOT: string;
+ declare const NEWBIE_TOOLTIP_UNIT_INSPECT: string;
+ declare const NEWBIE_TOOLTIP_UNIT_INVITE: string;
+ declare const NEWBIE_TOOLTIP_UNIT_LEAVE_PARTY: string;
+ declare const NEWBIE_TOOLTIP_UNIT_LOOT_THRESHOLD: string;
+ declare const NEWBIE_TOOLTIP_UNIT_MASTER_LOOTER: string;
+ declare const NEWBIE_TOOLTIP_UNIT_NEED_BEFORE_GREED: string;
+ declare const NEWBIE_TOOLTIP_UNIT_OPT_OUT_LOOT: string;
+ declare const NEWBIE_TOOLTIP_UNIT_PET_ABANDON: string;
+ declare const NEWBIE_TOOLTIP_UNIT_PET_DISMISS: string;
+ declare const NEWBIE_TOOLTIP_UNIT_PET_PAPERDOLL: string;
+ declare const NEWBIE_TOOLTIP_UNIT_PET_RENAME: string;
+ declare const NEWBIE_TOOLTIP_UNIT_PROMOTE: string;
+ declare const NEWBIE_TOOLTIP_UNIT_ROUND_ROBIN: string;
+ declare const NEWBIE_TOOLTIP_UNIT_TRADE: string;
+ declare const NEWBIE_TOOLTIP_UNIT_UNINVITE: string;
+ declare const NEWBIE_TOOLTIP_UNIT_VOTE_TO_KICK: string;
+ declare const NEWBIE_TOOLTIP_UNMUTE: string;
+ declare const NEWBIE_TOOLTIP_VOICE_CHAT_SELECTOR: string;
+ declare const NEWBIE_TOOLTIP_WHOTAB: string;
+ declare const NEWBIE_TOOLTIP_WORLDMAP: string;
+ declare const NEWBIE_TOOLTIP_XPBAR: string;
+ declare const NEW_ACHIEVEMENT_EARNED: string;
+ declare const NEW_CHAT_WINDOW: string;
+ declare const NEW_CONVERSATION_INSTRUCTIONS: string;
+ declare const NEW_LEADER: string;
+ declare const NEW_TITLE_EARNED: string;
+ declare const NEXT: string;
+ declare const NEXT_ABILITY: string;
+ declare const NEXT_BATTLE: string;
+ declare const NO: string;
+ declare const NONE: string;
+ declare const NONEQUIPSLOT: string;
+ declare const NONE_CAPS: string;
+ declare const NONE_KEY: string;
+ declare const NORMAL_QUEST_DISPLAY: string;
+ declare const NOTE: string;
+ declare const NOTE_COLON: string;
+ declare const NOTE_SUBMITTED: string;
+ declare const NOTE_SUBMIT_FAILED: string;
+ declare const NOT_APPLICABLE: string;
+ declare const NOT_BOUND: string;
+ declare const NOT_ENOUGH_MANA: string;
+ declare const NOT_IN_GROUP: string;
+ declare const NOT_TAMEABLE: string;
+ declare const NOT_YET_SIGNED: string;
+ declare const NO_ATTACHMENTS: string;
+ declare const NO_BIDS: string;
+ declare const NO_COMPLETED_ACHIEVEMENTS: string;
+ declare const NO_DAILY_QUESTS_REMAINING: string;
+ declare const NO_EMPTY_KEYRING_SLOTS_ERROR: string;
+ declare const NO_EQUIPMENT_SLOTS_AVAILABLE: string;
+ declare const NO_FRIEND_REQUESTS: string;
+ declare const NO_GUILDBANK_TABS: string;
+ declare const NO_LFD_WHILE_LFR: string;
+ declare const NO_LFR_WHILE_LFD: string;
+ declare const NO_RAIDS_AVAILABLE: string;
+ declare const NO_RAID_INSTANCES_SAVED: string;
+ declare const NO_RESPONSE: string;
+ declare const NO_UPDATED_STATS_TEXT: string;
+ declare const NO_VIEWABLE_GUILDBANK_LOGS: string;
+ declare const NO_VIEWABLE_GUILDBANK_TABS: string;
+ declare const NO_VOICE_SESSIONS: string;
+ declare const NUMBER_OF_RESULTS_TEMPLATE: string;
+ declare const NUM_FREE_SLOTS: string;
+ declare const NUM_GUILDBANK_TABS_PURCHASED: string;
+ declare const NUM_RAID_MEMBERS: string;
+ declare const OBJECTIVES_IGNORE_CURSOR_TEXT: string;
+ declare const OBJECTIVES_LABEL: string;
+ declare const OBJECTIVES_SHOW_QUEST_MAP: string;
+ declare const OBJECTIVES_STOP_TRACKING: string;
+ declare const OBJECTIVES_SUBTEXT: string;
+ declare const OBJECTIVES_TRACKER_LABEL: string;
+ declare const OBJECTIVES_VIEW_ACHIEVEMENT: string;
+ declare const OBJECTIVES_VIEW_IN_ACHIEVEMENTS: string;
+ declare const OBJECTIVES_VIEW_IN_QUESTLOG: string;
+ declare const OBJECTIVES_WATCH_QUESTS_ARENA: string;
+ declare const OBJECTIVES_WATCH_TOO_MANY: string;
+ declare const OBJECT_ALPHA: string;
+ declare const OFF: string;
+ declare const OFFICER: string;
+ declare const OFFICER_CHAT: string;
+ declare const OFFICER_NOTE_COLON: string;
+ declare const OKAY: string;
+ declare const OLD_TITLE_LOST: string;
+ declare const ONLY_EMPTY_BAGS: string;
+ declare const ON_COOLDOWN: string;
+ declare const OPACITY: string;
+ declare const OPENING: string;
+ declare const OPENMAIL: string;
+ declare const OPEN_LOCK_OTHER: string;
+ declare const OPEN_LOCK_SELF: string;
+ declare const OPEN_RAID_BROWSER: string;
+ declare const OPTIONAL: string;
+ declare const OPTIONAL_PARENS: string;
+ declare const OPTIONS_BRIGHTNESS: string;
+ declare const OPTIONS_MENU: string;
+ declare const OPTIONS_SHADERS: string;
+ declare const OPTION_CHAT_STYLE_CLASSIC: string;
+ declare const OPTION_CHAT_STYLE_IM: string;
+ declare const OPTION_CONVERSATION_MODE_INLINE: string;
+ declare const OPTION_CONVERSATION_MODE_POPOUT: string;
+ declare const OPTION_LOGOUT_REQUIREMENT: string;
+ declare const OPTION_PREVIEW_TALENT_CHANGES_DESCRIPTION: string;
+ declare const OPTION_RESTART_REQUIREMENT: string;
+ declare const OPTION_STEREO_CONVERGENCE: string;
+ declare const OPTION_STEREO_SEPARATION: string;
+ declare const OPTION_TOOLTIP_ADVANCED_OBJECTIVES: string;
+ declare const OPTION_TOOLTIP_ADVANCED_WORLD_MAP: string;
+ declare const OPTION_TOOLTIP_AGGRO_WARNING_DISPLAY1: string;
+ declare const OPTION_TOOLTIP_AGGRO_WARNING_DISPLAY2: string;
+ declare const OPTION_TOOLTIP_AGGRO_WARNING_DISPLAY3: string;
+ declare const OPTION_TOOLTIP_AGGRO_WARNING_DISPLAY4: string;
+ declare const OPTION_TOOLTIP_ALWAYS_SHOW_MULTIBARS: string;
+ declare const OPTION_TOOLTIP_AMBIENCE_VOLUME: string;
+ declare const OPTION_TOOLTIP_ANIMATION: string;
+ declare const OPTION_TOOLTIP_ANISOTROPIC: string;
+ declare const OPTION_TOOLTIP_ASSIST_ATTACK: string;
+ declare const OPTION_TOOLTIP_AUTO_DISMOUNT_FLYING: string;
+ declare const OPTION_TOOLTIP_AUTO_FOLLOW_SPEED: string;
+ declare const OPTION_TOOLTIP_AUTO_JOIN_GUILD_CHANNEL: string;
+ declare const OPTION_TOOLTIP_AUTO_LOOT_ALT_KEY: string;
+ declare const OPTION_TOOLTIP_AUTO_LOOT_CTRL_KEY: string;
+ declare const OPTION_TOOLTIP_AUTO_LOOT_DEFAULT: string;
+ declare const OPTION_TOOLTIP_AUTO_LOOT_KEY_TEXT: string;
+ declare const OPTION_TOOLTIP_AUTO_LOOT_NONE_KEY: string;
+ declare const OPTION_TOOLTIP_AUTO_LOOT_SHIFT_KEY: string;
+ declare const OPTION_TOOLTIP_AUTO_QUEST_PROGRESS: string;
+ declare const OPTION_TOOLTIP_AUTO_QUEST_WATCH: string;
+ declare const OPTION_TOOLTIP_AUTO_RANGED_COMBAT: string;
+ declare const OPTION_TOOLTIP_AUTO_SELF_CAST: string;
+ declare const OPTION_TOOLTIP_AUTO_SELF_CAST_ALT_KEY: string;
+ declare const OPTION_TOOLTIP_AUTO_SELF_CAST_CTRL_KEY: string;
+ declare const OPTION_TOOLTIP_AUTO_SELF_CAST_KEY_TEXT: string;
+ declare const OPTION_TOOLTIP_AUTO_SELF_CAST_NONE_KEY: string;
+ declare const OPTION_TOOLTIP_AUTO_SELF_CAST_SHIFT_KEY: string;
+ declare const OPTION_TOOLTIP_BLOCK_TRADES: string;
+ declare const OPTION_TOOLTIP_CAMERA1: string;
+ declare const OPTION_TOOLTIP_CAMERA2: string;
+ declare const OPTION_TOOLTIP_CAMERA3: string;
+ declare const OPTION_TOOLTIP_CAMERA4: string;
+ declare const OPTION_TOOLTIP_CAMERA_ALWAYS: string;
+ declare const OPTION_TOOLTIP_CAMERA_NEVER: string;
+ declare const OPTION_TOOLTIP_CAMERA_SMART: string;
+ declare const OPTION_TOOLTIP_CAMERA_SMARTER: string;
+ declare const OPTION_TOOLTIP_CHARACTER_SHADOWS: string;
+ declare const OPTION_TOOLTIP_CHAT_BUBBLES: string;
+ declare const OPTION_TOOLTIP_CHAT_LOCKED: string;
+ declare const OPTION_TOOLTIP_CHAT_MOUSE_WHEEL_SCROLL: string;
+ declare const OPTION_TOOLTIP_CHAT_WHOLE_WINDOW_CLICKABLE: string;
+ declare const OPTION_TOOLTIP_CINEMATIC_SUBTITLES: string;
+ declare const OPTION_TOOLTIP_CLEAR_AFK: string;
+ declare const OPTION_TOOLTIP_CLICKCAMERA_LOCKED: string;
+ declare const OPTION_TOOLTIP_CLICKCAMERA_NEVER: string;
+ declare const OPTION_TOOLTIP_CLICKCAMERA_SMART: string;
+ declare const OPTION_TOOLTIP_CLICK_CAMERA1: string;
+ declare const OPTION_TOOLTIP_CLICK_CAMERA2: string;
+ declare const OPTION_TOOLTIP_CLICK_CAMERA3: string;
+ declare const OPTION_TOOLTIP_CLICK_CAMERA_STYLE: string;
+ declare const OPTION_TOOLTIP_CLICK_TO_MOVE: string;
+ declare const OPTION_TOOLTIP_COMBAT_TEXT_MODE: string;
+ declare const OPTION_TOOLTIP_COMBAT_TEXT_SCROLL_DOWN: string;
+ declare const OPTION_TOOLTIP_COMBAT_TEXT_SHOW_AURAS: string;
+ declare const OPTION_TOOLTIP_COMBAT_TEXT_SHOW_AURA_FADE: string;
+ declare const OPTION_TOOLTIP_COMBAT_TEXT_SHOW_COMBAT_STATE: string;
+ declare const OPTION_TOOLTIP_COMBAT_TEXT_SHOW_COMBO_POINTS: string;
+ declare const OPTION_TOOLTIP_COMBAT_TEXT_SHOW_DODGE_PARRY_MISS: string;
+ declare const OPTION_TOOLTIP_COMBAT_TEXT_SHOW_ENERGIZE: string;
+ declare const OPTION_TOOLTIP_COMBAT_TEXT_SHOW_FRIENDLY_NAMES: string;
+ declare const OPTION_TOOLTIP_COMBAT_TEXT_SHOW_HONOR_GAINED: string;
+ declare const OPTION_TOOLTIP_COMBAT_TEXT_SHOW_LOW_HEALTH_MANA: string;
+ declare const OPTION_TOOLTIP_COMBAT_TEXT_SHOW_PERIODIC_ENERGIZE: string;
+ declare const OPTION_TOOLTIP_COMBAT_TEXT_SHOW_REACTIVES: string;
+ declare const OPTION_TOOLTIP_COMBAT_TEXT_SHOW_REPUTATION: string;
+ declare const OPTION_TOOLTIP_COMBAT_TEXT_SHOW_RESISTANCES: string;
+ declare const OPTION_TOOLTIP_CONSOLIDATE_BUFFS: string;
+ declare const OPTION_TOOLTIP_DEATH_EFFECT: string;
+ declare const OPTION_TOOLTIP_DESKTOP_GAMMA: string;
+ declare const OPTION_TOOLTIP_DISABLE_SPAM_FILTER: string;
+ declare const OPTION_TOOLTIP_DISPLAY_FREE_BAG_SLOTS: string;
+ declare const OPTION_TOOLTIP_ENABLE_ALL_SHADERS: string;
+ declare const OPTION_TOOLTIP_ENABLE_AMBIENCE: string;
+ declare const OPTION_TOOLTIP_ENABLE_BGSOUND: string;
+ declare const OPTION_TOOLTIP_ENABLE_DSP_EFFECTS: string;
+ declare const OPTION_TOOLTIP_ENABLE_EMOTE_SOUNDS: string;
+ declare const OPTION_TOOLTIP_ENABLE_ERROR_SPEECH: string;
+ declare const OPTION_TOOLTIP_ENABLE_GROUP_SPEECH: string;
+ declare const OPTION_TOOLTIP_ENABLE_HARDWARE: string;
+ declare const OPTION_TOOLTIP_ENABLE_MICROPHONE: string;
+ declare const OPTION_TOOLTIP_ENABLE_MUSIC: string;
+ declare const OPTION_TOOLTIP_ENABLE_MUSIC_LOOPING: string;
+ declare const OPTION_TOOLTIP_ENABLE_PET_SOUNDS: string;
+ declare const OPTION_TOOLTIP_ENABLE_REVERB: string;
+ declare const OPTION_TOOLTIP_ENABLE_SOFTWARE_HRTF: string;
+ declare const OPTION_TOOLTIP_ENABLE_SOUND: string;
+ declare const OPTION_TOOLTIP_ENABLE_SOUNDFX: string;
+ declare const OPTION_TOOLTIP_ENABLE_SOUND_AT_CHARACTER: string;
+ declare const OPTION_TOOLTIP_ENABLE_STEREO_VIDEO: string;
+ declare const OPTION_TOOLTIP_ENABLE_VOICECHAT: string;
+ declare const OPTION_TOOLTIP_ENVIRONMENT_DETAIL: string;
+ declare const OPTION_TOOLTIP_FARCLIP: string;
+ declare const OPTION_TOOLTIP_FIX_LAG: string;
+ declare const OPTION_TOOLTIP_FOCUS_CAST_ALT_KEY: string;
+ declare const OPTION_TOOLTIP_FOCUS_CAST_CTRL_KEY: string;
+ declare const OPTION_TOOLTIP_FOCUS_CAST_NONE_KEY: string;
+ declare const OPTION_TOOLTIP_FOCUS_CAST_SHIFT_KEY: string;
+ declare const OPTION_TOOLTIP_FOLLOW_TERRAIN: string;
+ declare const OPTION_TOOLTIP_FULL_SCREEN_GLOW: string;
+ declare const OPTION_TOOLTIP_FULL_SIZE_FOCUS_FRAME: string;
+ declare const OPTION_TOOLTIP_GAMEFIELD_DESELECT: string;
+ declare const OPTION_TOOLTIP_GAMMA: string;
+ declare const OPTION_TOOLTIP_GROUND_DENSITY: string;
+ declare const OPTION_TOOLTIP_GROUND_RADIUS: string;
+ declare const OPTION_TOOLTIP_GUILDMEMBER_ALERT: string;
+ declare const OPTION_TOOLTIP_HARDWARE_CURSOR: string;
+ declare const OPTION_TOOLTIP_HEAD_BOB: string;
+ declare const OPTION_TOOLTIP_HIDE_OUTDOOR_WORLD_STATE: string;
+ declare const OPTION_TOOLTIP_HIDE_PARTY_INTERFACE: string;
+ declare const OPTION_TOOLTIP_INVERT_MOUSE: string;
+ declare const OPTION_TOOLTIP_LOCALE: string;
+ declare const OPTION_TOOLTIP_LOCK_ACTIONBAR: string;
+ declare const OPTION_TOOLTIP_LOG_PERIODIC_EFFECTS: string;
+ declare const OPTION_TOOLTIP_LONG_RANGE_NAMEPLATE: string;
+ declare const OPTION_TOOLTIP_LOOT_KEY_TEXT: string;
+ declare const OPTION_TOOLTIP_LOOT_UNDER_MOUSE: string;
+ declare const OPTION_TOOLTIP_MAP_QUEST_DIFFICULTY: string;
+ declare const OPTION_TOOLTIP_MAP_TRACK_QUEST: string;
+ declare const OPTION_TOOLTIP_MASTER_VOLUME: string;
+ declare const OPTION_TOOLTIP_MAX_FOLLOW_DIST: string;
+ declare const OPTION_TOOLTIP_MOUSE_LOOK_SPEED: string;
+ declare const OPTION_TOOLTIP_MOUSE_SENSITIVITY: string;
+ declare const OPTION_TOOLTIP_MULTISAMPLING: string;
+ declare const OPTION_TOOLTIP_MUSIC_VOLUME: string;
+ declare const OPTION_TOOLTIP_OBJECTIVES_IGNORE_CURSOR: string;
+ declare const OPTION_TOOLTIP_OBJECT_ALPHA: string;
+ declare const OPTION_TOOLTIP_PARTICLE_DENSITY: string;
+ declare const OPTION_TOOLTIP_PARTY_CHAT_BUBBLES: string;
+ declare const OPTION_TOOLTIP_PET_NAMEPLATES: string;
+ declare const OPTION_TOOLTIP_PET_SPELL_DAMAGE: string;
+ declare const OPTION_TOOLTIP_PHONG_SHADING: string;
+ declare const OPTION_TOOLTIP_PLAYER_DETAIL: string;
+ declare const OPTION_TOOLTIP_PLAY_AGGRO_SOUNDS: string;
+ declare const OPTION_TOOLTIP_PROFANITY_FILTER: string;
+ declare const OPTION_TOOLTIP_PROFANITY_FILTER_WITH_WARNING: string;
+ declare const OPTION_TOOLTIP_PROJECTED_TEXTURES: string;
+ declare const OPTION_TOOLTIP_PUSHTOTALK_SOUND: string;
+ declare const OPTION_TOOLTIP_REMOVE_CHAT_DELAY: string;
+ declare const OPTION_TOOLTIP_ROTATE_MINIMAP: string;
+ declare const OPTION_TOOLTIP_SCROLL_ARC: string;
+ declare const OPTION_TOOLTIP_SCROLL_DOWN: string;
+ declare const OPTION_TOOLTIP_SCROLL_UP: string;
+ declare const OPTION_TOOLTIP_SECURE_ABILITY_TOGGLE: string;
+ declare const OPTION_TOOLTIP_SHADOW_QUALITY: string;
+ declare const OPTION_TOOLTIP_SHOW_ARENA_ENEMY_CASTBAR: string;
+ declare const OPTION_TOOLTIP_SHOW_ARENA_ENEMY_FRAMES: string;
+ declare const OPTION_TOOLTIP_SHOW_ARENA_ENEMY_PETS: string;
+ declare const OPTION_TOOLTIP_SHOW_BATTLENET_TOASTS: string;
+ declare const OPTION_TOOLTIP_SHOW_BUFF_DURATION: string;
+ declare const OPTION_TOOLTIP_SHOW_CASTABLE_BUFFS: string;
+ declare const OPTION_TOOLTIP_SHOW_CASTABLE_DEBUFFS: string;
+ declare const OPTION_TOOLTIP_SHOW_CHAT_ICONS: string;
+ declare const OPTION_TOOLTIP_SHOW_CLASS_COLOR_IN_V_KEY: string;
+ declare const OPTION_TOOLTIP_SHOW_CLOAK: string;
+ declare const OPTION_TOOLTIP_SHOW_CLOCK: string;
+ declare const OPTION_TOOLTIP_SHOW_COMBAT_HEALING: string;
+ declare const OPTION_TOOLTIP_SHOW_COMBAT_TEXT: string;
+ declare const OPTION_TOOLTIP_SHOW_DAMAGE: string;
+ declare const OPTION_TOOLTIP_SHOW_DISPELLABLE_DEBUFFS: string;
+ declare const OPTION_TOOLTIP_SHOW_FULLSCREEN_STATUS: string;
+ declare const OPTION_TOOLTIP_SHOW_GUILD_NAMES: string;
+ declare const OPTION_TOOLTIP_SHOW_HELM: string;
+ declare const OPTION_TOOLTIP_SHOW_ITEM_LEVEL: string;
+ declare const OPTION_TOOLTIP_SHOW_LOOT_SPAM: string;
+ declare const OPTION_TOOLTIP_SHOW_LUA_ERRORS: string;
+ declare const OPTION_TOOLTIP_SHOW_MULTIBAR1: string;
+ declare const OPTION_TOOLTIP_SHOW_MULTIBAR2: string;
+ declare const OPTION_TOOLTIP_SHOW_MULTIBAR3: string;
+ declare const OPTION_TOOLTIP_SHOW_MULTIBAR4: string;
+ declare const OPTION_TOOLTIP_SHOW_NEWBIE_TIPS: string;
+ declare const OPTION_TOOLTIP_SHOW_NPC_NAMES: string;
+ declare const OPTION_TOOLTIP_SHOW_NUMERIC_THREAT: string;
+ declare const OPTION_TOOLTIP_SHOW_OTHER_TARGET_EFFECTS: string;
+ declare const OPTION_TOOLTIP_SHOW_OWN_NAME: string;
+ declare const OPTION_TOOLTIP_SHOW_PARTY_BACKGROUND: string;
+ declare const OPTION_TOOLTIP_SHOW_PARTY_PETS: string;
+ declare const OPTION_TOOLTIP_SHOW_PARTY_TEXT: string;
+ declare const OPTION_TOOLTIP_SHOW_PET_MELEE_DAMAGE: string;
+ declare const OPTION_TOOLTIP_SHOW_PLAYER_NAMES: string;
+ declare const OPTION_TOOLTIP_SHOW_PLAYER_TITLES: string;
+ declare const OPTION_TOOLTIP_SHOW_QUEST_FADING: string;
+ declare const OPTION_TOOLTIP_SHOW_QUEST_OBJECTIVES_ON_MAP: string;
+ declare const OPTION_TOOLTIP_SHOW_RAID_RANGE: string;
+ declare const OPTION_TOOLTIP_SHOW_TARGET_CASTBAR: string;
+ declare const OPTION_TOOLTIP_SHOW_TARGET_CASTBAR_IN_V_KEY: string;
+ declare const OPTION_TOOLTIP_SHOW_TARGET_EFFECTS: string;
+ declare const OPTION_TOOLTIP_SHOW_TARGET_OF_TARGET: string;
+ declare const OPTION_TOOLTIP_SHOW_TIPOFTHEDAY: string;
+ declare const OPTION_TOOLTIP_SHOW_TOAST_BROADCAST: string;
+ declare const OPTION_TOOLTIP_SHOW_TOAST_CONVERSATION: string;
+ declare const OPTION_TOOLTIP_SHOW_TOAST_FRIEND_REQUEST: string;
+ declare const OPTION_TOOLTIP_SHOW_TOAST_OFFLINE: string;
+ declare const OPTION_TOOLTIP_SHOW_TOAST_ONLINE: string;
+ declare const OPTION_TOOLTIP_SHOW_TOAST_WINDOW: string;
+ declare const OPTION_TOOLTIP_SHOW_TUTORIALS: string;
+ declare const OPTION_TOOLTIP_SHOW_UNIT_NAMES: string;
+ declare const OPTION_TOOLTIP_SIMPLE_CHAT: string;
+ declare const OPTION_TOOLTIP_SIMPLE_QUEST_WATCH_TEXT: string;
+ declare const OPTION_TOOLTIP_SMART_PIVOT: string;
+ declare const OPTION_TOOLTIP_SOUND_CHANNELS: string;
+ declare const OPTION_TOOLTIP_SOUND_OUTPUT: string;
+ declare const OPTION_TOOLTIP_SOUND_QUALITY: string;
+ declare const OPTION_TOOLTIP_SOUND_VOLUME: string;
+ declare const OPTION_TOOLTIP_SPELL_DETAIL: string;
+ declare const OPTION_TOOLTIP_STATUS_BAR: string;
+ declare const OPTION_TOOLTIP_STATUS_TEXT_PARTY: string;
+ declare const OPTION_TOOLTIP_STATUS_TEXT_PERCENT: string;
+ declare const OPTION_TOOLTIP_STATUS_TEXT_PET: string;
+ declare const OPTION_TOOLTIP_STATUS_TEXT_PLAYER: string;
+ declare const OPTION_TOOLTIP_STATUS_TEXT_TARGET: string;
+ declare const OPTION_TOOLTIP_STEREO_HARDWARE_CURSOR: string;
+ declare const OPTION_TOOLTIP_STOP_AUTO_ATTACK: string;
+ declare const OPTION_TOOLTIP_TARGETOFTARGET1: string;
+ declare const OPTION_TOOLTIP_TARGETOFTARGET2: string;
+ declare const OPTION_TOOLTIP_TARGETOFTARGET3: string;
+ declare const OPTION_TOOLTIP_TARGETOFTARGET4: string;
+ declare const OPTION_TOOLTIP_TARGETOFTARGET5: string;
+ declare const OPTION_TOOLTIP_TARGETOFTARGET_ALWAYS: string;
+ declare const OPTION_TOOLTIP_TARGETOFTARGET_PARTY: string;
+ declare const OPTION_TOOLTIP_TARGETOFTARGET_RAID: string;
+ declare const OPTION_TOOLTIP_TARGETOFTARGET_RAID_AND_PARTY: string;
+ declare const OPTION_TOOLTIP_TARGETOFTARGET_SOLO: string;
+ declare const OPTION_TOOLTIP_TERRAIN_HIGHLIGHTS: string;
+ declare const OPTION_TOOLTIP_TERRAIN_TEXTURE: string;
+ declare const OPTION_TOOLTIP_TEXTURE_DETAIL: string;
+ declare const OPTION_TOOLTIP_TIMESTAMPS: string;
+ declare const OPTION_TOOLTIP_TOAST_DURATION: string;
+ declare const OPTION_TOOLTIP_TRILINEAR: string;
+ declare const OPTION_TOOLTIP_TRIPLE_BUFFER: string;
+ declare const OPTION_TOOLTIP_UI_SCALE: string;
+ declare const OPTION_TOOLTIP_UNIT_NAMEPLATES_ALLOW_OVERLAP: string;
+ declare const OPTION_TOOLTIP_UNIT_NAMEPLATES_SHOW_ENEMIES: string;
+ declare const OPTION_TOOLTIP_UNIT_NAMEPLATES_SHOW_ENEMY_GUARDIANS: string;
+ declare const OPTION_TOOLTIP_UNIT_NAMEPLATES_SHOW_ENEMY_PETS: string;
+ declare const OPTION_TOOLTIP_UNIT_NAMEPLATES_SHOW_ENEMY_TOTEMS: string;
+ declare const OPTION_TOOLTIP_UNIT_NAMEPLATES_SHOW_FRIENDLY_GUARDIANS: string;
+ declare const OPTION_TOOLTIP_UNIT_NAMEPLATES_SHOW_FRIENDLY_PETS: string;
+ declare const OPTION_TOOLTIP_UNIT_NAMEPLATES_SHOW_FRIENDLY_TOTEMS: string;
+ declare const OPTION_TOOLTIP_UNIT_NAMEPLATES_SHOW_FRIENDS: string;
+ declare const OPTION_TOOLTIP_UNIT_NAME_ENEMY: string;
+ declare const OPTION_TOOLTIP_UNIT_NAME_ENEMY_GUARDIANS: string;
+ declare const OPTION_TOOLTIP_UNIT_NAME_ENEMY_PETS: string;
+ declare const OPTION_TOOLTIP_UNIT_NAME_ENEMY_TOTEMS: string;
+ declare const OPTION_TOOLTIP_UNIT_NAME_FRIENDLY: string;
+ declare const OPTION_TOOLTIP_UNIT_NAME_FRIENDLY_GUARDIANS: string;
+ declare const OPTION_TOOLTIP_UNIT_NAME_FRIENDLY_PETS: string;
+ declare const OPTION_TOOLTIP_UNIT_NAME_FRIENDLY_TOTEMS: string;
+ declare const OPTION_TOOLTIP_UNIT_NAME_GUILD: string;
+ declare const OPTION_TOOLTIP_UNIT_NAME_NONCOMBAT_CREATURE: string;
+ declare const OPTION_TOOLTIP_UNIT_NAME_NPC: string;
+ declare const OPTION_TOOLTIP_UNIT_NAME_OWN: string;
+ declare const OPTION_TOOLTIP_UNIT_NAME_PLAYER_TITLE: string;
+ declare const OPTION_TOOLTIP_USE_COLORBLIND_MODE: string;
+ declare const OPTION_TOOLTIP_USE_ENGLISH_AUDIO: string;
+ declare const OPTION_TOOLTIP_USE_REFRESH: string;
+ declare const OPTION_TOOLTIP_USE_RESOLUTION: string;
+ declare const OPTION_TOOLTIP_USE_UBERTOOLTIPS: string;
+ declare const OPTION_TOOLTIP_USE_UISCALE: string;
+ declare const OPTION_TOOLTIP_USE_WEATHER_SHADER: string;
+ declare const OPTION_TOOLTIP_VERTEX_ANIMATION_SHADERS: string;
+ declare const OPTION_TOOLTIP_VERTICAL_SYNC: string;
+ declare const OPTION_TOOLTIP_VOICE_ACTIVATION_SENSITIVITY: string;
+ declare const OPTION_TOOLTIP_VOICE_AMBIENCE: string;
+ declare const OPTION_TOOLTIP_VOICE_INPUT: string;
+ declare const OPTION_TOOLTIP_VOICE_INPUT_VOLUME: string;
+ declare const OPTION_TOOLTIP_VOICE_MUSIC: string;
+ declare const OPTION_TOOLTIP_VOICE_OUTPUT: string;
+ declare const OPTION_TOOLTIP_VOICE_OUTPUT_VOLUME: string;
+ declare const OPTION_TOOLTIP_VOICE_SOUND: string;
+ declare const OPTION_TOOLTIP_VOICE_TYPE1: string;
+ declare const OPTION_TOOLTIP_VOICE_TYPE2: string;
+ declare const OPTION_TOOLTIP_WATCH_FRAME_WIDTH: string;
+ declare const OPTION_TOOLTIP_WATER_COLLISION: string;
+ declare const OPTION_TOOLTIP_WEATHER_DETAIL: string;
+ declare const OPTION_TOOLTIP_WINDOWED_MAXIMIZED: string;
+ declare const OPTION_TOOLTIP_WINDOWED_MODE: string;
+ declare const OPTION_TOOLTIP_WINDOW_LOCK: string;
+ declare const OPTION_TOOLTIP_WORLD_LOD: string;
+ declare const OPTION_TOOLTIP_WORLD_PVP_DISPLAY1: string;
+ declare const OPTION_TOOLTIP_WORLD_PVP_DISPLAY2: string;
+ declare const OPTION_TOOLTIP_WORLD_PVP_DISPLAY3: string;
+ declare const OPTION_TOOLTIP_WORLD_PVP_DISPLAY_ALWAYS: string;
+ declare const OPTION_TOOLTIP_WORLD_PVP_DISPLAY_DYNAMIC: string;
+ declare const OPTION_TOOLTIP_WORLD_PVP_DISPLAY_NEVER: string;
+ declare const OPTION_TOOLTIP_WOW_MOUSE: string;
+ declare const OPTION_TOOLTIP_XP_BAR: string;
+ declare const OPTION_UI_DEPTH: string;
+ declare const OPTION_USE_EQUIPMENT_MANAGER_DESCRIPTION: string;
+ declare const OPT_OUT_LOOT_TITLE: string;
+ declare const OPT_OUT_LOOT_TOGGLE_OFF: string;
+ declare const OPT_OUT_LOOT_TOGGLE_ON: string;
+ declare const OR_CAPS: string;
+ declare const OTHER: string;
+ declare const OTHER_MESSAGES: string;
+ declare const OUTBID: string;
+ declare const OUTBID_BY: string;
+ declare const OUT_OF_ENERGY: string;
+ declare const OUT_OF_FOCUS: string;
+ declare const OUT_OF_HEALTH: string;
+ declare const OUT_OF_MANA: string;
+ declare const OUT_OF_POWER_DISPLAY: string;
+ declare const OUT_OF_RAGE: string;
+ declare const PAGE_NUMBER: string;
+ declare const PALADIN_INTELLECT_TOOLTIP: string;
+ declare const PALADIN_STRENGTH_TOOLTIP: string;
+ declare const PAPERDOLLFRAME_TOOLTIP_FORMAT: string;
+ declare const PAPERDOLL_SELECT_TITLE: string;
+ declare const PARENS_TEMPLATE: string;
+ declare const PARRIED: string;
+ declare const PARRY: string;
+ declare const PARRY_CHANCE: string;
+ declare const PARTICLE_DENSITY: string;
+ declare const PARTY: string;
+ declare const PARTYRAID_LABEL: string;
+ declare const PARTYRAID_SUBTEXT: string;
+ declare const PARTY_CHAT_BUBBLES_TEXT: string;
+ declare const PARTY_INVITE: string;
+ declare const PARTY_LEADER: string;
+ declare const PARTY_LEAVE: string;
+ declare const PARTY_MESSAGE: string;
+ declare const PARTY_OPTIONS_LABEL: string;
+ declare const PARTY_PROMOTE: string;
+ declare const PARTY_PROMOTE_GUIDE: string;
+ declare const PARTY_QUEST_STATUS_NONE: string;
+ declare const PARTY_QUEST_STATUS_ON: string;
+ declare const PARTY_SILENCE: string;
+ declare const PARTY_UNINVITE: string;
+ declare const PARTY_UNSILENCE: string;
+ declare const PASS: string;
+ declare const PASSIVE_PARENS: string;
+ declare const PASSWORD: string;
+ declare const PENDING_INVITE: string;
+ declare const PENDING_INVITE_LIST: string;
+ declare const PERCENT_SYMBOL: string;
+ declare const PERIODIC: string;
+ declare const PERIODIC_MESSAGES: string;
+ declare const PET: string;
+ declare const PETITION_CREATOR: string;
+ declare const PETITION_NUM_SIGNATURES: string;
+ declare const PETITION_TITLE: string;
+ declare const PETS: string;
+ declare const PETTAME_ANOTHERSUMMONACTIVE: string;
+ declare const PETTAME_CANTCONTROLEXOTIC: string;
+ declare const PETTAME_CREATUREALREADYOWNED: string;
+ declare const PETTAME_DEAD: string;
+ declare const PETTAME_INTERNALERROR: string;
+ declare const PETTAME_INVALIDCREATURE: string;
+ declare const PETTAME_NOPETAVAILABLE: string;
+ declare const PETTAME_NOTDEAD: string;
+ declare const PETTAME_NOTTAMEABLE: string;
+ declare const PETTAME_TOOHIGHLEVEL: string;
+ declare const PETTAME_TOOMANY: string;
+ declare const PETTAME_UNITSCANTTAME: string;
+ declare const PETTAME_UNKNOWNERROR: string;
+ declare const PET_ABANDON: string;
+ declare const PET_ACTION_ATTACK: string;
+ declare const PET_ACTION_DISMISS: string;
+ declare const PET_ACTION_FOLLOW: string;
+ declare const PET_ACTION_WAIT: string;
+ declare const PET_AGGRESSIVE: string;
+ declare const PET_ATTACK: string;
+ declare const PET_BONUS_TOOLTIP_ARMOR: string;
+ declare const PET_BONUS_TOOLTIP_INTELLECT: string;
+ declare const PET_BONUS_TOOLTIP_RANGED_ATTACK_POWER: string;
+ declare const PET_BONUS_TOOLTIP_RESISTANCE: string;
+ declare const PET_BONUS_TOOLTIP_SPELLDAMAGE: string;
+ declare const PET_BONUS_TOOLTIP_STAMINA: string;
+ declare const PET_BONUS_TOOLTIP_WARLOCK_SPELLDMG_FIRE: string;
+ declare const PET_BONUS_TOOLTIP_WARLOCK_SPELLDMG_SHADOW: string;
+ declare const PET_DAMAGE_PERCENTAGE: string;
+ declare const PET_DEFENSIVE: string;
+ declare const PET_DIET_TEMPLATE: string;
+ declare const PET_DISMISS: string;
+ declare const PET_FOLLOW: string;
+ declare const PET_HAPPINESS1: string;
+ declare const PET_HAPPINESS2: string;
+ declare const PET_HAPPINESS3: string;
+ declare const PET_INFO: string;
+ declare const PET_MODE_AGGRESSIVE: string;
+ declare const PET_MODE_DEFENSIVE: string;
+ declare const PET_MODE_PASSIVE: string;
+ declare const PET_PAPERDOLL: string;
+ declare const PET_PASSIVE: string;
+ declare const PET_RENAME: string;
+ declare const PET_RENAME_CONFIRMATION: string;
+ declare const PET_RENAME_LABEL: string;
+ declare const PET_SPELLS_TEMPLATE: string;
+ declare const PET_SPELL_NOPATH: string;
+ declare const PET_TIME_LEFT_MINUTES: string;
+ declare const PET_TIME_LEFT_SECONDS: string;
+ declare const PET_TYPE_DEMON: string;
+ declare const PET_TYPE_PET: string;
+ declare const PET_WAIT: string;
+ declare const PHONG_SHADING: string;
+ declare const PHYSICAL_HARASSMENT: string;
+ declare const PHYSICAL_HARASSMENT_DESCRIPTION: string;
+ declare const PHYSICAL_HARASSMENT_TEXT1: string;
+ declare const PHYSICAL_HARASSMENT_TEXT2: string;
+ declare const PHYSICAL_HARASSMENT_TEXT3: string;
+ declare const PHYSICAL_HARASSMENT_TEXT4: string;
+ declare const PHYSICAL_HARASSMENT_TEXT5: string;
+ declare const PHYSICAL_HARASSMENT_TEXT6: string;
+ declare const PIXEL_SHADERS: string;
+ declare const PLAYBACK: string;
+ declare const PLAYED: string;
+ declare const PLAYER: string;
+ declare const PLAYERSTAT_BASE_STATS: string;
+ declare const PLAYERSTAT_DEFENSES: string;
+ declare const PLAYERSTAT_MELEE_COMBAT: string;
+ declare const PLAYERSTAT_RANGED_COMBAT: string;
+ declare const PLAYERSTAT_SPELL_COMBAT: string;
+ declare const PLAYERS_IN_GROUP: string;
+ declare const PLAYER_COUNT_ALLIANCE: string;
+ declare const PLAYER_COUNT_HORDE: string;
+ declare const PLAYER_DETAIL: string;
+ declare const PLAYER_DIFFICULTY1: string;
+ declare const PLAYER_DIFFICULTY2: string;
+ declare const PLAYER_IS_PVP_AFK: string;
+ declare const PLAYER_LEVEL: string;
+ declare const PLAYER_LEVEL_UP: string;
+ declare const PLAYER_LIST_DELIMITER: string;
+ declare const PLAYER_LOGOUT_FAILED: string;
+ declare const PLAYER_LOGOUT_FAILED_ERROR: string;
+ declare const PLAYER_MESSAGES: string;
+ declare const PLAYER_NOT_FOUND: string;
+ declare const PLAYER_OFFLINE: string;
+ declare const PLAYER_OPTIONS_LABEL: string;
+ declare const PLAYER_SERVER_FIRST_ACHIEVEMENT: string;
+ declare const PLAYER_STATUS: string;
+ declare const PLAYER_V_PLAYER: string;
+ declare const PLAYTIME_TIRED: string;
+ declare const PLAYTIME_TIRED_ABILITY: string;
+ declare const PLAYTIME_UNHEALTHY: string;
+ declare const PLAYTIME_UNHEALTHY_ABILITY: string;
+ declare const PLAY_AGGRO_SOUNDS: string;
+ declare const PLUS_AMMO_DAMAGE_TEMPLATE: string;
+ declare const PLUS_AMMO_SCHOOL_DAMAGE_TEMPLATE: string;
+ declare const PLUS_DAMAGE_TEMPLATE: string;
+ declare const PLUS_DAMAGE_TEMPLATE_WITH_SCHOOL: string;
+ declare const PLUS_SINGLE_DAMAGE_TEMPLATE: string;
+ declare const PLUS_SINGLE_DAMAGE_TEMPLATE_WITH_SCHOOL: string;
+ declare const POP_IN_CHAT: string;
+ declare const POP_OUT_CHAT: string;
+ declare const POTION_TIMER: string;
+ declare const POWER_ABBR: string;
+ declare const POWER_DISPLAY_COST: string;
+ declare const POWER_DISPLAY_COST_PER_TIME: string;
+ declare const POWER_GAINS: string;
+ declare const POWER_GAINS_COMBATLOG_TOOLTIP: string;
+ declare const POWER_TYPE_BLOOD_POWER: string;
+ declare const POWER_TYPE_HEAT: string;
+ declare const POWER_TYPE_OOZE: string;
+ declare const POWER_TYPE_PYRITE: string;
+ declare const POWER_TYPE_STEAM: string;
+ declare const POWER_TYPE_WRATH: string;
+ declare const PREFERENCES: string;
+ declare const PRESS_TAB: string;
+ declare const PREV: string;
+ declare const PREVIEW_TALENT_CHANGES: string;
+ declare const PREVIOUS: string;
+ declare const PRIEST_INTELLECT_TOOLTIP: string;
+ declare const PRIMARY: string;
+ declare const PRIMARY_SKILLS: string;
+ declare const PROC_EVENT0_DESC: string;
+ declare const PROC_EVENT1024_DESC: string;
+ declare const PROC_EVENT128_DESC: string;
+ declare const PROC_EVENT16_DESC: string;
+ declare const PROC_EVENT1_DESC: string;
+ declare const PROC_EVENT2048_DESC: string;
+ declare const PROC_EVENT256_DESC: string;
+ declare const PROC_EVENT2_DESC: string;
+ declare const PROC_EVENT32_DESC: string;
+ declare const PROC_EVENT3_DESC: string;
+ declare const PROC_EVENT4_DESC: string;
+ declare const PROC_EVENT512_DESC: string;
+ declare const PROC_EVENT64_DESC: string;
+ declare const PROC_EVENT8_DESC: string;
+ declare const PROFANITY_FILTER: string;
+ declare const PROFESSION_CONFIRMATION1: string;
+ declare const PROFESSION_CONFIRMATION2: string;
+ declare const PROFFESSION_CONFIRMATION2: string;
+ declare const PROFICIENCIES: string;
+ declare const PROFICIENCIES_COLON: string;
+ declare const PROFICIENCY_NEEDED: string;
+ declare const PROJECTED_TEXTURES: string;
+ declare const PTT_BOUND: string;
+ declare const PUBLICNOTE_BUTTON_TOOLTIP: string;
+ declare const PUBLIC_NOTE: string;
+ declare const PURCHASE: string;
+ declare const PURCHASED_BY_COLON: string;
+ declare const PURCHASE_TAB_TEXT: string;
+ declare const PUSHTOTALK_SOUND_TEXT: string;
+ declare const PUSH_TO_TALK: string;
+ declare const PVP: string;
+ declare const PVPBATTLEGROUND_WINTERGRASPTIMER: string;
+ declare const PVPBATTLEGROUND_WINTERGRASPTIMER_CANNOT_QUEUE: string;
+ declare const PVPBATTLEGROUND_WINTERGRASPTIMER_CAN_QUEUE: string;
+ declare const PVPBATTLEGROUND_WINTERGRASPTIMER_TOOLTIP: string;
+ declare const PVPFFA: string;
+ declare const PVP_DISABLED: string;
+ declare const PVP_ENABLED: string;
+ declare const PVP_FLAG: string;
+ declare const PVP_LABEL_ARENA: string;
+ declare const PVP_LABEL_HONOR: string;
+ declare const PVP_MEDAL1: string;
+ declare const PVP_MEDAL2: string;
+ declare const PVP_MEDAL3: string;
+ declare const PVP_MEDAL4: string;
+ declare const PVP_MEDAL5: string;
+ declare const PVP_MEDAL6: string;
+ declare const PVP_MEDAL7: string;
+ declare const PVP_MEDAL8: string;
+ declare const PVP_MINIMAP: string;
+ declare const PVP_OPTIONS: string;
+ declare const PVP_POLICY_URL: string;
+ declare const PVP_RANK_0_0: string;
+ declare const PVP_RANK_0_0_FEMALE: string;
+ declare const PVP_RANK_0_1: string;
+ declare const PVP_RANK_0_1_FEMALE: string;
+ declare const PVP_RANK_10_0: string;
+ declare const PVP_RANK_10_0_FEMALE: string;
+ declare const PVP_RANK_10_1: string;
+ declare const PVP_RANK_10_1_FEMALE: string;
+ declare const PVP_RANK_11_0: string;
+ declare const PVP_RANK_11_0_FEMALE: string;
+ declare const PVP_RANK_11_1: string;
+ declare const PVP_RANK_11_1_FEMALE: string;
+ declare const PVP_RANK_12_0: string;
+ declare const PVP_RANK_12_0_FEMALE: string;
+ declare const PVP_RANK_12_1: string;
+ declare const PVP_RANK_12_1_FEMALE: string;
+ declare const PVP_RANK_13_0: string;
+ declare const PVP_RANK_13_0_FEMALE: string;
+ declare const PVP_RANK_13_1: string;
+ declare const PVP_RANK_13_1_FEMALE: string;
+ declare const PVP_RANK_14_0: string;
+ declare const PVP_RANK_14_0_FEMALE: string;
+ declare const PVP_RANK_14_1: string;
+ declare const PVP_RANK_14_1_FEMALE: string;
+ declare const PVP_RANK_15_0: string;
+ declare const PVP_RANK_15_0_FEMALE: string;
+ declare const PVP_RANK_15_1: string;
+ declare const PVP_RANK_15_1_FEMALE: string;
+ declare const PVP_RANK_16_0: string;
+ declare const PVP_RANK_16_0_FEMALE: string;
+ declare const PVP_RANK_16_1: string;
+ declare const PVP_RANK_16_1_FEMALE: string;
+ declare const PVP_RANK_17_0: string;
+ declare const PVP_RANK_17_0_FEMALE: string;
+ declare const PVP_RANK_17_1: string;
+ declare const PVP_RANK_17_1_FEMALE: string;
+ declare const PVP_RANK_18_0: string;
+ declare const PVP_RANK_18_0_FEMALE: string;
+ declare const PVP_RANK_18_1: string;
+ declare const PVP_RANK_18_1_FEMALE: string;
+ declare const PVP_RANK_19_0: string;
+ declare const PVP_RANK_19_0_FEMALE: string;
+ declare const PVP_RANK_19_1: string;
+ declare const PVP_RANK_19_1_FEMALE: string;
+ declare const PVP_RANK_1_0: string;
+ declare const PVP_RANK_1_0_FEMALE: string;
+ declare const PVP_RANK_1_1: string;
+ declare const PVP_RANK_1_1_FEMALE: string;
+ declare const PVP_RANK_2_0: string;
+ declare const PVP_RANK_2_0_FEMALE: string;
+ declare const PVP_RANK_2_1: string;
+ declare const PVP_RANK_2_1_FEMALE: string;
+ declare const PVP_RANK_3_0: string;
+ declare const PVP_RANK_3_0_FEMALE: string;
+ declare const PVP_RANK_3_1: string;
+ declare const PVP_RANK_3_1_FEMALE: string;
+ declare const PVP_RANK_4_0: string;
+ declare const PVP_RANK_4_0_FEMALE: string;
+ declare const PVP_RANK_4_1: string;
+ declare const PVP_RANK_4_1_FEMALE: string;
+ declare const PVP_RANK_5_0: string;
+ declare const PVP_RANK_5_0_FEMALE: string;
+ declare const PVP_RANK_5_1: string;
+ declare const PVP_RANK_5_1_FEMALE: string;
+ declare const PVP_RANK_6_0: string;
+ declare const PVP_RANK_6_0_FEMALE: string;
+ declare const PVP_RANK_6_1: string;
+ declare const PVP_RANK_6_1_FEMALE: string;
+ declare const PVP_RANK_7_0: string;
+ declare const PVP_RANK_7_0_FEMALE: string;
+ declare const PVP_RANK_7_1: string;
+ declare const PVP_RANK_7_1_FEMALE: string;
+ declare const PVP_RANK_8_0: string;
+ declare const PVP_RANK_8_0_FEMALE: string;
+ declare const PVP_RANK_8_1: string;
+ declare const PVP_RANK_8_1_FEMALE: string;
+ declare const PVP_RANK_9_0: string;
+ declare const PVP_RANK_9_0_FEMALE: string;
+ declare const PVP_RANK_9_1: string;
+ declare const PVP_RANK_9_1_FEMALE: string;
+ declare const PVP_RANK_LEADER: string;
+ declare const PVP_RATING: string;
+ declare const PVP_REPORT_AFK: string;
+ declare const PVP_REPORT_AFK_ALL: string;
+ declare const PVP_REPORT_AFK_ALREADY_NOTIFIED: string;
+ declare const PVP_REPORT_AFK_GENERIC_FAILURE: string;
+ declare const PVP_REPORT_AFK_NOT_SAME_TEAM: string;
+ declare const PVP_REPORT_AFK_PLAYER_NOT_VALID: string;
+ declare const PVP_REPORT_AFK_SUCCEEDED: string;
+ declare const PVP_REPORT_AFK_SYSTEM_DISABLED: string;
+ declare const PVP_REPORT_AFK_SYSTEM_ENABLED: string;
+ declare const PVP_REQUIRED_FOR_CAPTURE: string;
+ declare const PVP_TEAMSIZE: string;
+ declare const PVP_TEAMTYPE: string;
+ declare const PVP_TOGGLE_OFF_VERBOSE: string;
+ declare const PVP_TOGGLE_ON_VERBOSE: string;
+ declare const PVP_YOUR_RATING: string;
+ declare const PVP_ZONE_OBJECTIVES: string;
+ declare const QUALITY: string;
+ declare const QUESTLOG_BUTTON: string;
+ declare const QUESTLOG_NO_QUESTS_TEXT: string;
+ declare const QUESTS_COLON: string;
+ declare const QUESTS_LABEL: string;
+ declare const QUESTS_SUBTEXT: string;
+ declare const QUEST_ACCEPT: string;
+ declare const QUEST_ACCEPT_LOG_FULL: string;
+ declare const QUEST_COMPLETE: string;
+ declare const QUEST_DASH: string;
+ declare const QUEST_DESCRIPTION: string;
+ declare const QUEST_DETAILS: string;
+ declare const QUEST_FACTION_NEEDED: string;
+ declare const QUEST_FACTION_NEEDED_NOPROGRESS: string;
+ declare const QUEST_FAILED: string;
+ declare const QUEST_FAILED_TAG: string;
+ declare const QUEST_HARD: string;
+ declare const QUEST_INTERMEDIATE_ITEMS_NEEDED: string;
+ declare const QUEST_ITEMS_NEEDED: string;
+ declare const QUEST_ITEMS_NEEDED_NOPROGRESS: string;
+ declare const QUEST_LOG: string;
+ declare const QUEST_LOG_COUNT_TEMPLATE: string;
+ declare const QUEST_LOG_DAILY_COUNT_TEMPLATE: string;
+ declare const QUEST_LOG_DAILY_TOOLTIP: string;
+ declare const QUEST_MONSTERS_KILLED: string;
+ declare const QUEST_MONSTERS_KILLED_NOPROGRESS: string;
+ declare const QUEST_OBJECTIVES: string;
+ declare const QUEST_OBJECTS_FOUND: string;
+ declare const QUEST_OBJECTS_FOUND_NOPROGRESS: string;
+ declare const QUEST_PLAYERS_KILLED: string;
+ declare const QUEST_PLAYERS_KILLED_NOPROGRESS: string;
+ declare const QUEST_REWARDS: string;
+ declare const QUEST_SUGGESTED_GROUP_NUM: string;
+ declare const QUEST_SUGGESTED_GROUP_NUM_TAG: string;
+ declare const QUEST_TIMERS: string;
+ declare const QUEST_TOOLTIP_ACTIVE: string;
+ declare const QUEST_TOOLTIP_REQUIREMENTS: string;
+ declare const QUEST_WATCH_NO_OBJECTIVES: string;
+ declare const QUEST_WATCH_TOOLTIP: string;
+ declare const QUEST_WATCH_TOO_MANY: string;
+ declare const QUEUED_FOR: string;
+ declare const QUEUED_FOR_SHORT: string;
+ declare const QUEUE_TIME_UNAVAILABLE: string;
+ declare const QUICKBUTTON_NAME_DEFAULT: string;
+ declare const QUICKBUTTON_NAME_EVERYTHING: string;
+ declare const QUICKBUTTON_NAME_EVERYTHING_TOOLTIP: string;
+ declare const QUICKBUTTON_NAME_FRIENDS: string;
+ declare const QUICKBUTTON_NAME_KILLS: string;
+ declare const QUICKBUTTON_NAME_KILLS_TOOLTIP: string;
+ declare const QUICKBUTTON_NAME_ME: string;
+ declare const QUICKBUTTON_NAME_ME_TOOLTIP: string;
+ declare const QUICKBUTTON_NAME_SELF: string;
+ declare const QUICKBUTTON_NAME_SELF_TOOLTIP: string;
+ declare const QUICK_BUTTON_COMBATLOG_TOOLTIP: string;
+ declare const QUIT: string;
+ declare const QUIT_NOW: string;
+ declare const QUIT_TIMER: string;
+ declare const RACE: string;
+ declare const RACE_CLASS_ONLY: string;
+ declare const RACIAL_SKILLS: string;
+ declare const RAF_GRANT_LEVEL: string;
+ declare const RAF_SUMMON: string;
+ declare const RAF_SUMMON_LINKED: string;
+ declare const RAF_SUMMON_WITH_COOLDOWN: string;
+ declare const RAGE: string;
+ declare const RAGE_COST: string;
+ declare const RAGE_COST_PER_TIME: string;
+ declare const RAID: string;
+ declare const RAIDOPTIONS_MENU: string;
+ declare const RAID_AND_PARTY: string;
+ declare const RAID_ASSISTANT: string;
+ declare const RAID_ASSISTANT_TOKEN: string;
+ declare const RAID_BOSS_MESSAGE: string;
+ declare const RAID_BROWSER_DESCRIPTION: string;
+ declare const RAID_CONTROL: string;
+ declare const RAID_DESCRIPTION: string;
+ declare const RAID_DIFFICULTY: string;
+ declare const RAID_DIFFICULTY1: string;
+ declare const RAID_DIFFICULTY2: string;
+ declare const RAID_DIFFICULTY3: string;
+ declare const RAID_DIFFICULTY4: string;
+ declare const RAID_DIFFICULTY_10PLAYER: string;
+ declare const RAID_DIFFICULTY_10PLAYER_HEROIC: string;
+ declare const RAID_DIFFICULTY_20PLAYER: string;
+ declare const RAID_DIFFICULTY_25PLAYER: string;
+ declare const RAID_DIFFICULTY_25PLAYER_HEROIC: string;
+ declare const RAID_DIFFICULTY_40PLAYER: string;
+ declare const RAID_GROUPS: string;
+ declare const RAID_INFO: string;
+ declare const RAID_INFORMATION: string;
+ declare const RAID_INFO_DESC: string;
+ declare const RAID_INSTANCE_EXPIRED: string;
+ declare const RAID_INSTANCE_EXPIRES: string;
+ declare const RAID_INSTANCE_EXPIRES_EXPIRED: string;
+ declare const RAID_INSTANCE_EXPIRES_EXTENDED: string;
+ declare const RAID_INSTANCE_INFO_FMT: string;
+ declare const RAID_INSTANCE_INFO_HDR: string;
+ declare const RAID_INSTANCE_LOCK_EXTENDED: string;
+ declare const RAID_INSTANCE_LOCK_NOT_EXTENDED: string;
+ declare const RAID_INSTANCE_WARNING_HOURS: string;
+ declare const RAID_INSTANCE_WARNING_MIN: string;
+ declare const RAID_INSTANCE_WARNING_MIN_SOON: string;
+ declare const RAID_INSTANCE_WELCOME: string;
+ declare const RAID_INSTANCE_WELCOME_DH: string;
+ declare const RAID_INSTANCE_WELCOME_EXTENDED: string;
+ declare const RAID_INSTANCE_WELCOME_HM: string;
+ declare const RAID_INSTANCE_WELCOME_LOCKED: string;
+ declare const RAID_INSTANCE_WELCOME_LOCKED_EXTENDED: string;
+ declare const RAID_LEADER: string;
+ declare const RAID_LEADER_TOKEN: string;
+ declare const RAID_MEMBERS_AFK: string;
+ declare const RAID_MEMBER_NOT_READY: string;
+ declare const RAID_MESSAGE: string;
+ declare const RAID_SILENCE: string;
+ declare const RAID_TARGET_1: string;
+ declare const RAID_TARGET_2: string;
+ declare const RAID_TARGET_3: string;
+ declare const RAID_TARGET_4: string;
+ declare const RAID_TARGET_5: string;
+ declare const RAID_TARGET_6: string;
+ declare const RAID_TARGET_7: string;
+ declare const RAID_TARGET_8: string;
+ declare const RAID_TARGET_ICON: string;
+ declare const RAID_TARGET_NONE: string;
+ declare const RAID_UNSILENCE: string;
+ declare const RAID_WARNING: string;
+ declare const RAID_WARNING_MESSAGE: string;
+ declare const RALT_KEY_TEXT: string;
+ declare const RANDOM_BATTLEGROUND: string;
+ declare const RANDOM_BATTLEGROUND_EXPLANATION: string;
+ declare const RANDOM_DUNGEON_IS_READY: string;
+ declare const RANDOM_ROLL_RESULT: string;
+ declare const RANGED: string;
+ declare const RANGEDSLOT: string;
+ declare const RANGED_ATTACK: string;
+ declare const RANGED_ATTACK_POWER: string;
+ declare const RANGED_ATTACK_POWER_TOOLTIP: string;
+ declare const RANGED_ATTACK_TOOLTIP: string;
+ declare const RANGED_COMBATLOG_TOOLTIP: string;
+ declare const RANGED_CRIT_CHANCE: string;
+ declare const RANGED_DAMAGE_TOOLTIP: string;
+ declare const RANGE_DAMAGE_COMBATLOG_TOOLTIP: string;
+ declare const RANGE_MISSED_COMBATLOG_TOOLTIP: string;
+ declare const RANK: string;
+ declare const RANK_COLON: string;
+ declare const RANK_POSITION: string;
+ declare const RARITY: string;
+ declare const RATING: string;
+ declare const RATINGS_MENU: string;
+ declare const RATINGS_TEXT: string;
+ declare const RATING_CHANGE_TOOLTIP: string;
+ declare const RCTRL_KEY_TEXT: string;
+ declare const REACTIVATE_RAID_LOCK: string;
+ declare const READY: string;
+ declare const READY_CHECK: string;
+ declare const READY_CHECK_ALL_READY: string;
+ declare const READY_CHECK_FINISHED: string;
+ declare const READY_CHECK_MESSAGE: string;
+ declare const READY_CHECK_NO_AFK: string;
+ declare const READY_CHECK_START: string;
+ declare const READY_CHECK_YOU_WERE_AFK: string;
+ declare const RECOVER_CORPSE: string;
+ declare const RECOVER_CORPSE_INSTANCE: string;
+ declare const RECOVER_CORPSE_TIMER: string;
+ declare const RED_GEM: string;
+ declare const REFLECT: string;
+ declare const REFRESH: string;
+ declare const REFRESH_RATE: string;
+ declare const REFUND_TIME_REMAINING: string;
+ declare const RELICSLOT: string;
+ declare const REMOVE: string;
+ declare const REMOVE_BLOCK: string;
+ declare const REMOVE_CHAT_DELAY_TEXT: string;
+ declare const REMOVE_FRIEND: string;
+ declare const REMOVE_FRIEND_CONFIRMATION: string;
+ declare const REMOVE_GUILDMEMBER_LABEL: string;
+ declare const REMOVE_IGNORE: string;
+ declare const REMOVE_MODERATOR: string;
+ declare const REMOVE_MUTE: string;
+ declare const REMOVE_PLAYER: string;
+ declare const RENAME_ARENA_TEAM: string;
+ declare const RENAME_ARENA_TEAM_LABEL: string;
+ declare const RENAME_CHAT_WINDOW: string;
+ declare const RENAME_GUILD: string;
+ declare const RENAME_GUILD_LABEL: string;
+ declare const REPAIR_ALL_ITEMS: string;
+ declare const REPAIR_AN_ITEM: string;
+ declare const REPAIR_COST: string;
+ declare const REPAIR_ITEMS: string;
+ declare const REPLACE_ENCHANT: string;
+ declare const REPLY_MESSAGE: string;
+ declare const REPORT_MULTIPLE_PVP_AFK_SENT: string;
+ declare const REPORT_PHYSICAL_HARASSMENT: string;
+ declare const REPORT_PVP_AFK_SENT: string;
+ declare const REPORT_SPAM: string;
+ declare const REPORT_SPAM_CONFIRMATION: string;
+ declare const REPORT_VERBAL_HARASSMENT: string;
+ declare const REPUTATION: string;
+ declare const REPUTATION_ABBR: string;
+ declare const REPUTATION_AT_WAR_DESCRIPTION: string;
+ declare const REPUTATION_FACTION_DESCRIPTION: string;
+ declare const REPUTATION_MOVE_TO_INACTIVE: string;
+ declare const REPUTATION_SHOW_AS_XP: string;
+ declare const REPUTATION_STANDING_DESCRIPTION: string;
+ declare const REPUTATION_STATUS_AT_PEACE: string;
+ declare const REPUTATION_STATUS_AT_WAR: string;
+ declare const REPUTATION_STATUS_NOT_AT_PEACE: string;
+ declare const REPUTATION_STATUS_PERMANENT_AT_PEACE: string;
+ declare const REPUTATION_STATUS_PERMANENT_AT_WAR: string;
+ declare const REQUEST_SIGNATURE: string;
+ declare const REQUIRED_MONEY: string;
+ declare const REQUIRES_LABEL: string;
+ declare const REQUIRES_RUNIC_POWER: string;
+ declare const RESET: string;
+ declare const RESETS_IN: string;
+ declare const RESET_ALL_WINDOWS: string;
+ declare const RESET_CHAT_WINDOW: string;
+ declare const RESET_FAILED_NOTIFY: string;
+ declare const RESET_INSTANCES: string;
+ declare const RESET_TO_DEFAULT: string;
+ declare const RESET_TUTORIALS: string;
+ declare const RESILIENCE: string;
+ declare const RESILIENCE_ABBR: string;
+ declare const RESILIENCE_TOOLTIP: string;
+ declare const RESIST: string;
+ declare const RESISTANCE0_NAME: string;
+ declare const RESISTANCE1_NAME: string;
+ declare const RESISTANCE2_NAME: string;
+ declare const RESISTANCE3_NAME: string;
+ declare const RESISTANCE4_NAME: string;
+ declare const RESISTANCE5_NAME: string;
+ declare const RESISTANCE6_NAME: string;
+ declare const RESISTANCE_EXCELLENT: string;
+ declare const RESISTANCE_FAIR: string;
+ declare const RESISTANCE_GOOD: string;
+ declare const RESISTANCE_LABEL: string;
+ declare const RESISTANCE_NONE: string;
+ declare const RESISTANCE_POOR: string;
+ declare const RESISTANCE_TEMPLATE: string;
+ declare const RESISTANCE_TOOLTIP_SUBTEXT: string;
+ declare const RESISTANCE_TYPE0: string;
+ declare const RESISTANCE_TYPE1: string;
+ declare const RESISTANCE_TYPE2: string;
+ declare const RESISTANCE_TYPE3: string;
+ declare const RESISTANCE_TYPE4: string;
+ declare const RESISTANCE_TYPE5: string;
+ declare const RESISTANCE_TYPE6: string;
+ declare const RESISTANCE_VERYGOOD: string;
+ declare const RESIST_TRAILER: string;
+ declare const RESOLUTION: string;
+ declare const RESOLUTION_LABEL: string;
+ declare const RESOLUTION_SUBTEXT: string;
+ declare const RESURRECT: string;
+ declare const RESURRECTABLE: string;
+ declare const RESURRECT_REQUEST: string;
+ declare const RESURRECT_REQUEST_NO_SICKNESS: string;
+ declare const RESURRECT_REQUEST_NO_SICKNESS_TIMER: string;
+ declare const RESURRECT_REQUEST_TIMER: string;
+ declare const RETRIEVING_ITEM_INFO: string;
+ declare const RETURN_TO_GAME: string;
+ declare const RETURN_TO_WORLD: string;
+ declare const REWARD_AURA: string;
+ declare const REWARD_CHOICES: string;
+ declare const REWARD_CHOOSE: string;
+ declare const REWARD_ITEMS: string;
+ declare const REWARD_ITEMS_ONLY: string;
+ declare const REWARD_REPUTATION: string;
+ declare const REWARD_REPUTATION_TEXT: string;
+ declare const REWARD_SPELL: string;
+ declare const REWARD_TITLE: string;
+ declare const REWARD_TRADESKILL_SPELL: string;
+ declare const RID_FRIEND_REQUEST_INFO: string;
+ declare const RIGHT_CLICK_MESSAGE: string;
+ declare const ROGUE_AGILITY_TOOLTIP: string;
+ declare const ROLE: string;
+ declare const ROLE_CHECK_IN_PROGRESS_TOOLTIP: string;
+ declare const ROLE_DESCRIPTION1: string;
+ declare const ROLE_DESCRIPTION2: string;
+ declare const ROLE_DESCRIPTION3: string;
+ declare const ROLL_DISENCHANT: string;
+ declare const ROLL_DISENCHANT_NEWBIE: string;
+ declare const ROTATE_MINIMAP: string;
+ declare const RSHIFT_KEY_TEXT: string;
+ declare const RUNES: string;
+ declare const RUNE_COST_BLOOD: string;
+ declare const RUNE_COST_FROST: string;
+ declare const RUNE_COST_ONGOING: string;
+ declare const RUNE_COST_UNHOLY: string;
+ declare const RUNIC_POWER: string;
+ declare const RUNIC_POWER_COST: string;
+ declare const RUNIC_POWER_COST_PER_TIME: string;
+ declare const RURU: string;
+ declare const RUSSIAN_DECLENSION: string;
+ declare const RUSSIAN_DECLENSION_1: string;
+ declare const RUSSIAN_DECLENSION_2: string;
+ declare const RUSSIAN_DECLENSION_3: string;
+ declare const RUSSIAN_DECLENSION_4: string;
+ declare const RUSSIAN_DECLENSION_5: string;
+ declare const RUSSIAN_DECLENSION_EXAMPLE_1: string;
+ declare const RUSSIAN_DECLENSION_EXAMPLE_2: string;
+ declare const RUSSIAN_DECLENSION_EXAMPLE_3: string;
+ declare const RUSSIAN_DECLENSION_EXAMPLE_4: string;
+ declare const RUSSIAN_DECLENSION_EXAMPLE_5: string;
+ declare const SALE_PRICE_COLON: string;
+ declare const SANCTUARY_TERRITORY: string;
+ declare const SAVE: string;
+ declare const SAVE_CHANGES: string;
+ declare const SAY: string;
+ declare const SAY_MESSAGE: string;
+ declare const SCORE_DAMAGE_DONE: string;
+ declare const SCORE_FLAGS_CAPTURED: string;
+ declare const SCORE_FLAGS_RETURNED: string;
+ declare const SCORE_HEALING_DONE: string;
+ declare const SCORE_HONORABLE_KILLS: string;
+ declare const SCORE_HONOR_GAINED: string;
+ declare const SCORE_KILLING_BLOWS: string;
+ declare const SCORE_POWER_UPS: string;
+ declare const SCORE_RATING_CHANGE: string;
+ declare const SCORE_TEAM_SKILL: string;
+ declare const SCREENSHOT_FAILURE: string;
+ declare const SCREENSHOT_SUCCESS: string;
+ declare const SEARCH: string;
+ declare const SEARCHING_FOR_GROUPS_NEEDS: string;
+ declare const SEARCHING_FOR_ITEMS: string;
+ declare const SECONDARY: string;
+ declare const SECONDARYHANDSLOT: string;
+ declare const SECONDARY_SKILLS: string;
+ declare const SECONDS: string;
+ declare const SECONDS_ABBR: string;
+ declare const SECOND_NUMBER_CAP: string;
+ declare const SECOND_ONELETTER_ABBR: string;
+ declare const SECURE_ABILITY_TOGGLE: string;
+ declare const SELECT_CATEGORY: string;
+ declare const SELFMUTED: string;
+ declare const SELL_PRICE: string;
+ declare const SENDMAIL: string;
+ declare const SENDMAIL_TEXT: string;
+ declare const SEND_BUG: string;
+ declare const SEND_LABEL: string;
+ declare const SEND_MAIL_COST: string;
+ declare const SEND_MESSAGE: string;
+ declare const SEND_MONEY: string;
+ declare const SEND_MONEY_CONFIRMATION: string;
+ declare const SEND_REQUEST: string;
+ declare const SEND_SUGGEST: string;
+ declare const SERVER_CHANNELS: string;
+ declare const SERVER_FIRST_ACHIEVEMENT: string;
+ declare const SERVER_MESSAGE_COLON: string;
+ declare const SERVER_MESSAGE_PREFIX: string;
+ declare const SETTINGS: string;
+ declare const SET_COMMENT_LABEL: string;
+ declare const SET_FOCUS: string;
+ declare const SET_FRIENDNOTE_LABEL: string;
+ declare const SET_GUILDMOTD_LABEL: string;
+ declare const SET_GUILDOFFICERNOTE_LABEL: string;
+ declare const SET_GUILDPLAYERNOTE_LABEL: string;
+ declare const SET_MAIN_ASSIST: string;
+ declare const SET_MAIN_TANK: string;
+ declare const SET_NOTE: string;
+ declare const SET_RAID_ASSISTANT: string;
+ declare const SET_RAID_LEADER: string;
+ declare const SHADOW_QUALITY: string;
+ declare const SHAMAN_INTELLECT_TOOLTIP: string;
+ declare const SHAMAN_STRENGTH_TOOLTIP: string;
+ declare const SHARDS: string;
+ declare const SHARE_QUEST: string;
+ declare const SHARE_QUEST_ABBREV: string;
+ declare const SHARE_QUEST_TEXT: string;
+ declare const SHIELDSLOT: string;
+ declare const SHIELD_BLOCK_TEMPLATE: string;
+ declare const SHIFT_KEY: string;
+ declare const SHIFT_KEY_TEXT: string;
+ declare const SHIRTSLOT: string;
+ declare const SHORTDATE: string;
+ declare const SHOULDERSLOT: string;
+ declare const SHOW_ALL_SPELL_RANKS: string;
+ declare const SHOW_ARENA_ENEMY_CASTBAR_TEXT: string;
+ declare const SHOW_ARENA_ENEMY_FRAMES_TEXT: string;
+ declare const SHOW_ARENA_ENEMY_PETS_TEXT: string;
+ declare const SHOW_BATTLEFIELDMINIMAP_PLAYERS: string;
+ declare const SHOW_BATTLENET_TOASTS: string;
+ declare const SHOW_BRACES: string;
+ declare const SHOW_BRACES_COMBATLOG_TOOLTIP: string;
+ declare const SHOW_BUFFS: string;
+ declare const SHOW_BUFF_DURATION_TEXT: string;
+ declare const SHOW_CASTABLE_BUFFS_TEXT: string;
+ declare const SHOW_CASTABLE_DEBUFFS_TEXT: string;
+ declare const SHOW_CHAT_ICONS: string;
+ declare const SHOW_CLASS_COLOR: string;
+ declare const SHOW_CLASS_COLOR_IN_V_KEY: string;
+ declare const SHOW_CLOAK: string;
+ declare const SHOW_CLOCK: string;
+ declare const SHOW_COMBAT_HEALING: string;
+ declare const SHOW_COMBAT_TEXT_TEXT: string;
+ declare const SHOW_DAMAGE_TEXT: string;
+ declare const SHOW_DEBUFFS: string;
+ declare const SHOW_DISPELLABLE_DEBUFFS_TEXT: string;
+ declare const SHOW_ENEMY_CAST: string;
+ declare const SHOW_FACTION_ON_MAINSCREEN: string;
+ declare const SHOW_FREE_BAG_SLOTS_TEXT: string;
+ declare const SHOW_FRIENDS_LIST: string;
+ declare const SHOW_FULLSCREEN_STATUS_TEXT: string;
+ declare const SHOW_GUILD_NAMES: string;
+ declare const SHOW_HELM: string;
+ declare const SHOW_IGNORE_LIST: string;
+ declare const SHOW_ITEM_LEVEL: string;
+ declare const SHOW_LOOT_SPAM: string;
+ declare const SHOW_LUA_ERRORS: string;
+ declare const SHOW_MAP: string;
+ declare const SHOW_MULTIBAR1_TEXT: string;
+ declare const SHOW_MULTIBAR2_TEXT: string;
+ declare const SHOW_MULTIBAR3_TEXT: string;
+ declare const SHOW_MULTIBAR4_TEXT: string;
+ declare const SHOW_NEWBIE_TIPS_TEXT: string;
+ declare const SHOW_NPC_NAMES: string;
+ declare const SHOW_NUMERIC_THREAT: string;
+ declare const SHOW_OFFLINE_MEMBERS: string;
+ declare const SHOW_ON_BACKPACK: string;
+ declare const SHOW_OTHER_TARGET_EFFECTS: string;
+ declare const SHOW_OWN_NAME: string;
+ declare const SHOW_PARTY_BACKGROUND_TEXT: string;
+ declare const SHOW_PARTY_PETS_TEXT: string;
+ declare const SHOW_PARTY_TEXT_TEXT: string;
+ declare const SHOW_PET_MELEE_DAMAGE: string;
+ declare const SHOW_PET_NAMEPLATES: string;
+ declare const SHOW_PET_SPELL_DAMAGE: string;
+ declare const SHOW_PLAYER_NAMES: string;
+ declare const SHOW_PLAYER_TITLES: string;
+ declare const SHOW_QUEST_FADING_TEXT: string;
+ declare const SHOW_QUEST_OBJECTIVES_ON_MAP_TEXT: string;
+ declare const SHOW_QUICK_BUTTON: string;
+ declare const SHOW_RAID_RANGE_TEXT: string;
+ declare const SHOW_TARGET: string;
+ declare const SHOW_TARGET_CASTBAR: string;
+ declare const SHOW_TARGET_CASTBAR_IN_V_KEY: string;
+ declare const SHOW_TARGET_EFFECTS: string;
+ declare const SHOW_TARGET_OF_TARGET_TEXT: string;
+ declare const SHOW_TIMESTAMP: string;
+ declare const SHOW_TIPOFTHEDAY_TEXT: string;
+ declare const SHOW_TOAST_BROADCAST_TEXT: string;
+ declare const SHOW_TOAST_CONVERSATION_TEXT: string;
+ declare const SHOW_TOAST_FRIEND_REQUEST_TEXT: string;
+ declare const SHOW_TOAST_OFFLINE_TEXT: string;
+ declare const SHOW_TOAST_ONLINE_TEXT: string;
+ declare const SHOW_TOAST_WINDOW_TEXT: string;
+ declare const SHOW_TUTORIALS: string;
+ declare const SHOW_UNIT_NAMES: string;
+ declare const SIGN_CHARTER: string;
+ declare const SILVER_AMOUNT: string;
+ declare const SILVER_AMOUNT_SYMBOL: string;
+ declare const SILVER_AMOUNT_TEXTURE: string;
+ declare const SIMPLE_CHAT_OPTION_ENABLE_INTERRUPT: string;
+ declare const SIMPLE_CHAT_TEXT: string;
+ declare const SIMPLE_QUEST_WATCH_TEXT: string;
+ declare const SINGLE_DAMAGE_TEMPLATE: string;
+ declare const SINGLE_DAMAGE_TEMPLATE_WITH_SCHOOL: string;
+ declare const SINGLE_PAGE_RESULTS_TEMPLATE: string;
+ declare const SKILL: string;
+ declare const SKILLS: string;
+ declare const SKILLS_ABBR: string;
+ declare const SKILLUPS: string;
+ declare const SKILL_DESCRIPTION: string;
+ declare const SKILL_INCREMENT_COST: string;
+ declare const SKILL_INCREMENT_COST_SINGULAR: string;
+ declare const SKILL_LEARNING_COST: string;
+ declare const SKILL_LEARNING_COST_SINGULAR: string;
+ declare const SKILL_LEVEL: string;
+ declare const SKILL_POINTS_TOOLTIP: string;
+ declare const SKILL_RANK_UP: string;
+ declare const SKIN_COLOR: string;
+ declare const SLASH_ACHIEVEMENTUI1: string;
+ declare const SLASH_ACHIEVEMENTUI2: string;
+ declare const SLASH_ACHIEVEMENTUI3: string;
+ declare const SLASH_ACHIEVEMENTUI4: string;
+ declare const SLASH_ACHIEVEMENTUI5: string;
+ declare const SLASH_ACHIEVEMENTUI6: string;
+ declare const SLASH_ACHIEVEMENTUI7: string;
+ declare const SLASH_ACHIEVEMENTUI8: string;
+ declare const SLASH_ASSIST1: string;
+ declare const SLASH_ASSIST2: string;
+ declare const SLASH_ASSIST3: string;
+ declare const SLASH_ASSIST4: string;
+ declare const SLASH_BATTLEGROUND1: string;
+ declare const SLASH_BATTLEGROUND2: string;
+ declare const SLASH_BATTLEGROUND3: string;
+ declare const SLASH_BATTLEGROUND4: string;
+ declare const SLASH_BENCHMARK1: string;
+ declare const SLASH_BENCHMARK2: string;
+ declare const SLASH_CALENDAR1: string;
+ declare const SLASH_CALENDAR2: string;
+ declare const SLASH_CANCELAURA1: string;
+ declare const SLASH_CANCELAURA2: string;
+ declare const SLASH_CANCELFORM1: string;
+ declare const SLASH_CANCELFORM2: string;
+ declare const SLASH_CAST1: string;
+ declare const SLASH_CAST2: string;
+ declare const SLASH_CAST3: string;
+ declare const SLASH_CAST4: string;
+ declare const SLASH_CASTRANDOM1: string;
+ declare const SLASH_CASTRANDOM2: string;
+ declare const SLASH_CASTSEQUENCE1: string;
+ declare const SLASH_CASTSEQUENCE2: string;
+ declare const SLASH_CHANGEACTIONBAR1: string;
+ declare const SLASH_CHANGEACTIONBAR2: string;
+ declare const SLASH_CHANNEL1: string;
+ declare const SLASH_CHANNEL2: string;
+ declare const SLASH_CHANNEL3: string;
+ declare const SLASH_CHANNEL4: string;
+ declare const SLASH_CHATLOG1: string;
+ declare const SLASH_CHATLOG2: string;
+ declare const SLASH_CHAT_AFK1: string;
+ declare const SLASH_CHAT_AFK2: string;
+ declare const SLASH_CHAT_AFK3: string;
+ declare const SLASH_CHAT_AFK4: string;
+ declare const SLASH_CHAT_ANNOUNCE1: string;
+ declare const SLASH_CHAT_ANNOUNCE2: string;
+ declare const SLASH_CHAT_ANNOUNCE3: string;
+ declare const SLASH_CHAT_ANNOUNCE4: string;
+ declare const SLASH_CHAT_BAN1: string;
+ declare const SLASH_CHAT_BAN2: string;
+ declare const SLASH_CHAT_CINVITE1: string;
+ declare const SLASH_CHAT_CINVITE2: string;
+ declare const SLASH_CHAT_CINVITE3: string;
+ declare const SLASH_CHAT_CINVITE4: string;
+ declare const SLASH_CHAT_DND1: string;
+ declare const SLASH_CHAT_DND2: string;
+ declare const SLASH_CHAT_DND3: string;
+ declare const SLASH_CHAT_DND4: string;
+ declare const SLASH_CHAT_DND5: string;
+ declare const SLASH_CHAT_DND6: string;
+ declare const SLASH_CHAT_HELP1: string;
+ declare const SLASH_CHAT_HELP2: string;
+ declare const SLASH_CHAT_HELP3: string;
+ declare const SLASH_CHAT_HELP4: string;
+ declare const SLASH_CHAT_HELP5: string;
+ declare const SLASH_CHAT_KICK1: string;
+ declare const SLASH_CHAT_KICK2: string;
+ declare const SLASH_CHAT_MODERATE1: string;
+ declare const SLASH_CHAT_MODERATE2: string;
+ declare const SLASH_CHAT_MODERATOR1: string;
+ declare const SLASH_CHAT_MODERATOR2: string;
+ declare const SLASH_CHAT_MODERATOR3: string;
+ declare const SLASH_CHAT_MODERATOR4: string;
+ declare const SLASH_CHAT_MUTE1: string;
+ declare const SLASH_CHAT_MUTE2: string;
+ declare const SLASH_CHAT_MUTE3: string;
+ declare const SLASH_CHAT_MUTE4: string;
+ declare const SLASH_CHAT_MUTE5: string;
+ declare const SLASH_CHAT_MUTE6: string;
+ declare const SLASH_CHAT_OWNER1: string;
+ declare const SLASH_CHAT_OWNER2: string;
+ declare const SLASH_CHAT_PASSWORD1: string;
+ declare const SLASH_CHAT_PASSWORD2: string;
+ declare const SLASH_CHAT_PASSWORD3: string;
+ declare const SLASH_CHAT_PASSWORD4: string;
+ declare const SLASH_CHAT_PASSWORD5: string;
+ declare const SLASH_CHAT_UNBAN1: string;
+ declare const SLASH_CHAT_UNBAN2: string;
+ declare const SLASH_CHAT_UNMODERATOR1: string;
+ declare const SLASH_CHAT_UNMODERATOR2: string;
+ declare const SLASH_CHAT_UNMODERATOR3: string;
+ declare const SLASH_CHAT_UNMODERATOR4: string;
+ declare const SLASH_CHAT_UNMUTE1: string;
+ declare const SLASH_CHAT_UNMUTE2: string;
+ declare const SLASH_CHAT_UNMUTE3: string;
+ declare const SLASH_CHAT_UNMUTE4: string;
+ declare const SLASH_CHAT_UNMUTE5: string;
+ declare const SLASH_CHAT_UNMUTE6: string;
+ declare const SLASH_CLEAR1: string;
+ declare const SLASH_CLEAR2: string;
+ declare const SLASH_CLEARFOCUS1: string;
+ declare const SLASH_CLEARFOCUS2: string;
+ declare const SLASH_CLEARMAINASSIST1: string;
+ declare const SLASH_CLEARMAINASSIST2: string;
+ declare const SLASH_CLEARMAINASSIST3: string;
+ declare const SLASH_CLEARMAINASSIST4: string;
+ declare const SLASH_CLEARMAINTANK1: string;
+ declare const SLASH_CLEARMAINTANK2: string;
+ declare const SLASH_CLEARMAINTANK3: string;
+ declare const SLASH_CLEARMAINTANK4: string;
+ declare const SLASH_CLEARTARGET1: string;
+ declare const SLASH_CLEARTARGET2: string;
+ declare const SLASH_CLICK1: string;
+ declare const SLASH_CLICK2: string;
+ declare const SLASH_COMBATLOG1: string;
+ declare const SLASH_COMBATLOG2: string;
+ declare const SLASH_CONSOLE1: string;
+ declare const SLASH_CONSOLE2: string;
+ declare const SLASH_DISABLE_ADDONS1: string;
+ declare const SLASH_DISMOUNT1: string;
+ declare const SLASH_DISMOUNT2: string;
+ declare const SLASH_DUEL1: string;
+ declare const SLASH_DUEL2: string;
+ declare const SLASH_DUEL_CANCEL1: string;
+ declare const SLASH_DUEL_CANCEL2: string;
+ declare const SLASH_DUEL_CANCEL3: string;
+ declare const SLASH_DUEL_CANCEL4: string;
+ declare const SLASH_DUEL_CANCEL5: string;
+ declare const SLASH_DUEL_CANCEL6: string;
+ declare const SLASH_DUMP1: string;
+ declare const SLASH_DUMP2: string;
+ declare const SLASH_DUNGEONS1: string;
+ declare const SLASH_DUNGEONS2: string;
+ declare const SLASH_DUNGEONS3: string;
+ declare const SLASH_DUNGEONS4: string;
+ declare const SLASH_DUNGEONS5: string;
+ declare const SLASH_DUNGEONS6: string;
+ declare const SLASH_EMOTE1: string;
+ declare const SLASH_EMOTE2: string;
+ declare const SLASH_EMOTE3: string;
+ declare const SLASH_EMOTE4: string;
+ declare const SLASH_EMOTE5: string;
+ declare const SLASH_EMOTE6: string;
+ declare const SLASH_EMOTE7: string;
+ declare const SLASH_EMOTE8: string;
+ declare const SLASH_ENABLE_ADDONS1: string;
+ declare const SLASH_EQUIP1: string;
+ declare const SLASH_EQUIP2: string;
+ declare const SLASH_EQUIP3: string;
+ declare const SLASH_EQUIP4: string;
+ declare const SLASH_EQUIP_SET1: string;
+ declare const SLASH_EQUIP_SET2: string;
+ declare const SLASH_EQUIP_TO_SLOT1: string;
+ declare const SLASH_EQUIP_TO_SLOT2: string;
+ declare const SLASH_EVENTTRACE1: string;
+ declare const SLASH_EVENTTRACE2: string;
+ declare const SLASH_EVENTTRACE3: string;
+ declare const SLASH_EVENTTRACE4: string;
+ declare const SLASH_FOCUS1: string;
+ declare const SLASH_FOCUS2: string;
+ declare const SLASH_FOLLOW1: string;
+ declare const SLASH_FOLLOW2: string;
+ declare const SLASH_FOLLOW3: string;
+ declare const SLASH_FOLLOW4: string;
+ declare const SLASH_FOLLOW5: string;
+ declare const SLASH_FOLLOW6: string;
+ declare const SLASH_FOLLOW7: string;
+ declare const SLASH_FRAMESTACK1: string;
+ declare const SLASH_FRAMESTACK2: string;
+ declare const SLASH_FRAMESTACK3: string;
+ declare const SLASH_FRAMESTACK4: string;
+ declare const SLASH_FRIENDS1: string;
+ declare const SLASH_FRIENDS2: string;
+ declare const SLASH_FRIENDS3: string;
+ declare const SLASH_FRIENDS4: string;
+ declare const SLASH_GUILD1: string;
+ declare const SLASH_GUILD2: string;
+ declare const SLASH_GUILD3: string;
+ declare const SLASH_GUILD4: string;
+ declare const SLASH_GUILD5: string;
+ declare const SLASH_GUILD6: string;
+ declare const SLASH_GUILD7: string;
+ declare const SLASH_GUILD8: string;
+ declare const SLASH_GUILD9: string;
+ declare const SLASH_GUILD_DEMOTE1: string;
+ declare const SLASH_GUILD_DEMOTE2: string;
+ declare const SLASH_GUILD_DEMOTE3: string;
+ declare const SLASH_GUILD_DEMOTE4: string;
+ declare const SLASH_GUILD_DISBAND1: string;
+ declare const SLASH_GUILD_DISBAND2: string;
+ declare const SLASH_GUILD_DISBAND3: string;
+ declare const SLASH_GUILD_DISBAND4: string;
+ declare const SLASH_GUILD_HELP1: string;
+ declare const SLASH_GUILD_HELP2: string;
+ declare const SLASH_GUILD_HELP3: string;
+ declare const SLASH_GUILD_HELP4: string;
+ declare const SLASH_GUILD_HELP5: string;
+ declare const SLASH_GUILD_INFO1: string;
+ declare const SLASH_GUILD_INFO2: string;
+ declare const SLASH_GUILD_INFO3: string;
+ declare const SLASH_GUILD_INFO4: string;
+ declare const SLASH_GUILD_INVITE1: string;
+ declare const SLASH_GUILD_INVITE2: string;
+ declare const SLASH_GUILD_INVITE3: string;
+ declare const SLASH_GUILD_INVITE4: string;
+ declare const SLASH_GUILD_LEADER1: string;
+ declare const SLASH_GUILD_LEADER2: string;
+ declare const SLASH_GUILD_LEADER3: string;
+ declare const SLASH_GUILD_LEADER4: string;
+ declare const SLASH_GUILD_LEADER_REPLACE: string;
+ declare const SLASH_GUILD_LEAVE1: string;
+ declare const SLASH_GUILD_LEAVE2: string;
+ declare const SLASH_GUILD_LEAVE3: string;
+ declare const SLASH_GUILD_LEAVE4: string;
+ declare const SLASH_GUILD_MOTD1: string;
+ declare const SLASH_GUILD_MOTD2: string;
+ declare const SLASH_GUILD_MOTD3: string;
+ declare const SLASH_GUILD_MOTD4: string;
+ declare const SLASH_GUILD_PROMOTE1: string;
+ declare const SLASH_GUILD_PROMOTE2: string;
+ declare const SLASH_GUILD_PROMOTE3: string;
+ declare const SLASH_GUILD_PROMOTE4: string;
+ declare const SLASH_GUILD_ROSTER1: string;
+ declare const SLASH_GUILD_ROSTER2: string;
+ declare const SLASH_GUILD_ROSTER3: string;
+ declare const SLASH_GUILD_ROSTER4: string;
+ declare const SLASH_GUILD_UNINVITE1: string;
+ declare const SLASH_GUILD_UNINVITE2: string;
+ declare const SLASH_GUILD_UNINVITE3: string;
+ declare const SLASH_GUILD_UNINVITE4: string;
+ declare const SLASH_GUILD_WHO1: string;
+ declare const SLASH_GUILD_WHO2: string;
+ declare const SLASH_GUILD_WHO3: string;
+ declare const SLASH_GUILD_WHO4: string;
+ declare const SLASH_GUILD_WHO5: string;
+ declare const SLASH_GUILD_WHO6: string;
+ declare const SLASH_HELP1: string;
+ declare const SLASH_HELP2: string;
+ declare const SLASH_HELP3: string;
+ declare const SLASH_HELP4: string;
+ declare const SLASH_HELP5: string;
+ declare const SLASH_HELP6: string;
+ declare const SLASH_IGNORE1: string;
+ declare const SLASH_IGNORE2: string;
+ declare const SLASH_INSPECT1: string;
+ declare const SLASH_INSPECT2: string;
+ declare const SLASH_INSPECT3: string;
+ declare const SLASH_INSPECT4: string;
+ declare const SLASH_INVITE1: string;
+ declare const SLASH_INVITE2: string;
+ declare const SLASH_INVITE3: string;
+ declare const SLASH_INVITE4: string;
+ declare const SLASH_INVITE5: string;
+ declare const SLASH_INVITE6: string;
+ declare const SLASH_INVITE7: string;
+ declare const SLASH_JOIN1: string;
+ declare const SLASH_JOIN2: string;
+ declare const SLASH_JOIN3: string;
+ declare const SLASH_JOIN4: string;
+ declare const SLASH_JOIN5: string;
+ declare const SLASH_JOIN6: string;
+ declare const SLASH_JOIN7: string;
+ declare const SLASH_LEAVE1: string;
+ declare const SLASH_LEAVE2: string;
+ declare const SLASH_LEAVE3: string;
+ declare const SLASH_LEAVE4: string;
+ declare const SLASH_LEAVE5: string;
+ declare const SLASH_LEAVE6: string;
+ declare const SLASH_LEAVE7: string;
+ declare const SLASH_LEAVEVEHICLE1: string;
+ declare const SLASH_LEAVEVEHICLE2: string;
+ declare const SLASH_LIST_CHANNEL1: string;
+ declare const SLASH_LIST_CHANNEL2: string;
+ declare const SLASH_LIST_CHANNEL3: string;
+ declare const SLASH_LIST_CHANNEL4: string;
+ declare const SLASH_LIST_CHANNEL5: string;
+ declare const SLASH_LIST_CHANNEL6: string;
+ declare const SLASH_LIST_CHANNEL7: string;
+ declare const SLASH_LOGOUT1: string;
+ declare const SLASH_LOGOUT2: string;
+ declare const SLASH_LOGOUT3: string;
+ declare const SLASH_LOGOUT4: string;
+ declare const SLASH_LOOT_FFA1: string;
+ declare const SLASH_LOOT_FFA2: string;
+ declare const SLASH_LOOT_GROUP1: string;
+ declare const SLASH_LOOT_GROUP2: string;
+ declare const SLASH_LOOT_MASTER1: string;
+ declare const SLASH_LOOT_MASTER2: string;
+ declare const SLASH_LOOT_NEEDBEFOREGREED1: string;
+ declare const SLASH_LOOT_NEEDBEFOREGREED2: string;
+ declare const SLASH_LOOT_ROUNDROBIN1: string;
+ declare const SLASH_LOOT_ROUNDROBIN2: string;
+ declare const SLASH_LOOT_SETTHRESHOLD1: string;
+ declare const SLASH_LOOT_SETTHRESHOLD2: string;
+ declare const SLASH_MACRO1: string;
+ declare const SLASH_MACRO2: string;
+ declare const SLASH_MACRO3: string;
+ declare const SLASH_MACRO4: string;
+ declare const SLASH_MACROHELP1: string;
+ declare const SLASH_MACROHELP2: string;
+ declare const SLASH_MACROHELP3: string;
+ declare const SLASH_MAINASSISTOFF1: string;
+ declare const SLASH_MAINASSISTOFF2: string;
+ declare const SLASH_MAINASSISTOFF3: string;
+ declare const SLASH_MAINASSISTOFF4: string;
+ declare const SLASH_MAINASSISTON1: string;
+ declare const SLASH_MAINASSISTON2: string;
+ declare const SLASH_MAINASSISTON3: string;
+ declare const SLASH_MAINASSISTON4: string;
+ declare const SLASH_MAINTANKOFF1: string;
+ declare const SLASH_MAINTANKOFF2: string;
+ declare const SLASH_MAINTANKOFF3: string;
+ declare const SLASH_MAINTANKOFF4: string;
+ declare const SLASH_MAINTANKON1: string;
+ declare const SLASH_MAINTANKON2: string;
+ declare const SLASH_MAINTANKON3: string;
+ declare const SLASH_MAINTANKON4: string;
+ declare const SLASH_OFFICER1: string;
+ declare const SLASH_OFFICER2: string;
+ declare const SLASH_OFFICER3: string;
+ declare const SLASH_OFFICER4: string;
+ declare const SLASH_OFFICER5: string;
+ declare const SLASH_OFFICER6: string;
+ declare const SLASH_PARTY1: string;
+ declare const SLASH_PARTY2: string;
+ declare const SLASH_PARTY3: string;
+ declare const SLASH_PARTY4: string;
+ declare const SLASH_PARTY5: string;
+ declare const SLASH_PET_AGGRESSIVE1: string;
+ declare const SLASH_PET_AGGRESSIVE2: string;
+ declare const SLASH_PET_ATTACK1: string;
+ declare const SLASH_PET_ATTACK2: string;
+ declare const SLASH_PET_AUTOCASTOFF1: string;
+ declare const SLASH_PET_AUTOCASTOFF2: string;
+ declare const SLASH_PET_AUTOCASTON1: string;
+ declare const SLASH_PET_AUTOCASTON2: string;
+ declare const SLASH_PET_AUTOCASTTOGGLE1: string;
+ declare const SLASH_PET_AUTOCASTTOGGLE2: string;
+ declare const SLASH_PET_DEFENSIVE1: string;
+ declare const SLASH_PET_DEFENSIVE2: string;
+ declare const SLASH_PET_FOLLOW1: string;
+ declare const SLASH_PET_FOLLOW2: string;
+ declare const SLASH_PET_PASSIVE1: string;
+ declare const SLASH_PET_PASSIVE2: string;
+ declare const SLASH_PET_STAY1: string;
+ declare const SLASH_PET_STAY2: string;
+ declare const SLASH_PLAYED1: string;
+ declare const SLASH_PLAYED2: string;
+ declare const SLASH_PROMOTE1: string;
+ declare const SLASH_PROMOTE2: string;
+ declare const SLASH_PROMOTE3: string;
+ declare const SLASH_PROMOTE4: string;
+ declare const SLASH_PVP1: string;
+ declare const SLASH_PVP2: string;
+ declare const SLASH_QUIT1: string;
+ declare const SLASH_QUIT2: string;
+ declare const SLASH_QUIT3: string;
+ declare const SLASH_QUIT4: string;
+ declare const SLASH_RAID1: string;
+ declare const SLASH_RAID2: string;
+ declare const SLASH_RAID3: string;
+ declare const SLASH_RAID4: string;
+ declare const SLASH_RAID5: string;
+ declare const SLASH_RAID6: string;
+ declare const SLASH_RAIDBROWSER1: string;
+ declare const SLASH_RAIDBROWSER2: string;
+ declare const SLASH_RAIDBROWSER3: string;
+ declare const SLASH_RAIDBROWSER4: string;
+ declare const SLASH_RAIDBROWSER5: string;
+ declare const SLASH_RAIDBROWSER6: string;
+ declare const SLASH_RAID_INFO1: string;
+ declare const SLASH_RAID_INFO2: string;
+ declare const SLASH_RAID_WARNING1: string;
+ declare const SLASH_RAID_WARNING2: string;
+ declare const SLASH_RANDOM1: string;
+ declare const SLASH_RANDOM2: string;
+ declare const SLASH_RANDOM3: string;
+ declare const SLASH_RANDOM4: string;
+ declare const SLASH_RANDOM5: string;
+ declare const SLASH_RANDOM6: string;
+ declare const SLASH_RANDOM7: string;
+ declare const SLASH_READYCHECK1: string;
+ declare const SLASH_READYCHECK2: string;
+ declare const SLASH_RELOAD1: string;
+ declare const SLASH_RELOAD2: string;
+ declare const SLASH_REMOVEFRIEND1: string;
+ declare const SLASH_REMOVEFRIEND2: string;
+ declare const SLASH_REMOVEFRIEND3: string;
+ declare const SLASH_REMOVEFRIEND4: string;
+ declare const SLASH_REPLY1: string;
+ declare const SLASH_REPLY2: string;
+ declare const SLASH_REPLY3: string;
+ declare const SLASH_REPLY4: string;
+ declare const SLASH_RESETCHAT1: string;
+ declare const SLASH_RESETCHAT2: string;
+ declare const SLASH_SAVEGUILDROSTER1: string;
+ declare const SLASH_SAVEGUILDROSTER2: string;
+ declare const SLASH_SAY1: string;
+ declare const SLASH_SAY2: string;
+ declare const SLASH_SAY3: string;
+ declare const SLASH_SAY4: string;
+ declare const SLASH_SCRIPT1: string;
+ declare const SLASH_SCRIPT2: string;
+ declare const SLASH_SCRIPT3: string;
+ declare const SLASH_SCRIPT4: string;
+ declare const SLASH_SET_TITLE1: string;
+ declare const SLASH_SET_TITLE2: string;
+ declare const SLASH_STARTATTACK1: string;
+ declare const SLASH_STARTATTACK2: string;
+ declare const SLASH_STOPATTACK1: string;
+ declare const SLASH_STOPATTACK2: string;
+ declare const SLASH_STOPCASTING1: string;
+ declare const SLASH_STOPCASTING2: string;
+ declare const SLASH_STOPMACRO1: string;
+ declare const SLASH_STOPMACRO2: string;
+ declare const SLASH_STOPWATCH1: string;
+ declare const SLASH_STOPWATCH2: string;
+ declare const SLASH_STOPWATCH3: string;
+ declare const SLASH_STOPWATCH4: string;
+ declare const SLASH_STOPWATCH5: string;
+ declare const SLASH_STOPWATCH6: string;
+ declare const SLASH_STOPWATCH_PARAM_PAUSE1: string;
+ declare const SLASH_STOPWATCH_PARAM_PAUSE2: string;
+ declare const SLASH_STOPWATCH_PARAM_PLAY1: string;
+ declare const SLASH_STOPWATCH_PARAM_PLAY2: string;
+ declare const SLASH_STOPWATCH_PARAM_STOP1: string;
+ declare const SLASH_STOPWATCH_PARAM_STOP2: string;
+ declare const SLASH_STOPWATCH_PARAM_STOP3: string;
+ declare const SLASH_STOPWATCH_PARAM_STOP4: string;
+ declare const SLASH_STOPWATCH_PARAM_STOP5: string;
+ declare const SLASH_STOPWATCH_PARAM_STOP6: string;
+ declare const SLASH_SWAPACTIONBAR1: string;
+ declare const SLASH_SWAPACTIONBAR2: string;
+ declare const SLASH_TARGET1: string;
+ declare const SLASH_TARGET2: string;
+ declare const SLASH_TARGET3: string;
+ declare const SLASH_TARGET4: string;
+ declare const SLASH_TARGET_EXACT1: string;
+ declare const SLASH_TARGET_EXACT2: string;
+ declare const SLASH_TARGET_LAST_ENEMY1: string;
+ declare const SLASH_TARGET_LAST_ENEMY2: string;
+ declare const SLASH_TARGET_LAST_FRIEND1: string;
+ declare const SLASH_TARGET_LAST_FRIEND2: string;
+ declare const SLASH_TARGET_LAST_TARGET1: string;
+ declare const SLASH_TARGET_LAST_TARGET2: string;
+ declare const SLASH_TARGET_NEAREST_ENEMY1: string;
+ declare const SLASH_TARGET_NEAREST_ENEMY2: string;
+ declare const SLASH_TARGET_NEAREST_ENEMY_PLAYER1: string;
+ declare const SLASH_TARGET_NEAREST_ENEMY_PLAYER2: string;
+ declare const SLASH_TARGET_NEAREST_FRIEND1: string;
+ declare const SLASH_TARGET_NEAREST_FRIEND2: string;
+ declare const SLASH_TARGET_NEAREST_FRIEND_PLAYER1: string;
+ declare const SLASH_TARGET_NEAREST_FRIEND_PLAYER2: string;
+ declare const SLASH_TARGET_NEAREST_PARTY1: string;
+ declare const SLASH_TARGET_NEAREST_PARTY2: string;
+ declare const SLASH_TARGET_NEAREST_RAID1: string;
+ declare const SLASH_TARGET_NEAREST_RAID2: string;
+ declare const SLASH_TEAM_CAPTAIN1: string;
+ declare const SLASH_TEAM_CAPTAIN2: string;
+ declare const SLASH_TEAM_CAPTAIN3: string;
+ declare const SLASH_TEAM_CAPTAIN4: string;
+ declare const SLASH_TEAM_DISBAND1: string;
+ declare const SLASH_TEAM_DISBAND2: string;
+ declare const SLASH_TEAM_DISBAND3: string;
+ declare const SLASH_TEAM_DISBAND4: string;
+ declare const SLASH_TEAM_INVITE1: string;
+ declare const SLASH_TEAM_INVITE2: string;
+ declare const SLASH_TEAM_INVITE3: string;
+ declare const SLASH_TEAM_INVITE4: string;
+ declare const SLASH_TEAM_QUIT1: string;
+ declare const SLASH_TEAM_QUIT2: string;
+ declare const SLASH_TEAM_QUIT3: string;
+ declare const SLASH_TEAM_QUIT4: string;
+ declare const SLASH_TEAM_UNINVITE1: string;
+ declare const SLASH_TEAM_UNINVITE2: string;
+ declare const SLASH_TEAM_UNINVITE3: string;
+ declare const SLASH_TEAM_UNINVITE4: string;
+ declare const SLASH_TIME1: string;
+ declare const SLASH_TIME2: string;
+ declare const SLASH_TOKEN1: string;
+ declare const SLASH_TOKEN2: string;
+ declare const SLASH_TOKEN3: string;
+ declare const SLASH_TOKEN4: string;
+ declare const SLASH_TRADE1: string;
+ declare const SLASH_TRADE2: string;
+ declare const SLASH_TRADE3: string;
+ declare const SLASH_TRADE4: string;
+ declare const SLASH_UNIGNORE1: string;
+ declare const SLASH_UNIGNORE2: string;
+ declare const SLASH_UNINVITE1: string;
+ declare const SLASH_UNINVITE2: string;
+ declare const SLASH_UNINVITE3: string;
+ declare const SLASH_UNINVITE4: string;
+ declare const SLASH_UNINVITE5: string;
+ declare const SLASH_UNINVITE6: string;
+ declare const SLASH_UNINVITE7: string;
+ declare const SLASH_UNINVITE8: string;
+ declare const SLASH_UNINVITE9: string;
+ declare const SLASH_UNINVITE10: string;
+ declare const SLASH_USE1: string;
+ declare const SLASH_USE2: string;
+ declare const SLASH_USERANDOM1: string;
+ declare const SLASH_USERANDOM2: string;
+ declare const SLASH_USE_TALENT_SPEC1: string;
+ declare const SLASH_USE_TALENT_SPEC2: string;
+ declare const SLASH_VOICEMACRO1: string;
+ declare const SLASH_VOICEMACRO2: string;
+ declare const SLASH_WHISPER1: string;
+ declare const SLASH_WHISPER2: string;
+ declare const SLASH_WHISPER3: string;
+ declare const SLASH_WHISPER4: string;
+ declare const SLASH_WHISPER5: string;
+ declare const SLASH_WHISPER6: string;
+ declare const SLASH_WHISPER7: string;
+ declare const SLASH_WHISPER8: string;
+ declare const SLASH_WHISPER9: string;
+ declare const SLASH_WHISPER10: string;
+ declare const SLASH_WHO1: string;
+ declare const SLASH_WHO2: string;
+ declare const SLASH_YELL1: string;
+ declare const SLASH_YELL2: string;
+ declare const SLASH_YELL3: string;
+ declare const SLASH_YELL4: string;
+ declare const SLASH_YELL5: string;
+ declare const SLASH_YELL6: string;
+ declare const SLASH_YELL7: string;
+ declare const SLASH_YELL8: string;
+ declare const SLURRED_SPEECH: string;
+ declare const SMART_PIVOT: string;
+ declare const SOCIALS: string;
+ declare const SOCIAL_BUTTON: string;
+ declare const SOCIAL_LABEL: string;
+ declare const SOCIAL_SUBTEXT: string;
+ declare const SOCKET_GEMS: string;
+ declare const SOCKET_ITEM_MIN_SKILL: string;
+ declare const SOCKET_ITEM_REQ_LEVEL: string;
+ declare const SOCKET_ITEM_REQ_SKILL: string;
+ declare const SOLD_BY_COLON: string;
+ declare const SOLO: string;
+ declare const SORT_QUEST: string;
+ declare const SOUNDOPTIONS_MENU: string;
+ declare const SOUND_CHANNELS: string;
+ declare const SOUND_DISABLED: string;
+ declare const SOUND_EFFECTS_DISABLED: string;
+ declare const SOUND_EFFECTS_ENABLED: string;
+ declare const SOUND_LABEL: string;
+ declare const SOUND_OPTIONS: string;
+ declare const SOUND_QUALITY: string;
+ declare const SOUND_SUBTEXT: string;
+ declare const SOUND_VOLUME: string;
+ declare const SPEAKERMODE: string;
+ declare const SPEAKERMODE_HEADPHONES: string;
+ declare const SPEAKERMODE_STEREO: string;
+ declare const SPEAKERMODE_SURROUND: string;
+ declare const SPECIAL: string;
+ declare const SPECIAL_SKILLS: string;
+ declare const SPECIFIC_DUNGEONS: string;
+ declare const SPECIFIC_DUNGEON_IS_READY: string;
+ declare const SPEED: string;
+ declare const SPEED_ABBR: string;
+ declare const SPELLBOOK: string;
+ declare const SPELLBOOK_ABILITIES_BUTTON: string;
+ declare const SPELLBOOK_BUTTON: string;
+ declare const SPELLDISMISSPETOTHER: string;
+ declare const SPELLDISMISSPETSELF: string;
+ declare const SPELLHAPPINESSDRAINOTHER: string;
+ declare const SPELLHAPPINESSDRAINSELF: string;
+ declare const SPELLS: string;
+ declare const SPELLS_COMBATLOG_TOOLTIP: string;
+ declare const SPELL_BONUS: string;
+ declare const SPELL_CASTING: string;
+ declare const SPELL_CASTING_COMBATLOG_TOOLTIP: string;
+ declare const SPELL_CAST_CHANNELED: string;
+ declare const SPELL_CAST_FAILED_COMBATLOG_TOOLTIP: string;
+ declare const SPELL_CAST_START_COMBATLOG_TOOLTIP: string;
+ declare const SPELL_CAST_SUCCESS_COMBATLOG_TOOLTIP: string;
+ declare const SPELL_CAST_TIME_INSTANT: string;
+ declare const SPELL_CAST_TIME_INSTANT_NO_MANA: string;
+ declare const SPELL_CAST_TIME_MIN: string;
+ declare const SPELL_CAST_TIME_RANGED: string;
+ declare const SPELL_CAST_TIME_SEC: string;
+ declare const SPELL_COLOR_BY_SCHOOL_COMBATLOG_TOOLTIP: string;
+ declare const SPELL_CREATE_COMBATLOG_TOOLTIP: string;
+ declare const SPELL_CRIT_CHANCE: string;
+ declare const SPELL_DAMAGE_COMBATLOG_TOOLTIP: string;
+ declare const SPELL_DAMAGE_NUMBER_COMBATLOG_TOOLTIP: string;
+ declare const SPELL_DAMAGE_SCHOOL_COMBATLOG_TOOLTIP: string;
+ declare const SPELL_DETAIL: string;
+ declare const SPELL_DRAIN_COMBATLOG_TOOLTIP: string;
+ declare const SPELL_DURATION: string;
+ declare const SPELL_DURATION_DAYS: string;
+ declare const SPELL_DURATION_HOURS: string;
+ declare const SPELL_DURATION_MIN: string;
+ declare const SPELL_DURATION_SEC: string;
+ declare const SPELL_DURATION_UNTIL_CANCELLED: string;
+ declare const SPELL_EQUIPPED_ITEM: string;
+ declare const SPELL_EQUIPPED_ITEM_NOSPACE: string;
+ declare const SPELL_EXTRA_ATTACKS_COMBATLOG_TOOLTIP: string;
+ declare const SPELL_FAILED_AFFECTING_COMBAT: string;
+ declare const SPELL_FAILED_ALREADY_BEING_TAMED: string;
+ declare const SPELL_FAILED_ALREADY_HAVE_CHARM: string;
+ declare const SPELL_FAILED_ALREADY_HAVE_SUMMON: string;
+ declare const SPELL_FAILED_ALREADY_OPEN: string;
+ declare const SPELL_FAILED_ARTISAN_RIDING_REQUIREMENT: string;
+ declare const SPELL_FAILED_AURA_BOUNCED: string;
+ declare const SPELL_FAILED_BAD_IMPLICIT_TARGETS: string;
+ declare const SPELL_FAILED_BAD_TARGETS: string;
+ declare const SPELL_FAILED_BM_OR_INVISGOD: string;
+ declare const SPELL_FAILED_CANT_BE_CHARMED: string;
+ declare const SPELL_FAILED_CANT_BE_DISENCHANTED: string;
+ declare const SPELL_FAILED_CANT_BE_DISENCHANTED_SKILL: string;
+ declare const SPELL_FAILED_CANT_BE_MILLED: string;
+ declare const SPELL_FAILED_CANT_BE_PROSPECTED: string;
+ declare const SPELL_FAILED_CANT_CAST_ON_TAPPED: string;
+ declare const SPELL_FAILED_CANT_DO_THAT_RIGHT_NOW: string;
+ declare const SPELL_FAILED_CANT_DUEL_WHILE_INVISIBLE: string;
+ declare const SPELL_FAILED_CANT_DUEL_WHILE_STEALTHED: string;
+ declare const SPELL_FAILED_CANT_STEALTH: string;
+ declare const SPELL_FAILED_CASTER_AURASTATE: string;
+ declare const SPELL_FAILED_CASTER_DEAD: string;
+ declare const SPELL_FAILED_CASTER_DEAD_FEMALE: string;
+ declare const SPELL_FAILED_CAST_NOT_HERE: string;
+ declare const SPELL_FAILED_CHARMED: string;
+ declare const SPELL_FAILED_CHEST_IN_USE: string;
+ declare const SPELL_FAILED_CONFUSED: string;
+ declare const SPELL_FAILED_CUSTOM_ERROR_1: string;
+ declare const SPELL_FAILED_CUSTOM_ERROR_10: string;
+ declare const SPELL_FAILED_CUSTOM_ERROR_11: string;
+ declare const SPELL_FAILED_CUSTOM_ERROR_12: string;
+ declare const SPELL_FAILED_CUSTOM_ERROR_13: string;
+ declare const SPELL_FAILED_CUSTOM_ERROR_14_NONE: string;
+ declare const SPELL_FAILED_CUSTOM_ERROR_15: string;
+ declare const SPELL_FAILED_CUSTOM_ERROR_16: string;
+ declare const SPELL_FAILED_CUSTOM_ERROR_17: string;
+ declare const SPELL_FAILED_CUSTOM_ERROR_18: string;
+ declare const SPELL_FAILED_CUSTOM_ERROR_19: string;
+ declare const SPELL_FAILED_CUSTOM_ERROR_2: string;
+ declare const SPELL_FAILED_CUSTOM_ERROR_20: string;
+ declare const SPELL_FAILED_CUSTOM_ERROR_21: string;
+ declare const SPELL_FAILED_CUSTOM_ERROR_22: string;
+ declare const SPELL_FAILED_CUSTOM_ERROR_23: string;
+ declare const SPELL_FAILED_CUSTOM_ERROR_24: string;
+ declare const SPELL_FAILED_CUSTOM_ERROR_25: string;
+ declare const SPELL_FAILED_CUSTOM_ERROR_26: string;
+ declare const SPELL_FAILED_CUSTOM_ERROR_27: string;
+ declare const SPELL_FAILED_CUSTOM_ERROR_28: string;
+ declare const SPELL_FAILED_CUSTOM_ERROR_29: string;
+ declare const SPELL_FAILED_CUSTOM_ERROR_3: string;
+ declare const SPELL_FAILED_CUSTOM_ERROR_30: string;
+ declare const SPELL_FAILED_CUSTOM_ERROR_31: string;
+ declare const SPELL_FAILED_CUSTOM_ERROR_32: string;
+ declare const SPELL_FAILED_CUSTOM_ERROR_33: string;
+ declare const SPELL_FAILED_CUSTOM_ERROR_34: string;
+ declare const SPELL_FAILED_CUSTOM_ERROR_35: string;
+ declare const SPELL_FAILED_CUSTOM_ERROR_36: string;
+ declare const SPELL_FAILED_CUSTOM_ERROR_37: string;
+ declare const SPELL_FAILED_CUSTOM_ERROR_38: string;
+ declare const SPELL_FAILED_CUSTOM_ERROR_39: string;
+ declare const SPELL_FAILED_CUSTOM_ERROR_4: string;
+ declare const SPELL_FAILED_CUSTOM_ERROR_40: string;
+ declare const SPELL_FAILED_CUSTOM_ERROR_41: string;
+ declare const SPELL_FAILED_CUSTOM_ERROR_42: string;
+ declare const SPELL_FAILED_CUSTOM_ERROR_43: string;
+ declare const SPELL_FAILED_CUSTOM_ERROR_44: string;
+ declare const SPELL_FAILED_CUSTOM_ERROR_45: string;
+ declare const SPELL_FAILED_CUSTOM_ERROR_46: string;
+ declare const SPELL_FAILED_CUSTOM_ERROR_47: string;
+ declare const SPELL_FAILED_CUSTOM_ERROR_48: string;
+ declare const SPELL_FAILED_CUSTOM_ERROR_49: string;
+ declare const SPELL_FAILED_CUSTOM_ERROR_5: string;
+ declare const SPELL_FAILED_CUSTOM_ERROR_50: string;
+ declare const SPELL_FAILED_CUSTOM_ERROR_51: string;
+ declare const SPELL_FAILED_CUSTOM_ERROR_52: string;
+ declare const SPELL_FAILED_CUSTOM_ERROR_53: string;
+ declare const SPELL_FAILED_CUSTOM_ERROR_54: string;
+ declare const SPELL_FAILED_CUSTOM_ERROR_55: string;
+ declare const SPELL_FAILED_CUSTOM_ERROR_56: string;
+ declare const SPELL_FAILED_CUSTOM_ERROR_57: string;
+ declare const SPELL_FAILED_CUSTOM_ERROR_58: string;
+ declare const SPELL_FAILED_CUSTOM_ERROR_59: string;
+ declare const SPELL_FAILED_CUSTOM_ERROR_6: string;
+ declare const SPELL_FAILED_CUSTOM_ERROR_60: string;
+ declare const SPELL_FAILED_CUSTOM_ERROR_61: string;
+ declare const SPELL_FAILED_CUSTOM_ERROR_62: string;
+ declare const SPELL_FAILED_CUSTOM_ERROR_63_NONE: string;
+ declare const SPELL_FAILED_CUSTOM_ERROR_64_NONE: string;
+ declare const SPELL_FAILED_CUSTOM_ERROR_65: string;
+ declare const SPELL_FAILED_CUSTOM_ERROR_66: string;
+ declare const SPELL_FAILED_CUSTOM_ERROR_67: string;
+ declare const SPELL_FAILED_CUSTOM_ERROR_7: string;
+ declare const SPELL_FAILED_CUSTOM_ERROR_75: string;
+ declare const SPELL_FAILED_CUSTOM_ERROR_76: string;
+ declare const SPELL_FAILED_CUSTOM_ERROR_77: string;
+ declare const SPELL_FAILED_CUSTOM_ERROR_78: string;
+ declare const SPELL_FAILED_CUSTOM_ERROR_79: string;
+ declare const SPELL_FAILED_CUSTOM_ERROR_8: string;
+ declare const SPELL_FAILED_CUSTOM_ERROR_83: string;
+ declare const SPELL_FAILED_CUSTOM_ERROR_84: string;
+ declare const SPELL_FAILED_CUSTOM_ERROR_85: string;
+ declare const SPELL_FAILED_CUSTOM_ERROR_86: string;
+ declare const SPELL_FAILED_CUSTOM_ERROR_87: string;
+ declare const SPELL_FAILED_CUSTOM_ERROR_88: string;
+ declare const SPELL_FAILED_CUSTOM_ERROR_9: string;
+ declare const SPELL_FAILED_CUSTOM_ERROR_90: string;
+ declare const SPELL_FAILED_CUSTOM_ERROR_96: string;
+ declare const SPELL_FAILED_CUSTOM_ERROR_97: string;
+ declare const SPELL_FAILED_CUSTOM_ERROR_98: string;
+ declare const SPELL_FAILED_CUSTOM_ERROR_99: string;
+ declare const SPELL_FAILED_DAMAGE_IMMUNE: string;
+ declare const SPELL_FAILED_EQUIPPED_ITEM: string;
+ declare const SPELL_FAILED_EQUIPPED_ITEM_CLASS: string;
+ declare const SPELL_FAILED_EQUIPPED_ITEM_CLASS_MAINHAND: string;
+ declare const SPELL_FAILED_EQUIPPED_ITEM_CLASS_OFFHAND: string;
+ declare const SPELL_FAILED_ERROR: string;
+ declare const SPELL_FAILED_EXPERT_RIDING_REQUIREMENT: string;
+ declare const SPELL_FAILED_FISHING_TOO_LOW: string;
+ declare const SPELL_FAILED_FIZZLE: string;
+ declare const SPELL_FAILED_FLEEING: string;
+ declare const SPELL_FAILED_FOOD_LOWLEVEL: string;
+ declare const SPELL_FAILED_GLYPH_SOCKET_LOCKED: string;
+ declare const SPELL_FAILED_HIGHLEVEL: string;
+ declare const SPELL_FAILED_IMMUNE: string;
+ declare const SPELL_FAILED_INCORRECT_AREA: string;
+ declare const SPELL_FAILED_INTERRUPTED: string;
+ declare const SPELL_FAILED_INTERRUPTED_COMBAT: string;
+ declare const SPELL_FAILED_INVALID_GLYPH: string;
+ declare const SPELL_FAILED_ITEM_ALREADY_ENCHANTED: string;
+ declare const SPELL_FAILED_ITEM_AT_MAX_CHARGES: string;
+ declare const SPELL_FAILED_ITEM_ENCHANT_TRADE_WINDOW: string;
+ declare const SPELL_FAILED_ITEM_GONE: string;
+ declare const SPELL_FAILED_ITEM_NOT_FOUND: string;
+ declare const SPELL_FAILED_ITEM_NOT_READY: string;
+ declare const SPELL_FAILED_LEVEL_REQUIREMENT: string;
+ declare const SPELL_FAILED_LEVEL_REQUIREMENT_PET: string;
+ declare const SPELL_FAILED_LIMIT_CATEGORY_EXCEEDED: string;
+ declare const SPELL_FAILED_LINE_OF_SIGHT: string;
+ declare const SPELL_FAILED_LOWLEVEL: string;
+ declare const SPELL_FAILED_LOW_CASTLEVEL: string;
+ declare const SPELL_FAILED_MAINHAND_EMPTY: string;
+ declare const SPELL_FAILED_MIN_SKILL: string;
+ declare const SPELL_FAILED_MOVING: string;
+ declare const SPELL_FAILED_NEED_AMMO: string;
+ declare const SPELL_FAILED_NEED_AMMO_POUCH: string;
+ declare const SPELL_FAILED_NEED_EXOTIC_AMMO: string;
+ declare const SPELL_FAILED_NEED_MORE_ITEMS: string;
+ declare const SPELL_FAILED_NOPATH: string;
+ declare const SPELL_FAILED_NOTHING_TO_DISPEL: string;
+ declare const SPELL_FAILED_NOTHING_TO_STEAL: string;
+ declare const SPELL_FAILED_NOT_BEHIND: string;
+ declare const SPELL_FAILED_NOT_FISHABLE: string;
+ declare const SPELL_FAILED_NOT_FLYING: string;
+ declare const SPELL_FAILED_NOT_HERE: string;
+ declare const SPELL_FAILED_NOT_IDLE: string;
+ declare const SPELL_FAILED_NOT_INACTIVE: string;
+ declare const SPELL_FAILED_NOT_INFRONT: string;
+ declare const SPELL_FAILED_NOT_IN_ARENA: string;
+ declare const SPELL_FAILED_NOT_IN_BARBERSHOP: string;
+ declare const SPELL_FAILED_NOT_IN_BATTLEGROUND: string;
+ declare const SPELL_FAILED_NOT_IN_CONTROL: string;
+ declare const SPELL_FAILED_NOT_IN_RAID_INSTANCE: string;
+ declare const SPELL_FAILED_NOT_KNOWN: string;
+ declare const SPELL_FAILED_NOT_MOUNTED: string;
+ declare const SPELL_FAILED_NOT_ON_DAMAGE_IMMUNE: string;
+ declare const SPELL_FAILED_NOT_ON_GROUND: string;
+ declare const SPELL_FAILED_NOT_ON_MOUNTED: string;
+ declare const SPELL_FAILED_NOT_ON_SHAPESHIFT: string;
+ declare const SPELL_FAILED_NOT_ON_STEALTHED: string;
+ declare const SPELL_FAILED_NOT_ON_TAXI: string;
+ declare const SPELL_FAILED_NOT_ON_TRANSPORT: string;
+ declare const SPELL_FAILED_NOT_READY: string;
+ declare const SPELL_FAILED_NOT_SHAPESHIFT: string;
+ declare const SPELL_FAILED_NOT_STANDING: string;
+ declare const SPELL_FAILED_NOT_TRADEABLE: string;
+ declare const SPELL_FAILED_NOT_TRADING: string;
+ declare const SPELL_FAILED_NOT_UNSHEATHED: string;
+ declare const SPELL_FAILED_NOT_WHILE_FATIGUED: string;
+ declare const SPELL_FAILED_NOT_WHILE_GHOST: string;
+ declare const SPELL_FAILED_NOT_WHILE_LOOTING: string;
+ declare const SPELL_FAILED_NOT_WHILE_TRADING: string;
+ declare const SPELL_FAILED_NO_AMMO: string;
+ declare const SPELL_FAILED_NO_CHAMPION: string;
+ declare const SPELL_FAILED_NO_CHARGES_REMAIN: string;
+ declare const SPELL_FAILED_NO_COMBO_POINTS: string;
+ declare const SPELL_FAILED_NO_DUELING: string;
+ declare const SPELL_FAILED_NO_EDIBLE_CORPSES: string;
+ declare const SPELL_FAILED_NO_ENDURANCE: string;
+ declare const SPELL_FAILED_NO_EVASIVE_CHARGES: string;
+ declare const SPELL_FAILED_NO_FISH: string;
+ declare const SPELL_FAILED_NO_ITEMS_WHILE_SHAPESHIFTED: string;
+ declare const SPELL_FAILED_NO_MAGIC_TO_CONSUME: string;
+ declare const SPELL_FAILED_NO_MOUNTS_ALLOWED: string;
+ declare const SPELL_FAILED_NO_PET: string;
+ declare const SPELL_FAILED_NO_PLAYTIME: string;
+ declare const SPELL_FAILED_ONLY_ABOVEWATER: string;
+ declare const SPELL_FAILED_ONLY_BATTLEGROUNDS: string;
+ declare const SPELL_FAILED_ONLY_DAYTIME: string;
+ declare const SPELL_FAILED_ONLY_INDOORS: string;
+ declare const SPELL_FAILED_ONLY_IN_ARENA: string;
+ declare const SPELL_FAILED_ONLY_MOUNTED: string;
+ declare const SPELL_FAILED_ONLY_NIGHTTIME: string;
+ declare const SPELL_FAILED_ONLY_OUTDOORS: string;
+ declare const SPELL_FAILED_ONLY_SHAPESHIFT: string;
+ declare const SPELL_FAILED_ONLY_STEALTHED: string;
+ declare const SPELL_FAILED_ONLY_UNDERWATER: string;
+ declare const SPELL_FAILED_OUT_OF_RANGE: string;
+ declare const SPELL_FAILED_PACIFIED: string;
+ declare const SPELL_FAILED_PARTIAL_PLAYTIME: string;
+ declare const SPELL_FAILED_PET_CAN_RENAME: string;
+ declare const SPELL_FAILED_POSSESSED: string;
+ declare const SPELL_FAILED_PREVENTED_BY_MECHANIC: string;
+ declare const SPELL_FAILED_REAGENTS: string;
+ declare const SPELL_FAILED_REPUTATION: string;
+ declare const SPELL_FAILED_REQUIRES_AREA: string;
+ declare const SPELL_FAILED_REQUIRES_SPELL_FOCUS: string;
+ declare const SPELL_FAILED_ROCKET_PACK: string;
+ declare const SPELL_FAILED_ROOTED: string;
+ declare const SPELL_FAILED_SILENCED: string;
+ declare const SPELL_FAILED_SPELL_IN_PROGRESS: string;
+ declare const SPELL_FAILED_SPELL_LEARNED: string;
+ declare const SPELL_FAILED_SPELL_UNAVAILABLE: string;
+ declare const SPELL_FAILED_SPELL_UNAVAILABLE_PET: string;
+ declare const SPELL_FAILED_STUNNED: string;
+ declare const SPELL_FAILED_SUMMON_PENDING: string;
+ declare const SPELL_FAILED_TARGETS_DEAD: string;
+ declare const SPELL_FAILED_TARGET_AFFECTING_COMBAT: string;
+ declare const SPELL_FAILED_TARGET_AURASTATE: string;
+ declare const SPELL_FAILED_TARGET_CANNOT_BE_RESURRECTED: string;
+ declare const SPELL_FAILED_TARGET_DUELING: string;
+ declare const SPELL_FAILED_TARGET_ENEMY: string;
+ declare const SPELL_FAILED_TARGET_ENRAGED: string;
+ declare const SPELL_FAILED_TARGET_FREEFORALL: string;
+ declare const SPELL_FAILED_TARGET_FRIENDLY: string;
+ declare const SPELL_FAILED_TARGET_IN_COMBAT: string;
+ declare const SPELL_FAILED_TARGET_IS_PLAYER: string;
+ declare const SPELL_FAILED_TARGET_IS_PLAYER_CONTROLLED: string;
+ declare const SPELL_FAILED_TARGET_IS_TRIVIAL: string;
+ declare const SPELL_FAILED_TARGET_LOCKED_TO_RAID_INSTANCE: string;
+ declare const SPELL_FAILED_TARGET_NOT_DEAD: string;
+ declare const SPELL_FAILED_TARGET_NOT_GHOST: string;
+ declare const SPELL_FAILED_TARGET_NOT_IN_INSTANCE: string;
+ declare const SPELL_FAILED_TARGET_NOT_IN_PARTY: string;
+ declare const SPELL_FAILED_TARGET_NOT_IN_RAID: string;
+ declare const SPELL_FAILED_TARGET_NOT_IN_SANCTUARY: string;
+ declare const SPELL_FAILED_TARGET_NOT_LOOTED: string;
+ declare const SPELL_FAILED_TARGET_NOT_PLAYER: string;
+ declare const SPELL_FAILED_TARGET_NO_POCKETS: string;
+ declare const SPELL_FAILED_TARGET_NO_RANGED_WEAPONS: string;
+ declare const SPELL_FAILED_TARGET_NO_WEAPONS: string;
+ declare const SPELL_FAILED_TARGET_ON_TAXI: string;
+ declare const SPELL_FAILED_TARGET_UNSKINNABLE: string;
+ declare const SPELL_FAILED_TOO_CLOSE: string;
+ declare const SPELL_FAILED_TOO_MANY_OF_ITEM: string;
+ declare const SPELL_FAILED_TOO_SHALLOW: string;
+ declare const SPELL_FAILED_TOTEMS: string;
+ declare const SPELL_FAILED_TOTEM_CATEGORY: string;
+ declare const SPELL_FAILED_TRANSFORM_UNUSABLE: string;
+ declare const SPELL_FAILED_TRY_AGAIN: string;
+ declare const SPELL_FAILED_UNIQUE_GLYPH: string;
+ declare const SPELL_FAILED_UNIT_NOT_BEHIND: string;
+ declare const SPELL_FAILED_UNIT_NOT_INFRONT: string;
+ declare const SPELL_FAILED_UNKNOWN: string;
+ declare const SPELL_FAILED_WRONG_PET_FOOD: string;
+ declare const SPELL_FAILED_WRONG_WEATHER: string;
+ declare const SPELL_HASTE: string;
+ declare const SPELL_HASTE_ABBR: string;
+ declare const SPELL_HASTE_TOOLTIP: string;
+ declare const SPELL_HEAL_COMBATLOG_TOOLTIP: string;
+ declare const SPELL_INSTAKILL_COMBATLOG_TOOLTIP: string;
+ declare const SPELL_INSTANT_EFFECT: string;
+ declare const SPELL_INTERRUPT_COMBATLOG_TOOLTIP: string;
+ declare const SPELL_LASTING_EFFECT: string;
+ declare const SPELL_MESSAGES: string;
+ declare const SPELL_MISSED_COMBATLOG_TOOLTIP: string;
+ declare const SPELL_NAMES: string;
+ declare const SPELL_NAMES_COMBATLOG_TOOLTIP: string;
+ declare const SPELL_NAMES_SHOW_BRACES_COMBATLOG_TOOLTIP: string;
+ declare const SPELL_NOT_SHAPESHIFTED: string;
+ declare const SPELL_NOT_SHAPESHIFTED_NOSPACE: string;
+ declare const SPELL_ON_NEXT_RANGED: string;
+ declare const SPELL_ON_NEXT_SWING: string;
+ declare const SPELL_OTHER_MESSAGES: string;
+ declare const SPELL_PASSIVE: string;
+ declare const SPELL_PASSIVE_EFFECT: string;
+ declare const SPELL_PENETRATION: string;
+ declare const SPELL_PENETRATION_TOOLTIP: string;
+ declare const SPELL_PERIODIC_COMBATLOG_TOOLTIP: string;
+ declare const SPELL_PERIODIC_DAMAGE_COMBATLOG_TOOLTIP: string;
+ declare const SPELL_PERIODIC_HEAL_COMBATLOG_TOOLTIP: string;
+ declare const SPELL_PERIODIC_MISSED_COMBATLOG_TOOLTIP: string;
+ declare const SPELL_PERIODIC_OTHER_COMBATLOG_TOOLTIP: string;
+ declare const SPELL_POINTS_SPREAD_TEMPLATE: string;
+ declare const SPELL_RANGE: string;
+ declare const SPELL_RANGE_AREA: string;
+ declare const SPELL_RANGE_DUAL: string;
+ declare const SPELL_RANGE_UNLIMITED: string;
+ declare const SPELL_REAGENTS: string;
+ declare const SPELL_RECAST_TIME_INSTANT: string;
+ declare const SPELL_RECAST_TIME_MIN: string;
+ declare const SPELL_RECAST_TIME_SEC: string;
+ declare const SPELL_REQUIRED_FORM: string;
+ declare const SPELL_REQUIRED_FORM_NOSPACE: string;
+ declare const SPELL_RESURRECT_COMBATLOG_TOOLTIP: string;
+ declare const SPELL_SCHOOL0_CAP: string;
+ declare const SPELL_SCHOOL0_NAME: string;
+ declare const SPELL_SCHOOL1_CAP: string;
+ declare const SPELL_SCHOOL1_NAME: string;
+ declare const SPELL_SCHOOL2_CAP: string;
+ declare const SPELL_SCHOOL2_NAME: string;
+ declare const SPELL_SCHOOL3_CAP: string;
+ declare const SPELL_SCHOOL3_NAME: string;
+ declare const SPELL_SCHOOL4_CAP: string;
+ declare const SPELL_SCHOOL4_NAME: string;
+ declare const SPELL_SCHOOL5_CAP: string;
+ declare const SPELL_SCHOOL5_NAME: string;
+ declare const SPELL_SCHOOL6_CAP: string;
+ declare const SPELL_SCHOOL6_NAME: string;
+ declare const SPELL_SCHOOLALL: string;
+ declare const SPELL_SCHOOLMAGICAL: string;
+ declare const SPELL_SKILL_LINE: string;
+ declare const SPELL_STAT1_NAME: string;
+ declare const SPELL_STAT2_NAME: string;
+ declare const SPELL_STAT3_NAME: string;
+ declare const SPELL_STAT4_NAME: string;
+ declare const SPELL_STAT5_NAME: string;
+ declare const SPELL_STATALL: string;
+ declare const SPELL_SUMMON_COMBATLOG_TOOLTIP: string;
+ declare const SPELL_TARGET_CENTER_CASTER: string;
+ declare const SPELL_TARGET_CENTER_LOC: string;
+ declare const SPELL_TARGET_CHAIN_TEMPLATE: string;
+ declare const SPELL_TARGET_CONE_TEMPLATE: string;
+ declare const SPELL_TARGET_CREATURE_TYPE12_DESC: string;
+ declare const SPELL_TARGET_CREATURE_TYPE13_DESC: string;
+ declare const SPELL_TARGET_CREATURE_TYPE1_DESC: string;
+ declare const SPELL_TARGET_CREATURE_TYPE2_DESC: string;
+ declare const SPELL_TARGET_CREATURE_TYPE3_DESC: string;
+ declare const SPELL_TARGET_CREATURE_TYPE8_DESC: string;
+ declare const SPELL_TARGET_CREATURE_TYPE_DEAD12_DESC: string;
+ declare const SPELL_TARGET_CREATURE_TYPE_DEAD13_DESC: string;
+ declare const SPELL_TARGET_CREATURE_TYPE_DEAD1_DESC: string;
+ declare const SPELL_TARGET_CREATURE_TYPE_DEAD2_DESC: string;
+ declare const SPELL_TARGET_CREATURE_TYPE_DEAD3_DESC: string;
+ declare const SPELL_TARGET_CREATURE_TYPE_DEAD8_DESC: string;
+ declare const SPELL_TARGET_MULTIPLE_TEMPLATE: string;
+ declare const SPELL_TARGET_TEMPLATE: string;
+ declare const SPELL_TARGET_TYPE0_DESC: string;
+ declare const SPELL_TARGET_TYPE10_DESC: string;
+ declare const SPELL_TARGET_TYPE11_DESC: string;
+ declare const SPELL_TARGET_TYPE12_DESC: string;
+ declare const SPELL_TARGET_TYPE13_DESC: string;
+ declare const SPELL_TARGET_TYPE14_DESC: string;
+ declare const SPELL_TARGET_TYPE15_DESC: string;
+ declare const SPELL_TARGET_TYPE16_DESC: string;
+ declare const SPELL_TARGET_TYPE17_DESC: string;
+ declare const SPELL_TARGET_TYPE1_DESC: string;
+ declare const SPELL_TARGET_TYPE2_DESC: string;
+ declare const SPELL_TARGET_TYPE3_DESC: string;
+ declare const SPELL_TARGET_TYPE4_DESC: string;
+ declare const SPELL_TARGET_TYPE5_DESC: string;
+ declare const SPELL_TARGET_TYPE6_DESC: string;
+ declare const SPELL_TARGET_TYPE7_DESC: string;
+ declare const SPELL_TARGET_TYPE8_DESC: string;
+ declare const SPELL_TARGET_TYPE9_DESC: string;
+ declare const SPELL_TARGET_TYPE_DEAD11_DESC: string;
+ declare const SPELL_TARGET_TYPE_DEAD12_DESC: string;
+ declare const SPELL_TARGET_TYPE_DEAD13_DESC: string;
+ declare const SPELL_TARGET_TYPE_DEAD14_DESC: string;
+ declare const SPELL_TARGET_TYPE_DEAD16_DESC: string;
+ declare const SPELL_TARGET_TYPE_DEAD17_DESC: string;
+ declare const SPELL_TARGET_TYPE_DEAD1_DESC: string;
+ declare const SPELL_TARGET_TYPE_DEAD2_DESC: string;
+ declare const SPELL_TARGET_TYPE_DEAD3_DESC: string;
+ declare const SPELL_TARGET_TYPE_DEAD4_DESC: string;
+ declare const SPELL_TARGET_TYPE_DEAD8_DESC: string;
+ declare const SPELL_TIMER: string;
+ declare const SPELL_TIME_REMAINING_DAYS: string;
+ declare const SPELL_TIME_REMAINING_HOURS: string;
+ declare const SPELL_TIME_REMAINING_MIN: string;
+ declare const SPELL_TIME_REMAINING_SEC: string;
+ declare const SPELL_TOTEMS: string;
+ declare const SPELL_USE_ALL_ENERGY: string;
+ declare const SPELL_USE_ALL_FOCUS: string;
+ declare const SPELL_USE_ALL_HEALTH: string;
+ declare const SPELL_USE_ALL_MANA: string;
+ declare const SPELL_USE_ALL_POWER_DISPLAY: string;
+ declare const SPELL_USE_ALL_RAGE: string;
+ declare const SPI: string;
+ declare const SPIRIT_COLON: string;
+ declare const SPIRIT_HEALER_RELEASE_RED: string;
+ declare const SPIRIT_TOOLTIP: string;
+ declare const STA: string;
+ declare const STABLED_PETS: string;
+ declare const STABLES: string;
+ declare const STABLE_PET_INFO_TEXT: string;
+ declare const STABLE_PET_INFO_TOOLTIP_TEXT: string;
+ declare const STABLE_SLOT_TEXT: string;
+ declare const STACKS: string;
+ declare const STAMINA_COLON: string;
+ declare const STAMINA_TOOLTIP: string;
+ declare const STANDING: string;
+ declare const START: string;
+ declare const STARTING_PRICE: string;
+ declare const STARTUP_TEXT_LINE1: string;
+ declare const STARTUP_TEXT_LINE2: string;
+ declare const STARTUP_TEXT_LINE3: string;
+ declare const STARTUP_TEXT_LINE4: string;
+ declare const STATISTICS: string;
+ declare const STATS_LABEL: string;
+ declare const STATUS: string;
+ declare const STATUSTEXT_LABEL: string;
+ declare const STATUSTEXT_SUBTEXT: string;
+ declare const STATUS_BAR_TEXT: string;
+ declare const STATUS_TEXT: string;
+ declare const STATUS_TEXT_PARTY: string;
+ declare const STATUS_TEXT_PERCENT: string;
+ declare const STATUS_TEXT_PET: string;
+ declare const STATUS_TEXT_PLAYER: string;
+ declare const STATUS_TEXT_TARGET: string;
+ declare const STAT_ATTACK_POWER: string;
+ declare const STAT_BLOCK: string;
+ declare const STAT_BLOCK_TOOLTIP: string;
+ declare const STAT_DODGE: string;
+ declare const STAT_EXPERTISE: string;
+ declare const STAT_FORMAT: string;
+ declare const STAT_PARRY: string;
+ declare const STAT_RESILIENCE: string;
+ declare const STAT_TEMPLATE: string;
+ declare const STEREO_HARDWARE_CURSOR: string;
+ declare const STEREO_VIDEO_LABEL: string;
+ declare const STEREO_VIDEO_SUBTEXT: string;
+ declare const STOPWATCH_TIME_UNIT: string;
+ declare const STOPWATCH_TITLE: string;
+ declare const STOP_AUTO_ATTACK: string;
+ declare const STOP_IGNORE: string;
+ declare const STR: string;
+ declare const STRENGTH_COLON: string;
+ declare const STRENGTH_TOOLTIP: string;
+ declare const STRING_ENVIRONMENTAL_DAMAGE_DROWNING: string;
+ declare const STRING_ENVIRONMENTAL_DAMAGE_FALLING: string;
+ declare const STRING_ENVIRONMENTAL_DAMAGE_FATIGUE: string;
+ declare const STRING_ENVIRONMENTAL_DAMAGE_FIRE: string;
+ declare const STRING_ENVIRONMENTAL_DAMAGE_LAVA: string;
+ declare const STRING_ENVIRONMENTAL_DAMAGE_SLIME: string;
+ declare const STRING_SCHOOL_ARCANE: string;
+ declare const STRING_SCHOOL_CHAOS: string;
+ declare const STRING_SCHOOL_CHROMATIC: string;
+ declare const STRING_SCHOOL_DIVINE: string;
+ declare const STRING_SCHOOL_ELEMENTAL: string;
+ declare const STRING_SCHOOL_FIRE: string;
+ declare const STRING_SCHOOL_FIRESTORM: string;
+ declare const STRING_SCHOOL_FLAMESTRIKE: string;
+ declare const STRING_SCHOOL_FROST: string;
+ declare const STRING_SCHOOL_FROSTFIRE: string;
+ declare const STRING_SCHOOL_FROSTSTORM: string;
+ declare const STRING_SCHOOL_FROSTSTRIKE: string;
+ declare const STRING_SCHOOL_HOLY: string;
+ declare const STRING_SCHOOL_HOLYFIRE: string;
+ declare const STRING_SCHOOL_HOLYFROST: string;
+ declare const STRING_SCHOOL_HOLYSTORM: string;
+ declare const STRING_SCHOOL_HOLYSTRIKE: string;
+ declare const STRING_SCHOOL_MAGIC: string;
+ declare const STRING_SCHOOL_NATURE: string;
+ declare const STRING_SCHOOL_PHYSICAL: string;
+ declare const STRING_SCHOOL_SHADOW: string;
+ declare const STRING_SCHOOL_SHADOWFLAME: string;
+ declare const STRING_SCHOOL_SHADOWFROST: string;
+ declare const STRING_SCHOOL_SHADOWHOLY: string;
+ declare const STRING_SCHOOL_SHADOWLIGHT: string;
+ declare const STRING_SCHOOL_SHADOWSTORM: string;
+ declare const STRING_SCHOOL_SHADOWSTRIKE: string;
+ declare const STRING_SCHOOL_SPELLFIRE: string;
+ declare const STRING_SCHOOL_SPELLFROST: string;
+ declare const STRING_SCHOOL_SPELLSHADOW: string;
+ declare const STRING_SCHOOL_SPELLSTORM: string;
+ declare const STRING_SCHOOL_SPELLSTRIKE: string;
+ declare const STRING_SCHOOL_STORMSTRIKE: string;
+ declare const STRING_SCHOOL_UNKNOWN: string;
+ declare const STUCK_BUTTON2_TEXT: string;
+ declare const STUCK_BUTTON_TEXT: string;
+ declare const STUN: string;
+ declare const STUNNED: string;
+ declare const STUN_CAPS: string;
+ declare const SUBCATEGORY: string;
+ declare const SUBMIT: string;
+ declare const SUCCESS: string;
+ declare const SUGGESTFRAME_TITLE: string;
+ declare const SUGGEST_SUBMITTED: string;
+ declare const SUGGEST_SUBMIT_FAILED: string;
+ declare const SUGGEST_TOOLTIP_TEXT: string;
+ declare const SUMMARY_ACHIEVEMENT_INCOMPLETE: string;
+ declare const SUMMARY_ACHIEVEMENT_INCOMPLETE_TEXT: string;
+ declare const SUMMON: string;
+ declare const SUMMONS: string;
+ declare const SWING_DAMAGE_COMBATLOG_TOOLTIP: string;
+ declare const SWING_MISSED_COMBATLOG_TOOLTIP: string;
+ declare const SYSTEM_DEFAULT: string;
+ declare const SYSTEM_MESSAGES: string;
+ declare const TABARDSLOT: string;
+ declare const TABARDVENDORALREADYSETGREETING: string;
+ declare const TABARDVENDORCOST: string;
+ declare const TABARDVENDORGREETING: string;
+ declare const TABARDVENDORNOGUILDGREETING: string;
+ declare const TAKE_ATTACHMENTS: string;
+ declare const TAKE_GM_SURVEY: string;
+ declare const TALENTS: string;
+ declare const TALENTS_BUTTON: string;
+ declare const TALENTS_INVOLUNTARILY_RESET: string;
+ declare const TALENTS_INVOLUNTARILY_RESET_PET: string;
+ declare const TALENT_ACTIVE_SPEC_STATUS: string;
+ declare const TALENT_POINTS: string;
+ declare const TALENT_POINTS_TOOLTIP: string;
+ declare const TALENT_SPECTAB_TOOLTIP_ACTIVE: string;
+ declare const TALENT_SPECTAB_TOOLTIP_POINTS_SPENT: string;
+ declare const TALENT_SPEC_ACTIVATE: string;
+ declare const TALENT_SPEC_PET_PRIMARY: string;
+ declare const TALENT_SPEC_PRIMARY: string;
+ declare const TALENT_SPEC_PRIMARY_GLYPH: string;
+ declare const TALENT_SPEC_SECONDARY: string;
+ declare const TALENT_SPEC_SECONDARY_GLYPH: string;
+ declare const TALENT_TOOLTIP_ADDPREVIEWPOINT: string;
+ declare const TALENT_TOOLTIP_LEARNTALENTGROUP: string;
+ declare const TALENT_TOOLTIP_REMOVEPREVIEWPOINT: string;
+ declare const TALENT_TOOLTIP_RESETTALENTGROUP: string;
+ declare const TALENT_TRAINER: string;
+ declare const TAMEABLE: string;
+ declare const TAMEABLE_EXOTIC: string;
+ declare const TANK: string;
+ declare const TARGET: string;
+ declare const TARGETFOCUS: string;
+ declare const TARGETICONS: string;
+ declare const TARGET_ICON_SET: string;
+ declare const TARGET_TOKEN_NOT_FOUND: string;
+ declare const TASKS_COLON: string;
+ declare const TAXINODEYOUAREHERE: string;
+ declare const TAXISAMENODE: string;
+ declare const TEAM: string;
+ declare const TEAM_KICK: string;
+ declare const TEAM_LEAVE: string;
+ declare const TEAM_PROMOTE: string;
+ declare const TEAM_SKILL_TOOLTIP: string;
+ declare const TELEPORT_OUT_OF_DUNGEON: string;
+ declare const TELEPORT_TO_DUNGEON: string;
+ declare const TERRAIN_HIGHLIGHTS: string;
+ declare const TERRAIN_MIP: string;
+ declare const TEST_TAG_TEST: string;
+ declare const TEXTURE_DETAIL: string;
+ declare const TEXT_MODE_A: string;
+ declare const TEXT_MODE_A_STRING_1: string;
+ declare const TEXT_MODE_A_STRING_2: string;
+ declare const TEXT_MODE_A_STRING_3: string;
+ declare const TEXT_MODE_A_STRING_4: string;
+ declare const TEXT_MODE_A_STRING_5: string;
+ declare const TEXT_MODE_A_STRING_ACTION: string;
+ declare const TEXT_MODE_A_STRING_BRACE_ITEM: string;
+ declare const TEXT_MODE_A_STRING_BRACE_SPELL: string;
+ declare const TEXT_MODE_A_STRING_BRACE_UNIT: string;
+ declare const TEXT_MODE_A_STRING_DEST: string;
+ declare const TEXT_MODE_A_STRING_DEST_ICON: string;
+ declare const TEXT_MODE_A_STRING_DEST_UNIT: string;
+ declare const TEXT_MODE_A_STRING_ITEM: string;
+ declare const TEXT_MODE_A_STRING_POSSESSIVE: string;
+ declare const TEXT_MODE_A_STRING_POSSESSIVE_string; string;
+ declare const TEXT_MODE_A_STRING_RESULT: string;
+ declare const TEXT_MODE_A_STRING_RESULT_ABSORB: string;
+ declare const TEXT_MODE_A_STRING_RESULT_BLOCK: string;
+ declare const TEXT_MODE_A_STRING_RESULT_CRITICAL: string;
+ declare const TEXT_MODE_A_STRING_RESULT_CRITICAL_SPELL: string;
+ declare const TEXT_MODE_A_STRING_RESULT_CRUSHING: string;
+ declare const TEXT_MODE_A_STRING_RESULT_FORMAT: string;
+ declare const TEXT_MODE_A_STRING_RESULT_GLANCING: string;
+ declare const TEXT_MODE_A_STRING_RESULT_OVERHEALING: string;
+ declare const TEXT_MODE_A_STRING_RESULT_OVERKILLING: string;
+ declare const TEXT_MODE_A_STRING_RESULT_REFLECT: string;
+ declare const TEXT_MODE_A_STRING_RESULT_RESIST: string;
+ declare const TEXT_MODE_A_STRING_RESULT_VULNERABILITY: string;
+ declare const TEXT_MODE_A_STRING_SOURCE: string;
+ declare const TEXT_MODE_A_STRING_SOURCE_ICON: string;
+ declare const TEXT_MODE_A_STRING_SOURCE_UNIT: string;
+ declare const TEXT_MODE_A_STRING_SPELL: string;
+ declare const TEXT_MODE_A_STRING_SPELL_EXTRA: string;
+ declare const TEXT_MODE_A_STRING_SPELL_EXTRA_LINK: string;
+ declare const TEXT_MODE_A_STRING_SPELL_LINK: string;
+ declare const TEXT_MODE_A_STRING_TIMESTAMP: string;
+ declare const TEXT_MODE_A_STRING_TOKEN_ICON: string;
+ declare const TEXT_MODE_A_STRING_VALUE: string;
+ declare const TEXT_MODE_A_STRING_VALUE_SCHOOL: string;
+ declare const TEXT_MODE_A_STRING_VALUE_TYPE: string;
+ declare const TEXT_MODE_A_TIMESTAMP: string;
+ declare const THIS_DUNGEON_IN_PROGRESS: string;
+ declare const THREAT_TOOLTIP: string;
+ declare const TICKET_STATUS: string;
+ declare const TICKET_TYPE1: string;
+ declare const TICKET_TYPE2: string;
+ declare const TICKET_TYPE3: string;
+ declare const TICKET_TYPE4: string;
+ declare const TIMEMANAGER_12HOUR: string;
+ declare const TIMEMANAGER_24HOUR: string;
+ declare const TIMEMANAGER_24HOURMODE: string;
+ declare const TIMEMANAGER_ALARM_DISABLED: string;
+ declare const TIMEMANAGER_ALARM_ENABLED: string;
+ declare const TIMEMANAGER_ALARM_MESSAGE: string;
+ declare const TIMEMANAGER_ALARM_TIME: string;
+ declare const TIMEMANAGER_ALARM_TOOLTIP_TURN_OFF: string;
+ declare const TIMEMANAGER_AM: string;
+ declare const TIMEMANAGER_LOCALTIME: string;
+ declare const TIMEMANAGER_MINUTE: string;
+ declare const TIMEMANAGER_PM: string;
+ declare const TIMEMANAGER_SHOW_STOPWATCH: string;
+ declare const TIMEMANAGER_TICKER_12HOUR: string;
+ declare const TIMEMANAGER_TICKER_24HOUR: string;
+ declare const TIMEMANAGER_TITLE: string;
+ declare const TIMEMANAGER_TOOLTIP_LOCALTIME: string;
+ declare const TIMEMANAGER_TOOLTIP_REALMTIME: string;
+ declare const TIMEMANAGER_TOOLTIP_TITLE: string;
+ declare const TIMESTAMPS_LABEL: string;
+ declare const TIMESTAMP_COMBATLOG_TOOLTIP: string;
+ declare const TIMESTAMP_FORMAT_HHMM: string;
+ declare const TIMESTAMP_FORMAT_HHMMSS: string;
+ declare const TIMESTAMP_FORMAT_HHMMSS_24HR: string;
+ declare const TIMESTAMP_FORMAT_HHMMSS_AMPM: string;
+ declare const TIMESTAMP_FORMAT_HHMM_24HR: string;
+ declare const TIMESTAMP_FORMAT_HHMM_AMPM: string;
+ declare const TIMESTAMP_FORMAT_NONE: string;
+ declare const TIME_DAYHOURMINUTESECOND: string;
+ declare const TIME_ELAPSED: string;
+ declare const TIME_IN_QUEUE: string;
+ declare const TIME_PLAYED_LEVEL: string;
+ declare const TIME_PLAYED_MSG: string;
+ declare const TIME_PLAYED_TOTAL: string;
+ declare const TIME_REMAINING: string;
+ declare const TIME_TEMPLATE_LONG: string;
+ declare const TIME_TO_PORT: string;
+ declare const TIME_TO_PORT_ARENA: string;
+ declare const TIME_TWELVEHOURAM: string;
+ declare const TIME_TWELVEHOURPM: string;
+ declare const TIME_TWENTYFOURHOURS: string;
+ declare const TIME_UNIT_DELIMITER: string;
+ declare const TIME_UNKNOWN: string;
+ declare const TIME_UNTIL_DELETED: string;
+ declare const TIME_UNTIL_RETURNED: string;
+ declare const TITLE_DOESNT_EXIST: string;
+ declare const TITLE_REWARD: string;
+ declare const TITLE_TEMPLATE: string;
+ declare const TOAST_DURATION_TEXT: string;
+ declare const TOGGLESTICKYCAMERA: string;
+ declare const TOGGLE_BATTLEFIELDMINIMAP_TOOLTIP: string;
+ declare const TOKENS: string;
+ declare const TOKEN_MOVE_TO_UNUSED: string;
+ declare const TOKEN_OPTIONS: string;
+ declare const TOKEN_SHOW_ON_BACKPACK: string;
+ declare const TOOLTIP_ARENA_POINTS: string;
+ declare const TOOLTIP_HONOR_POINTS: string;
+ declare const TOOLTIP_RAID_CLASS_BUTTON: string;
+ declare const TOOLTIP_RAID_CONTROL_TIP: string;
+ declare const TOOLTIP_RAID_DRAG_TIP: string;
+ declare const TOOLTIP_RAID_SHIFT_TIP: string;
+ declare const TOOLTIP_TALENT_LEARN: string;
+ declare const TOOLTIP_TALENT_NEXT_RANK: string;
+ declare const TOOLTIP_TALENT_PREREQ: string;
+ declare const TOOLTIP_TALENT_RANK: string;
+ declare const TOOLTIP_TALENT_TIER_POINTS: string;
+ declare const TOOLTIP_TRACKER_FILTER_ACHIEVEMENTS: string;
+ declare const TOOLTIP_TRACKER_FILTER_COMPLETED_QUESTS: string;
+ declare const TOOLTIP_TRACKER_FILTER_REMOTE_ZONES: string;
+ declare const TOOLTIP_TRACKER_SORT_DIFFICULTY_HIGH: string;
+ declare const TOOLTIP_TRACKER_SORT_DIFFICULTY_LOW: string;
+ declare const TOOLTIP_TRACKER_SORT_MANUAL: string;
+ declare const TOOLTIP_TRACKER_SORT_PROXIMITY: string;
+ declare const TOOLTIP_UNIT_LEVEL: string;
+ declare const TOOLTIP_UNIT_LEVEL_CLASS: string;
+ declare const TOOLTIP_UNIT_LEVEL_CLASS_TYPE: string;
+ declare const TOOLTIP_UNIT_LEVEL_RACE_CLASS: string;
+ declare const TOOLTIP_UNIT_LEVEL_RACE_CLASS_TYPE: string;
+ declare const TOOLTIP_UNIT_LEVEL_TYPE: string;
+ declare const TOO_FAR_TO_LOOT: string;
+ declare const TOO_MANY_LUA_ERRORS: string;
+ declare const TOO_MANY_WATCHED_TOKENS: string;
+ declare const TOTAL_MEM_KB_ABBR: string;
+ declare const TOTAL_MEM_MB_ABBR: string;
+ declare const TRACKER_FILTER_ACHIEVEMENTS: string;
+ declare const TRACKER_FILTER_COMPLETED_QUESTS: string;
+ declare const TRACKER_FILTER_LABEL: string;
+ declare const TRACKER_FILTER_REMOTE_ZONES: string;
+ declare const TRACKER_SORT_DIFFICULTY_HIGH: string;
+ declare const TRACKER_SORT_DIFFICULTY_LOW: string;
+ declare const TRACKER_SORT_LABEL: string;
+ declare const TRACKER_SORT_MANUAL: string;
+ declare const TRACKER_SORT_MANUAL_BOTTOM: string;
+ declare const TRACKER_SORT_MANUAL_DOWN: string;
+ declare const TRACKER_SORT_MANUAL_TOP: string;
+ declare const TRACKER_SORT_MANUAL_UP: string;
+ declare const TRACKER_SORT_MANUAL_WARNING: string;
+ declare const TRACKER_SORT_PROXIMITY: string;
+ declare const TRACK_ACHIEVEMENT: string;
+ declare const TRACK_ACHIEVEMENT_TOOLTIP: string;
+ declare const TRACK_QUEST: string;
+ declare const TRACK_QUEST_ABBREV: string;
+ declare const TRADE: string;
+ declare const TRADEFRAME_ENCHANT_SLOT_LABEL: string;
+ declare const TRADEFRAME_NOT_MODIFIED_TEXT: string;
+ declare const TRADESKILLS: string;
+ declare const TRADESKILL_LOG_FIRSTPERSON: string;
+ declare const TRADESKILL_LOG_THIRDPERSON: string;
+ declare const TRADESKILL_SERVICE_LEARN: string;
+ declare const TRADESKILL_SERVICE_PASSIVE: string;
+ declare const TRADESKILL_SERVICE_STEP: string;
+ declare const TRADE_POTENTIAL_BIND_ENCHANT: string;
+ declare const TRADE_SKILLS: string;
+ declare const TRADE_SKILL_TITLE: string;
+ declare const TRADE_WITH_QUESTION: string;
+ declare const TRAIN: string;
+ declare const TRAINER_CAST_TIME_INSTANT: string;
+ declare const TRAINER_CAST_TIME_MIN: string;
+ declare const TRAINER_CAST_TIME_SEC: string;
+ declare const TRAINER_COOLDOWN_TIME_INSTANT: string;
+ declare const TRAINER_COOLDOWN_TIME_MIN: string;
+ declare const TRAINER_COOLDOWN_TIME_SEC: string;
+ declare const TRAINER_COST_SP: string;
+ declare const TRAINER_COST_SP_RED: string;
+ declare const TRAINER_COST_TP: string;
+ declare const TRAINER_COST_TP_RED: string;
+ declare const TRAINER_LIST_SP: string;
+ declare const TRAINER_MANA_COST: string;
+ declare const TRAINER_MANA_COST_PER_TIME: string;
+ declare const TRAINER_RANGE: string;
+ declare const TRAINER_REQ_ABILITY: string;
+ declare const TRAINER_REQ_ABILITY_RED: string;
+ declare const TRAINER_REQ_LEVEL: string;
+ declare const TRAINER_REQ_LEVEL_RED: string;
+ declare const TRAINER_REQ_SKILL_RANK: string;
+ declare const TRAINER_REQ_SKILL_RANK_RED: string;
+ declare const TRANSFER_ABORT_DIFFICULTY1: string;
+ declare const TRANSFER_ABORT_DIFFICULTY2: string;
+ declare const TRANSFER_ABORT_DIFFICULTY3: string;
+ declare const TRANSFER_ABORT_INSUF_EXPAN_LVL1: string;
+ declare const TRANSFER_ABORT_INSUF_EXPAN_LVL2: string;
+ declare const TRANSFER_ABORT_MAP_NOT_ALLOWED: string;
+ declare const TRANSFER_ABORT_MAX_PLAYERS: string;
+ declare const TRANSFER_ABORT_NEED_GROUP: string;
+ declare const TRANSFER_ABORT_NOT_FOUND: string;
+ declare const TRANSFER_ABORT_REALM_ONLY: string;
+ declare const TRANSFER_ABORT_TOO_MANY_INSTANCES: string;
+ declare const TRANSFER_ABORT_TOO_MANY_REALM_INSTANCES: string;
+ declare const TRANSFER_ABORT_UNIQUE_MESSAGE1: string;
+ declare const TRANSFER_ABORT_ZONE_IN_COMBAT: string;
+ declare const TRILINEAR_FILTERING: string;
+ declare const TRINKET0SLOT: string;
+ declare const TRINKET0SLOT_UNIQUE: string;
+ declare const TRINKET1SLOT: string;
+ declare const TRINKET1SLOT_UNIQUE: string;
+ declare const TRIPLE_BUFFER: string;
+ declare const TRIVIAL_QUEST_DISPLAY: string;
+ declare const TURN_IN_ITEMS: string;
+ declare const TURN_IN_QUEST: string;
+ declare const TUTORIAL1: string;
+ declare const TUTORIAL2: string;
+ declare const TUTORIAL3: string;
+ declare const TUTORIAL4: string;
+ declare const TUTORIAL5: string;
+ declare const TUTORIAL6: string;
+ declare const TUTORIAL7: string;
+ declare const TUTORIAL8: string;
+ declare const TUTORIAL9: string;
+ declare const TUTORIAL10: string;
+ declare const TUTORIAL11: string;
+ declare const TUTORIAL12: string;
+ declare const TUTORIAL13: string;
+ declare const TUTORIAL14: string;
+ declare const TUTORIAL15: string;
+ declare const TUTORIAL16: string;
+ declare const TUTORIAL17: string;
+ declare const TUTORIAL18: string;
+ declare const TUTORIAL19: string;
+ declare const TUTORIAL20: string;
+ declare const TUTORIAL21: string;
+ declare const TUTORIAL22: string;
+ declare const TUTORIAL23: string;
+ declare const TUTORIAL24: string;
+ declare const TUTORIAL25: string;
+ declare const TUTORIAL26: string;
+ declare const TUTORIAL27: string;
+ declare const TUTORIAL28: string;
+ declare const TUTORIAL29: string;
+ declare const TUTORIAL30: string;
+ declare const TUTORIAL31: string;
+ declare const TUTORIAL32: string;
+ declare const TUTORIAL33: string;
+ declare const TUTORIAL34: string;
+ declare const TUTORIAL35: string;
+ declare const TUTORIAL36: string;
+ declare const TUTORIAL37: string;
+ declare const TUTORIAL38: string;
+ declare const TUTORIAL39: string;
+ declare const TUTORIAL40: string;
+ declare const TUTORIAL41: string;
+ declare const TUTORIAL42: string;
+ declare const TUTORIAL43: string;
+ declare const TUTORIAL44: string;
+ declare const TUTORIAL45: string;
+ declare const TUTORIAL46: string;
+ declare const TUTORIAL47: string;
+ declare const TUTORIAL48: string;
+ declare const TUTORIAL49: string;
+ declare const TUTORIAL50: string;
+ declare const TUTORIAL51: string;
+ declare const TUTORIAL52: string;
+ declare const TUTORIAL53: string;
+ declare const TUTORIAL54: string;
+ declare const TUTORIAL55: string;
+ declare const TUTORIAL56: string;
+ declare const TUTORIAL57: string;
+ declare const TUTORIAL58: string;
+ declare const TUTORIAL59: string;
+ declare const TUTORIAL60: string;
+ declare const TUTORIAL61: string;
+ declare const TUTORIAL_TITLE1: string;
+ declare const TUTORIAL_TITLE2: string;
+ declare const TUTORIAL_TITLE3: string;
+ declare const TUTORIAL_TITLE4: string;
+ declare const TUTORIAL_TITLE5: string;
+ declare const TUTORIAL_TITLE6: string;
+ declare const TUTORIAL_TITLE7: string;
+ declare const TUTORIAL_TITLE8: string;
+ declare const TUTORIAL_TITLE9: string;
+ declare const TUTORIAL_TITLE10: string;
+ declare const TUTORIAL_TITLE11: string;
+ declare const TUTORIAL_TITLE12: string;
+ declare const TUTORIAL_TITLE13: string;
+ declare const TUTORIAL_TITLE14: string;
+ declare const TUTORIAL_TITLE15: string;
+ declare const TUTORIAL_TITLE16: string;
+ declare const TUTORIAL_TITLE17: string;
+ declare const TUTORIAL_TITLE18: string;
+ declare const TUTORIAL_TITLE19: string;
+ declare const TUTORIAL_TITLE20: string;
+ declare const TUTORIAL_TITLE21: string;
+ declare const TUTORIAL_TITLE22: string;
+ declare const TUTORIAL_TITLE23: string;
+ declare const TUTORIAL_TITLE24: string;
+ declare const TUTORIAL_TITLE25: string;
+ declare const TUTORIAL_TITLE26: string;
+ declare const TUTORIAL_TITLE27: string;
+ declare const TUTORIAL_TITLE28: string;
+ declare const TUTORIAL_TITLE29: string;
+ declare const TUTORIAL_TITLE30: string;
+ declare const TUTORIAL_TITLE31: string;
+ declare const TUTORIAL_TITLE32: string;
+ declare const TUTORIAL_TITLE33: string;
+ declare const TUTORIAL_TITLE34: string;
+ declare const TUTORIAL_TITLE35: string;
+ declare const TUTORIAL_TITLE36: string;
+ declare const TUTORIAL_TITLE37: string;
+ declare const TUTORIAL_TITLE38: string;
+ declare const TUTORIAL_TITLE39: string;
+ declare const TUTORIAL_TITLE40: string;
+ declare const TUTORIAL_TITLE41: string;
+ declare const TUTORIAL_TITLE42: string;
+ declare const TUTORIAL_TITLE43: string;
+ declare const TUTORIAL_TITLE44: string;
+ declare const TUTORIAL_TITLE45: string;
+ declare const TUTORIAL_TITLE46: string;
+ declare const TUTORIAL_TITLE47: string;
+ declare const TUTORIAL_TITLE48: string;
+ declare const TUTORIAL_TITLE49: string;
+ declare const TUTORIAL_TITLE50: string;
+ declare const TUTORIAL_TITLE51: string;
+ declare const TUTORIAL_TITLE52: string;
+ declare const TUTORIAL_TITLE53: string;
+ declare const TUTORIAL_TITLE54: string;
+ declare const TUTORIAL_TITLE55: string;
+ declare const TUTORIAL_TITLE56: string;
+ declare const TUTORIAL_TITLE57: string;
+ declare const TUTORIAL_TITLE58: string;
+ declare const TUTORIAL_TITLE59: string;
+ declare const TUTORIAL_TITLE60: string;
+ declare const TUTORIAL_TITLE61: string;
+ declare const TWOHANDEDWEAPONBEINGWIELDED: string;
+ declare const TWO_HANDED: string;
+ declare const TYPE: string;
+ declare const TYPE_LFR_COMMENT_HERE: string;
+ declare const UIOPTIONS_MENU: string;
+ declare const UI_DEPTH: string;
+ declare const UI_HIDDEN: string;
+ declare const UI_SCALE: string;
+ declare const UKNOWNBEING: string;
+ declare const UNABLE_TO_REFUND_ITEM: string;
+ declare const UNAVAILABLE: string;
+ declare const UNBIND: string;
+ declare const UNEXTEND_RAID_LOCK: string;
+ declare const UNITFRAME_LABEL: string;
+ declare const UNITFRAME_SUBTEXT: string;
+ declare const UNITNAME_SUMMON_TITLE1: string;
+ declare const UNITNAME_SUMMON_TITLE10: string;
+ declare const UNITNAME_SUMMON_TITLE11: string;
+ declare const UNITNAME_SUMMON_TITLE12: string;
+ declare const UNITNAME_SUMMON_TITLE2: string;
+ declare const UNITNAME_SUMMON_TITLE3: string;
+ declare const UNITNAME_SUMMON_TITLE4: string;
+ declare const UNITNAME_SUMMON_TITLE5: string;
+ declare const UNITNAME_SUMMON_TITLE6: string;
+ declare const UNITNAME_SUMMON_TITLE7: string;
+ declare const UNITNAME_SUMMON_TITLE8: string;
+ declare const UNITNAME_SUMMON_TITLE9: string;
+ declare const UNITNAME_TITLE: string;
+ declare const UNITNAME_TITLE_CHARM: string;
+ declare const UNITNAME_TITLE_COMPANION: string;
+ declare const UNITNAME_TITLE_CREATION: string;
+ declare const UNITNAME_TITLE_GUARDIAN: string;
+ declare const UNITNAME_TITLE_MINION: string;
+ declare const UNITNAME_TITLE_OPPONENT: string;
+ declare const UNITNAME_TITLE_PET: string;
+ declare const UNITNAME_TITLE_SQUIRE: string;
+ declare const UNIT_COLORS: string;
+ declare const UNIT_LETHAL_LEVEL_DEAD_TEMPLATE: string;
+ declare const UNIT_LETHAL_LEVEL_TEMPLATE: string;
+ declare const UNIT_LEVEL_DEAD_TEMPLATE: string;
+ declare const UNIT_LEVEL_TEMPLATE: string;
+ declare const UNIT_NAMEPLATES: string;
+ declare const UNIT_NAMEPLATES_ALLOW_OVERLAP: string;
+ declare const UNIT_NAMEPLATES_SHOW_ENEMIES: string;
+ declare const UNIT_NAMEPLATES_SHOW_ENEMY_GUARDIANS: string;
+ declare const UNIT_NAMEPLATES_SHOW_ENEMY_PETS: string;
+ declare const UNIT_NAMEPLATES_SHOW_ENEMY_TOTEMS: string;
+ declare const UNIT_NAMEPLATES_SHOW_FRIENDLY_GUARDIANS: string;
+ declare const UNIT_NAMEPLATES_SHOW_FRIENDLY_PETS: string;
+ declare const UNIT_NAMEPLATES_SHOW_FRIENDLY_TOTEMS: string;
+ declare const UNIT_NAMEPLATES_SHOW_FRIENDS: string;
+ declare const UNIT_NAMES: string;
+ declare const UNIT_NAMES_COMBATLOG_TOOLTIP: string;
+ declare const UNIT_NAMES_SHOW_BRACES_COMBATLOG_TOOLTIP: string;
+ declare const UNIT_NAME_ENEMY: string;
+ declare const UNIT_NAME_ENEMY_GUARDIANS: string;
+ declare const UNIT_NAME_ENEMY_PETS: string;
+ declare const UNIT_NAME_ENEMY_TOTEMS: string;
+ declare const UNIT_NAME_FRIENDLY: string;
+ declare const UNIT_NAME_FRIENDLY_GUARDIANS: string;
+ declare const UNIT_NAME_FRIENDLY_PETS: string;
+ declare const UNIT_NAME_FRIENDLY_TOTEMS: string;
+ declare const UNIT_NAME_GUILD: string;
+ declare const UNIT_NAME_NONCOMBAT_CREATURE: string;
+ declare const UNIT_NAME_NPC: string;
+ declare const UNIT_NAME_OWN: string;
+ declare const UNIT_NAME_PLAYER_TITLE: string;
+ declare const UNIT_PLUS_LEVEL_TEMPLATE: string;
+ declare const UNIT_PVP_NAME: string;
+ declare const UNIT_SKINNABLE_BOLTS: string;
+ declare const UNIT_SKINNABLE_HERB: string;
+ declare const UNIT_SKINNABLE_LEATHER: string;
+ declare const UNIT_SKINNABLE_ROCK: string;
+ declare const UNIT_TYPE_LETHAL_LEVEL_TEMPLATE: string;
+ declare const UNIT_TYPE_LEVEL_TEMPLATE: string;
+ declare const UNIT_TYPE_PLUS_LEVEL_TEMPLATE: string;
+ declare const UNIT_YOU: string;
+ declare const UNIT_YOU_DEST: string;
+ declare const UNIT_YOU_DEST_POSSESSIVE: string;
+ declare const UNIT_YOU_SOURCE: string;
+ declare const UNIT_YOU_SOURCE_POSSESSIVE: string;
+ declare const UNKNOWN: string;
+ declare const UNKNOWNOBJECT: string;
+ declare const UNLEARN: string;
+ declare const UNLEARN_SKILL: string;
+ declare const UNLEARN_SKILL_TOOLTIP: string;
+ declare const UNLIMITED: string;
+ declare const UNLIST_ME: string;
+ declare const UNLIST_MY_GROUP: string;
+ declare const UNLOCK_FOCUS_FRAME: string;
+ declare const UNLOCK_WINDOW: string;
+ declare const UNMUTE: string;
+ declare const UNSPENT_TALENT_POINTS: string;
+ declare const UNTRACK_ACHIEVEMENT_TOOLTIP: string;
+ declare const UNUSED: string;
+ declare const UPDATE: string;
+ declare const USABLE_ITEMS: string;
+ declare const USE: string;
+ declare const USED: string;
+ declare const USE_COLON: string;
+ declare const USE_COLORBLIND_MODE: string;
+ declare const USE_ENGLISH_AUDIO: string;
+ declare const USE_EQUIPMENT_MANAGER: string;
+ declare const USE_FULL_TEXT_MODE: string;
+ declare const USE_GUILDBANK_REPAIR: string;
+ declare const USE_ITEM: string;
+ declare const USE_NO_DROP: string;
+ declare const USE_PERSONAL_FUNDS: string;
+ declare const USE_SOULSTONE: string;
+ declare const USE_UBERTOOLTIPS: string;
+ declare const USE_UISCALE: string;
+ declare const USE_WEATHER_SHADER: string;
+ declare const VEHICLE_LEAVE: string;
+ declare const VEHICLE_STEAM: string;
+ declare const VERBAL_HARASSMENT: string;
+ declare const VERBAL_HARASSMENT_DESCRIPTION: string;
+ declare const VERBAL_HARASSMENT_TEXT1: string;
+ declare const VERBAL_HARASSMENT_TEXT2: string;
+ declare const VERBAL_HARASSMENT_TEXT3: string;
+ declare const VERBAL_HARASSMENT_TEXT4: string;
+ declare const VERTEX_ANIMATION_SHADERS: string;
+ declare const VERTICAL_SYNC: string;
+ declare const VICTORY_TEXT0: string;
+ declare const VICTORY_TEXT1: string;
+ declare const VICTORY_TEXT_ARENA0: string;
+ declare const VICTORY_TEXT_ARENA1: string;
+ declare const VICTORY_TEXT_ARENA_DRAW: string;
+ declare const VICTORY_TEXT_ARENA_WINS: string;
+ declare const VIDEOOPTIONS_MENU: string;
+ declare const VIDEO_QUALITY_LABEL1: string;
+ declare const VIDEO_QUALITY_LABEL2: string;
+ declare const VIDEO_QUALITY_LABEL3: string;
+ declare const VIDEO_QUALITY_LABEL4: string;
+ declare const VIDEO_QUALITY_LABEL5: string;
+ declare const VIDEO_QUALITY_LABEL6: string;
+ declare const VIDEO_QUALITY_S: string;
+ declare const VIDEO_QUALITY_SUBTEXT1: string;
+ declare const VIDEO_QUALITY_SUBTEXT2: string;
+ declare const VIDEO_QUALITY_SUBTEXT3: string;
+ declare const VIDEO_QUALITY_SUBTEXT4: string;
+ declare const VIDEO_QUALITY_SUBTEXT5: string;
+ declare const VIDEO_QUALITY_SUBTEXT6: string;
+ declare const VIEW_FRIENDS_OF_FRIENDS: string;
+ declare const VOICE: string;
+ declare const VOICECHAT_DISABLED: string;
+ declare const VOICECHAT_DISABLED_TEXT: string;
+ declare const VOICEMACRO_0_Dw_0: string;
+ declare const VOICEMACRO_0_Dw_0_FEMALE: string;
+ declare const VOICEMACRO_0_Dw_1: string;
+ declare const VOICEMACRO_0_Dw_1_FEMALE: string;
+ declare const VOICEMACRO_0_Gn_0: string;
+ declare const VOICEMACRO_0_Gn_0_FEMALE: string;
+ declare const VOICEMACRO_0_Gn_1: string;
+ declare const VOICEMACRO_0_Gn_1_FEMALE: string;
+ declare const VOICEMACRO_0_Gn_2_FEMALE: string;
+ declare const VOICEMACRO_0_Hu_0: string;
+ declare const VOICEMACRO_0_Hu_0_FEMALE: string;
+ declare const VOICEMACRO_0_Hu_1: string;
+ declare const VOICEMACRO_0_Hu_1_FEMALE: string;
+ declare const VOICEMACRO_0_Ni_0: string;
+ declare const VOICEMACRO_0_Ni_0_FEMALE: string;
+ declare const VOICEMACRO_0_Ni_1: string;
+ declare const VOICEMACRO_0_Ni_1_FEMALE: string;
+ declare const VOICEMACRO_0_Ni_2: string;
+ declare const VOICEMACRO_0_Or_0: string;
+ declare const VOICEMACRO_0_Or_0_FEMALE: string;
+ declare const VOICEMACRO_0_Or_1: string;
+ declare const VOICEMACRO_0_Or_1_FEMALE: string;
+ declare const VOICEMACRO_0_Sc_0: string;
+ declare const VOICEMACRO_0_Sc_0_FEMALE: string;
+ declare const VOICEMACRO_0_Sc_1: string;
+ declare const VOICEMACRO_0_Sc_1_FEMALE: string;
+ declare const VOICEMACRO_0_Ta_0: string;
+ declare const VOICEMACRO_0_Ta_0_FEMALE: string;
+ declare const VOICEMACRO_0_Ta_1: string;
+ declare const VOICEMACRO_0_Ta_1_FEMALE: string;
+ declare const VOICEMACRO_0_Ta_2: string;
+ declare const VOICEMACRO_0_Tr_0: string;
+ declare const VOICEMACRO_0_Tr_0_FEMALE: string;
+ declare const VOICEMACRO_0_Tr_1: string;
+ declare const VOICEMACRO_0_Tr_1_FEMALE: string;
+ declare const VOICEMACRO_10_Dw_0: string;
+ declare const VOICEMACRO_10_Dw_0_FEMALE: string;
+ declare const VOICEMACRO_10_Dw_1: string;
+ declare const VOICEMACRO_10_Dw_1_FEMALE: string;
+ declare const VOICEMACRO_10_Gn_0: string;
+ declare const VOICEMACRO_10_Gn_0_FEMALE: string;
+ declare const VOICEMACRO_10_Gn_1: string;
+ declare const VOICEMACRO_10_Gn_1_FEMALE: string;
+ declare const VOICEMACRO_10_Hu_0: string;
+ declare const VOICEMACRO_10_Hu_0_FEMALE: string;
+ declare const VOICEMACRO_10_Hu_1: string;
+ declare const VOICEMACRO_10_Hu_1_FEMALE: string;
+ declare const VOICEMACRO_10_Ni_0: string;
+ declare const VOICEMACRO_10_Ni_0_FEMALE: string;
+ declare const VOICEMACRO_10_Ni_1: string;
+ declare const VOICEMACRO_10_Ni_1_FEMALE: string;
+ declare const VOICEMACRO_10_Or_0: string;
+ declare const VOICEMACRO_10_Or_0_FEMALE: string;
+ declare const VOICEMACRO_10_Or_1: string;
+ declare const VOICEMACRO_10_Or_1_FEMALE: string;
+ declare const VOICEMACRO_10_Or_2_FEMALE: string;
+ declare const VOICEMACRO_10_Sc_0: string;
+ declare const VOICEMACRO_10_Sc_0_FEMALE: string;
+ declare const VOICEMACRO_10_Sc_1: string;
+ declare const VOICEMACRO_10_Sc_1_FEMALE: string;
+ declare const VOICEMACRO_10_Ta_0: string;
+ declare const VOICEMACRO_10_Ta_0_FEMALE: string;
+ declare const VOICEMACRO_10_Ta_1: string;
+ declare const VOICEMACRO_10_Ta_1_FEMALE: string;
+ declare const VOICEMACRO_10_Tr_0: string;
+ declare const VOICEMACRO_10_Tr_0_FEMALE: string;
+ declare const VOICEMACRO_10_Tr_1: string;
+ declare const VOICEMACRO_10_Tr_1_FEMALE: string;
+ declare const VOICEMACRO_12_Dw_0: string;
+ declare const VOICEMACRO_12_Dw_0_FEMALE: string;
+ declare const VOICEMACRO_12_Dw_1: string;
+ declare const VOICEMACRO_12_Dw_1_FEMALE: string;
+ declare const VOICEMACRO_12_Dw_2: string;
+ declare const VOICEMACRO_12_Dw_2_FEMALE: string;
+ declare const VOICEMACRO_12_Dw_3: string;
+ declare const VOICEMACRO_12_Gn_0: string;
+ declare const VOICEMACRO_12_Gn_0_FEMALE: string;
+ declare const VOICEMACRO_12_Gn_1: string;
+ declare const VOICEMACRO_12_Gn_1_FEMALE: string;
+ declare const VOICEMACRO_12_Gn_2: string;
+ declare const VOICEMACRO_12_Gn_2_FEMALE: string;
+ declare const VOICEMACRO_12_Gn_3: string;
+ declare const VOICEMACRO_12_Hu_0: string;
+ declare const VOICEMACRO_12_Hu_0_FEMALE: string;
+ declare const VOICEMACRO_12_Hu_1: string;
+ declare const VOICEMACRO_12_Hu_1_FEMALE: string;
+ declare const VOICEMACRO_12_Hu_2: string;
+ declare const VOICEMACRO_12_Hu_2_FEMALE: string;
+ declare const VOICEMACRO_12_Hu_3: string;
+ declare const VOICEMACRO_12_Ni_0: string;
+ declare const VOICEMACRO_12_Ni_0_FEMALE: string;
+ declare const VOICEMACRO_12_Ni_1: string;
+ declare const VOICEMACRO_12_Ni_1_FEMALE: string;
+ declare const VOICEMACRO_12_Ni_2: string;
+ declare const VOICEMACRO_12_Ni_2_FEMALE: string;
+ declare const VOICEMACRO_12_Ni_3_FEMALE: string;
+ declare const VOICEMACRO_12_Or_0: string;
+ declare const VOICEMACRO_12_Or_0_FEMALE: string;
+ declare const VOICEMACRO_12_Or_1: string;
+ declare const VOICEMACRO_12_Or_1_FEMALE: string;
+ declare const VOICEMACRO_12_Or_2: string;
+ declare const VOICEMACRO_12_Or_2_FEMALE: string;
+ declare const VOICEMACRO_12_Sc_0: string;
+ declare const VOICEMACRO_12_Sc_0_FEMALE: string;
+ declare const VOICEMACRO_12_Sc_1: string;
+ declare const VOICEMACRO_12_Sc_1_FEMALE: string;
+ declare const VOICEMACRO_12_Sc_2: string;
+ declare const VOICEMACRO_12_Sc_2_FEMALE: string;
+ declare const VOICEMACRO_12_Ta_0: string;
+ declare const VOICEMACRO_12_Ta_0_FEMALE: string;
+ declare const VOICEMACRO_12_Ta_1: string;
+ declare const VOICEMACRO_12_Ta_1_FEMALE: string;
+ declare const VOICEMACRO_12_Ta_2: string;
+ declare const VOICEMACRO_12_Ta_2_FEMALE: string;
+ declare const VOICEMACRO_12_Tr_0: string;
+ declare const VOICEMACRO_12_Tr_0_FEMALE: string;
+ declare const VOICEMACRO_12_Tr_1: string;
+ declare const VOICEMACRO_12_Tr_1_FEMALE: string;
+ declare const VOICEMACRO_12_Tr_2: string;
+ declare const VOICEMACRO_12_Tr_2_FEMALE: string;
+ declare const VOICEMACRO_13_Dw_0: string;
+ declare const VOICEMACRO_13_Dw_0_FEMALE: string;
+ declare const VOICEMACRO_13_Dw_1: string;
+ declare const VOICEMACRO_13_Dw_1_FEMALE: string;
+ declare const VOICEMACRO_13_Dw_2: string;
+ declare const VOICEMACRO_13_Dw_2_FEMALE: string;
+ declare const VOICEMACRO_13_Gn_0: string;
+ declare const VOICEMACRO_13_Gn_0_FEMALE: string;
+ declare const VOICEMACRO_13_Gn_1: string;
+ declare const VOICEMACRO_13_Gn_1_FEMALE: string;
+ declare const VOICEMACRO_13_Gn_2: string;
+ declare const VOICEMACRO_13_Gn_2_FEMALE: string;
+ declare const VOICEMACRO_13_Gn_3: string;
+ declare const VOICEMACRO_13_Gn_3_FEMALE: string;
+ declare const VOICEMACRO_13_Hu_0: string;
+ declare const VOICEMACRO_13_Hu_0_FEMALE: string;
+ declare const VOICEMACRO_13_Hu_1: string;
+ declare const VOICEMACRO_13_Hu_1_FEMALE: string;
+ declare const VOICEMACRO_13_Hu_2: string;
+ declare const VOICEMACRO_13_Hu_2_FEMALE: string;
+ declare const VOICEMACRO_13_Ni_0: string;
+ declare const VOICEMACRO_13_Ni_0_FEMALE: string;
+ declare const VOICEMACRO_13_Ni_1: string;
+ declare const VOICEMACRO_13_Ni_1_FEMALE: string;
+ declare const VOICEMACRO_13_Ni_2: string;
+ declare const VOICEMACRO_13_Ni_2_FEMALE: string;
+ declare const VOICEMACRO_13_Or_0: string;
+ declare const VOICEMACRO_13_Or_0_FEMALE: string;
+ declare const VOICEMACRO_13_Or_1: string;
+ declare const VOICEMACRO_13_Or_1_FEMALE: string;
+ declare const VOICEMACRO_13_Or_2: string;
+ declare const VOICEMACRO_13_Or_2_FEMALE: string;
+ declare const VOICEMACRO_13_Sc_0: string;
+ declare const VOICEMACRO_13_Sc_0_FEMALE: string;
+ declare const VOICEMACRO_13_Sc_1: string;
+ declare const VOICEMACRO_13_Sc_1_FEMALE: string;
+ declare const VOICEMACRO_13_Sc_2: string;
+ declare const VOICEMACRO_13_Sc_2_FEMALE: string;
+ declare const VOICEMACRO_13_Ta_0: string;
+ declare const VOICEMACRO_13_Ta_0_FEMALE: string;
+ declare const VOICEMACRO_13_Ta_1: string;
+ declare const VOICEMACRO_13_Ta_1_FEMALE: string;
+ declare const VOICEMACRO_13_Ta_2: string;
+ declare const VOICEMACRO_13_Ta_2_FEMALE: string;
+ declare const VOICEMACRO_13_Tr_0: string;
+ declare const VOICEMACRO_13_Tr_0_FEMALE: string;
+ declare const VOICEMACRO_13_Tr_1: string;
+ declare const VOICEMACRO_13_Tr_1_FEMALE: string;
+ declare const VOICEMACRO_13_Tr_2: string;
+ declare const VOICEMACRO_13_Tr_2_FEMALE: string;
+ declare const VOICEMACRO_14_Dw_0: string;
+ declare const VOICEMACRO_14_Dw_0_FEMALE: string;
+ declare const VOICEMACRO_14_Dw_1: string;
+ declare const VOICEMACRO_14_Dw_1_FEMALE: string;
+ declare const VOICEMACRO_14_Dw_2: string;
+ declare const VOICEMACRO_14_Dw_2_FEMALE: string;
+ declare const VOICEMACRO_14_Dw_3: string;
+ declare const VOICEMACRO_14_Gn_0: string;
+ declare const VOICEMACRO_14_Gn_0_FEMALE: string;
+ declare const VOICEMACRO_14_Gn_1: string;
+ declare const VOICEMACRO_14_Gn_1_FEMALE: string;
+ declare const VOICEMACRO_14_Gn_2: string;
+ declare const VOICEMACRO_14_Gn_2_FEMALE: string;
+ declare const VOICEMACRO_14_Hu_0: string;
+ declare const VOICEMACRO_14_Hu_0_FEMALE: string;
+ declare const VOICEMACRO_14_Hu_1: string;
+ declare const VOICEMACRO_14_Hu_1_FEMALE: string;
+ declare const VOICEMACRO_14_Hu_2: string;
+ declare const VOICEMACRO_14_Hu_2_FEMALE: string;
+ declare const VOICEMACRO_14_Ni_0: string;
+ declare const VOICEMACRO_14_Ni_0_FEMALE: string;
+ declare const VOICEMACRO_14_Ni_1: string;
+ declare const VOICEMACRO_14_Ni_1_FEMALE: string;
+ declare const VOICEMACRO_14_Ni_2: string;
+ declare const VOICEMACRO_14_Ni_2_FEMALE: string;
+ declare const VOICEMACRO_14_Or_0: string;
+ declare const VOICEMACRO_14_Or_0_FEMALE: string;
+ declare const VOICEMACRO_14_Or_1: string;
+ declare const VOICEMACRO_14_Or_1_FEMALE: string;
+ declare const VOICEMACRO_14_Or_2: string;
+ declare const VOICEMACRO_14_Or_2_FEMALE: string;
+ declare const VOICEMACRO_14_Or_3: string;
+ declare const VOICEMACRO_14_Or_3_FEMALE: string;
+ declare const VOICEMACRO_14_Sc_0: string;
+ declare const VOICEMACRO_14_Sc_0_FEMALE: string;
+ declare const VOICEMACRO_14_Sc_1: string;
+ declare const VOICEMACRO_14_Sc_1_FEMALE: string;
+ declare const VOICEMACRO_14_Sc_2: string;
+ declare const VOICEMACRO_14_Sc_2_FEMALE: string;
+ declare const VOICEMACRO_14_Ta_0: string;
+ declare const VOICEMACRO_14_Ta_0_FEMALE: string;
+ declare const VOICEMACRO_14_Ta_1: string;
+ declare const VOICEMACRO_14_Ta_1_FEMALE: string;
+ declare const VOICEMACRO_14_Ta_2: string;
+ declare const VOICEMACRO_14_Ta_2_FEMALE: string;
+ declare const VOICEMACRO_14_Tr_0: string;
+ declare const VOICEMACRO_14_Tr_0_FEMALE: string;
+ declare const VOICEMACRO_14_Tr_1: string;
+ declare const VOICEMACRO_14_Tr_1_FEMALE: string;
+ declare const VOICEMACRO_14_Tr_2: string;
+ declare const VOICEMACRO_14_Tr_2_FEMALE: string;
+ declare const VOICEMACRO_14_Tr_3: string;
+ declare const VOICEMACRO_15_Dw_0: string;
+ declare const VOICEMACRO_15_Dw_0_FEMALE: string;
+ declare const VOICEMACRO_15_Dw_1: string;
+ declare const VOICEMACRO_15_Dw_1_FEMALE: string;
+ declare const VOICEMACRO_15_Dw_2: string;
+ declare const VOICEMACRO_15_Dw_2_FEMALE: string;
+ declare const VOICEMACRO_15_Dw_3: string;
+ declare const VOICEMACRO_15_Gn_0: string;
+ declare const VOICEMACRO_15_Gn_0_FEMALE: string;
+ declare const VOICEMACRO_15_Gn_1: string;
+ declare const VOICEMACRO_15_Gn_1_FEMALE: string;
+ declare const VOICEMACRO_15_Gn_2: string;
+ declare const VOICEMACRO_15_Gn_2_FEMALE: string;
+ declare const VOICEMACRO_15_Hu_0: string;
+ declare const VOICEMACRO_15_Hu_0_FEMALE: string;
+ declare const VOICEMACRO_15_Hu_1: string;
+ declare const VOICEMACRO_15_Hu_1_FEMALE: string;
+ declare const VOICEMACRO_15_Hu_2: string;
+ declare const VOICEMACRO_15_Hu_2_FEMALE: string;
+ declare const VOICEMACRO_15_Hu_3: string;
+ declare const VOICEMACRO_15_Ni_0: string;
+ declare const VOICEMACRO_15_Ni_0_FEMALE: string;
+ declare const VOICEMACRO_15_Ni_1: string;
+ declare const VOICEMACRO_15_Ni_1_FEMALE: string;
+ declare const VOICEMACRO_15_Ni_2: string;
+ declare const VOICEMACRO_15_Ni_2_FEMALE: string;
+ declare const VOICEMACRO_15_Or_0: string;
+ declare const VOICEMACRO_15_Or_0_FEMALE: string;
+ declare const VOICEMACRO_15_Or_1: string;
+ declare const VOICEMACRO_15_Or_1_FEMALE: string;
+ declare const VOICEMACRO_15_Or_2: string;
+ declare const VOICEMACRO_15_Or_2_FEMALE: string;
+ declare const VOICEMACRO_15_Sc_0: string;
+ declare const VOICEMACRO_15_Sc_0_FEMALE: string;
+ declare const VOICEMACRO_15_Sc_1: string;
+ declare const VOICEMACRO_15_Sc_1_FEMALE: string;
+ declare const VOICEMACRO_15_Sc_2: string;
+ declare const VOICEMACRO_15_Sc_2_FEMALE: string;
+ declare const VOICEMACRO_15_Ta_0: string;
+ declare const VOICEMACRO_15_Ta_0_FEMALE: string;
+ declare const VOICEMACRO_15_Ta_1: string;
+ declare const VOICEMACRO_15_Ta_1_FEMALE: string;
+ declare const VOICEMACRO_15_Ta_2: string;
+ declare const VOICEMACRO_15_Ta_2_FEMALE: string;
+ declare const VOICEMACRO_15_Tr_0: string;
+ declare const VOICEMACRO_15_Tr_0_FEMALE: string;
+ declare const VOICEMACRO_15_Tr_1: string;
+ declare const VOICEMACRO_15_Tr_1_FEMALE: string;
+ declare const VOICEMACRO_15_Tr_2: string;
+ declare const VOICEMACRO_15_Tr_2_FEMALE: string;
+ declare const VOICEMACRO_15_Tr_3: string;
+ declare const VOICEMACRO_16_Dw_0: string;
+ declare const VOICEMACRO_16_Dw_0_FEMALE: string;
+ declare const VOICEMACRO_16_Dw_1: string;
+ declare const VOICEMACRO_16_Dw_1_FEMALE: string;
+ declare const VOICEMACRO_16_Dw_2: string;
+ declare const VOICEMACRO_16_Dw_2_FEMALE: string;
+ declare const VOICEMACRO_16_Dw_3: string;
+ declare const VOICEMACRO_16_Dw_3_FEMALE: string;
+ declare const VOICEMACRO_16_Gn_0: string;
+ declare const VOICEMACRO_16_Gn_0_FEMALE: string;
+ declare const VOICEMACRO_16_Gn_1: string;
+ declare const VOICEMACRO_16_Gn_1_FEMALE: string;
+ declare const VOICEMACRO_16_Gn_2: string;
+ declare const VOICEMACRO_16_Gn_2_FEMALE: string;
+ declare const VOICEMACRO_16_Hu_0: string;
+ declare const VOICEMACRO_16_Hu_0_FEMALE: string;
+ declare const VOICEMACRO_16_Hu_1: string;
+ declare const VOICEMACRO_16_Hu_1_FEMALE: string;
+ declare const VOICEMACRO_16_Hu_2: string;
+ declare const VOICEMACRO_16_Hu_2_FEMALE: string;
+ declare const VOICEMACRO_16_Ni_0: string;
+ declare const VOICEMACRO_16_Ni_0_FEMALE: string;
+ declare const VOICEMACRO_16_Ni_1: string;
+ declare const VOICEMACRO_16_Ni_1_FEMALE: string;
+ declare const VOICEMACRO_16_Ni_2: string;
+ declare const VOICEMACRO_16_Ni_2_FEMALE: string;
+ declare const VOICEMACRO_16_Or_0: string;
+ declare const VOICEMACRO_16_Or_0_FEMALE: string;
+ declare const VOICEMACRO_16_Or_1: string;
+ declare const VOICEMACRO_16_Or_1_FEMALE: string;
+ declare const VOICEMACRO_16_Or_2: string;
+ declare const VOICEMACRO_16_Or_2_FEMALE: string;
+ declare const VOICEMACRO_16_Sc_0: string;
+ declare const VOICEMACRO_16_Sc_0_FEMALE: string;
+ declare const VOICEMACRO_16_Sc_1: string;
+ declare const VOICEMACRO_16_Sc_1_FEMALE: string;
+ declare const VOICEMACRO_16_Sc_2: string;
+ declare const VOICEMACRO_16_Sc_2_FEMALE: string;
+ declare const VOICEMACRO_16_Ta_0: string;
+ declare const VOICEMACRO_16_Ta_0_FEMALE: string;
+ declare const VOICEMACRO_16_Ta_1: string;
+ declare const VOICEMACRO_16_Ta_1_FEMALE: string;
+ declare const VOICEMACRO_16_Ta_2: string;
+ declare const VOICEMACRO_16_Ta_2_FEMALE: string;
+ declare const VOICEMACRO_16_Ta_3: string;
+ declare const VOICEMACRO_16_Tr_0: string;
+ declare const VOICEMACRO_16_Tr_0_FEMALE: string;
+ declare const VOICEMACRO_16_Tr_1: string;
+ declare const VOICEMACRO_16_Tr_1_FEMALE: string;
+ declare const VOICEMACRO_16_Tr_2: string;
+ declare const VOICEMACRO_16_Tr_2_FEMALE: string;
+ declare const VOICEMACRO_17_Dw_0: string;
+ declare const VOICEMACRO_17_Dw_0_FEMALE: string;
+ declare const VOICEMACRO_17_Dw_1: string;
+ declare const VOICEMACRO_17_Dw_1_FEMALE: string;
+ declare const VOICEMACRO_17_Dw_2: string;
+ declare const VOICEMACRO_17_Dw_2_FEMALE: string;
+ declare const VOICEMACRO_17_Gn_0: string;
+ declare const VOICEMACRO_17_Gn_0_FEMALE: string;
+ declare const VOICEMACRO_17_Gn_1: string;
+ declare const VOICEMACRO_17_Gn_1_FEMALE: string;
+ declare const VOICEMACRO_17_Gn_2: string;
+ declare const VOICEMACRO_17_Gn_2_FEMALE: string;
+ declare const VOICEMACRO_17_Hu_0: string;
+ declare const VOICEMACRO_17_Hu_0_FEMALE: string;
+ declare const VOICEMACRO_17_Hu_1: string;
+ declare const VOICEMACRO_17_Hu_1_FEMALE: string;
+ declare const VOICEMACRO_17_Hu_2: string;
+ declare const VOICEMACRO_17_Hu_2_FEMALE: string;
+ declare const VOICEMACRO_17_Ni_0: string;
+ declare const VOICEMACRO_17_Ni_0_FEMALE: string;
+ declare const VOICEMACRO_17_Ni_1: string;
+ declare const VOICEMACRO_17_Ni_1_FEMALE: string;
+ declare const VOICEMACRO_17_Ni_2: string;
+ declare const VOICEMACRO_17_Ni_2_FEMALE: string;
+ declare const VOICEMACRO_17_Or_0: string;
+ declare const VOICEMACRO_17_Or_0_FEMALE: string;
+ declare const VOICEMACRO_17_Or_1: string;
+ declare const VOICEMACRO_17_Or_1_FEMALE: string;
+ declare const VOICEMACRO_17_Or_2: string;
+ declare const VOICEMACRO_17_Or_2_FEMALE: string;
+ declare const VOICEMACRO_17_Sc_0: string;
+ declare const VOICEMACRO_17_Sc_0_FEMALE: string;
+ declare const VOICEMACRO_17_Sc_1: string;
+ declare const VOICEMACRO_17_Sc_1_FEMALE: string;
+ declare const VOICEMACRO_17_Sc_2_FEMALE: string;
+ declare const VOICEMACRO_17_Ta_0: string;
+ declare const VOICEMACRO_17_Ta_0_FEMALE: string;
+ declare const VOICEMACRO_17_Ta_1: string;
+ declare const VOICEMACRO_17_Ta_1_FEMALE: string;
+ declare const VOICEMACRO_17_Ta_2: string;
+ declare const VOICEMACRO_17_Ta_2_FEMALE: string;
+ declare const VOICEMACRO_17_Tr_0: string;
+ declare const VOICEMACRO_17_Tr_0_FEMALE: string;
+ declare const VOICEMACRO_17_Tr_1: string;
+ declare const VOICEMACRO_17_Tr_1_FEMALE: string;
+ declare const VOICEMACRO_17_Tr_2: string;
+ declare const VOICEMACRO_17_Tr_2_FEMALE: string;
+ declare const VOICEMACRO_18_Dw_0: string;
+ declare const VOICEMACRO_18_Dw_0_FEMALE: string;
+ declare const VOICEMACRO_18_Dw_1: string;
+ declare const VOICEMACRO_18_Dw_1_FEMALE: string;
+ declare const VOICEMACRO_18_Dw_2: string;
+ declare const VOICEMACRO_18_Dw_2_FEMALE: string;
+ declare const VOICEMACRO_18_Dw_3: string;
+ declare const VOICEMACRO_18_Dw_3_FEMALE: string;
+ declare const VOICEMACRO_18_Dw_4: string;
+ declare const VOICEMACRO_18_Gn_0: string;
+ declare const VOICEMACRO_18_Gn_0_FEMALE: string;
+ declare const VOICEMACRO_18_Gn_1: string;
+ declare const VOICEMACRO_18_Gn_1_FEMALE: string;
+ declare const VOICEMACRO_18_Gn_2: string;
+ declare const VOICEMACRO_18_Gn_2_FEMALE: string;
+ declare const VOICEMACRO_18_Gn_3_FEMALE: string;
+ declare const VOICEMACRO_18_Hu_0: string;
+ declare const VOICEMACRO_18_Hu_0_FEMALE: string;
+ declare const VOICEMACRO_18_Hu_1: string;
+ declare const VOICEMACRO_18_Hu_1_FEMALE: string;
+ declare const VOICEMACRO_18_Hu_2: string;
+ declare const VOICEMACRO_18_Hu_2_FEMALE: string;
+ declare const VOICEMACRO_18_Ni_0: string;
+ declare const VOICEMACRO_18_Ni_0_FEMALE: string;
+ declare const VOICEMACRO_18_Ni_1: string;
+ declare const VOICEMACRO_18_Ni_1_FEMALE: string;
+ declare const VOICEMACRO_18_Ni_2: string;
+ declare const VOICEMACRO_18_Ni_2_FEMALE: string;
+ declare const VOICEMACRO_18_Or_0: string;
+ declare const VOICEMACRO_18_Or_0_FEMALE: string;
+ declare const VOICEMACRO_18_Or_1: string;
+ declare const VOICEMACRO_18_Or_1_FEMALE: string;
+ declare const VOICEMACRO_18_Or_2: string;
+ declare const VOICEMACRO_18_Or_2_FEMALE: string;
+ declare const VOICEMACRO_18_Sc_0: string;
+ declare const VOICEMACRO_18_Sc_0_FEMALE: string;
+ declare const VOICEMACRO_18_Sc_1: string;
+ declare const VOICEMACRO_18_Sc_1_FEMALE: string;
+ declare const VOICEMACRO_18_Sc_2: string;
+ declare const VOICEMACRO_18_Sc_2_FEMALE: string;
+ declare const VOICEMACRO_18_Sc_3_FEMALE: string;
+ declare const VOICEMACRO_18_Ta_0: string;
+ declare const VOICEMACRO_18_Ta_0_FEMALE: string;
+ declare const VOICEMACRO_18_Ta_1: string;
+ declare const VOICEMACRO_18_Ta_1_FEMALE: string;
+ declare const VOICEMACRO_18_Ta_2: string;
+ declare const VOICEMACRO_18_Ta_2_FEMALE: string;
+ declare const VOICEMACRO_18_Tr_0: string;
+ declare const VOICEMACRO_18_Tr_0_FEMALE: string;
+ declare const VOICEMACRO_18_Tr_1: string;
+ declare const VOICEMACRO_18_Tr_1_FEMALE: string;
+ declare const VOICEMACRO_18_Tr_2: string;
+ declare const VOICEMACRO_18_Tr_2_FEMALE: string;
+ declare const VOICEMACRO_19_Dw_0: string;
+ declare const VOICEMACRO_19_Dw_0_FEMALE: string;
+ declare const VOICEMACRO_19_Dw_1: string;
+ declare const VOICEMACRO_19_Dw_1_FEMALE: string;
+ declare const VOICEMACRO_19_Dw_2: string;
+ declare const VOICEMACRO_19_Dw_2_FEMALE: string;
+ declare const VOICEMACRO_19_Dw_3: string;
+ declare const VOICEMACRO_19_Dw_3_FEMALE: string;
+ declare const VOICEMACRO_19_Dw_4: string;
+ declare const VOICEMACRO_19_Dw_4_FEMALE: string;
+ declare const VOICEMACRO_19_Dw_5: string;
+ declare const VOICEMACRO_19_Gn_0: string;
+ declare const VOICEMACRO_19_Gn_0_FEMALE: string;
+ declare const VOICEMACRO_19_Gn_1: string;
+ declare const VOICEMACRO_19_Gn_1_FEMALE: string;
+ declare const VOICEMACRO_19_Gn_2: string;
+ declare const VOICEMACRO_19_Gn_2_FEMALE: string;
+ declare const VOICEMACRO_19_Gn_3: string;
+ declare const VOICEMACRO_19_Gn_3_FEMALE: string;
+ declare const VOICEMACRO_19_Gn_4_FEMALE: string;
+ declare const VOICEMACRO_19_Hu_0: string;
+ declare const VOICEMACRO_19_Hu_0_FEMALE: string;
+ declare const VOICEMACRO_19_Hu_1: string;
+ declare const VOICEMACRO_19_Hu_1_FEMALE: string;
+ declare const VOICEMACRO_19_Hu_2: string;
+ declare const VOICEMACRO_19_Hu_2_FEMALE: string;
+ declare const VOICEMACRO_19_Hu_3: string;
+ declare const VOICEMACRO_19_Hu_4: string;
+ declare const VOICEMACRO_19_Hu_5: string;
+ declare const VOICEMACRO_19_Ni_0: string;
+ declare const VOICEMACRO_19_Ni_0_FEMALE: string;
+ declare const VOICEMACRO_19_Ni_1: string;
+ declare const VOICEMACRO_19_Ni_1_FEMALE: string;
+ declare const VOICEMACRO_19_Ni_2: string;
+ declare const VOICEMACRO_19_Ni_2_FEMALE: string;
+ declare const VOICEMACRO_19_Ni_3: string;
+ declare const VOICEMACRO_19_Ni_3_FEMALE: string;
+ declare const VOICEMACRO_19_Ni_4: string;
+ declare const VOICEMACRO_19_Or_0: string;
+ declare const VOICEMACRO_19_Or_0_FEMALE: string;
+ declare const VOICEMACRO_19_Or_1: string;
+ declare const VOICEMACRO_19_Or_1_FEMALE: string;
+ declare const VOICEMACRO_19_Or_2: string;
+ declare const VOICEMACRO_19_Or_2_FEMALE: string;
+ declare const VOICEMACRO_19_Or_3: string;
+ declare const VOICEMACRO_19_Or_3_FEMALE: string;
+ declare const VOICEMACRO_19_Or_4: string;
+ declare const VOICEMACRO_19_Or_4_FEMALE: string;
+ declare const VOICEMACRO_19_Or_5: string;
+ declare const VOICEMACRO_19_Or_5_FEMALE: string;
+ declare const VOICEMACRO_19_Sc_0: string;
+ declare const VOICEMACRO_19_Sc_0_FEMALE: string;
+ declare const VOICEMACRO_19_Sc_1: string;
+ declare const VOICEMACRO_19_Sc_1_FEMALE: string;
+ declare const VOICEMACRO_19_Sc_2: string;
+ declare const VOICEMACRO_19_Sc_2_FEMALE: string;
+ declare const VOICEMACRO_19_Sc_3: string;
+ declare const VOICEMACRO_19_Sc_3_FEMALE: string;
+ declare const VOICEMACRO_19_Sc_4: string;
+ declare const VOICEMACRO_19_Sc_4_FEMALE: string;
+ declare const VOICEMACRO_19_Sc_5: string;
+ declare const VOICEMACRO_19_Sc_5_FEMALE: string;
+ declare const VOICEMACRO_19_Ta_0: string;
+ declare const VOICEMACRO_19_Ta_0_FEMALE: string;
+ declare const VOICEMACRO_19_Ta_1: string;
+ declare const VOICEMACRO_19_Ta_1_FEMALE: string;
+ declare const VOICEMACRO_19_Ta_2: string;
+ declare const VOICEMACRO_19_Ta_2_FEMALE: string;
+ declare const VOICEMACRO_19_Ta_3: string;
+ declare const VOICEMACRO_19_Ta_3_FEMALE: string;
+ declare const VOICEMACRO_19_Ta_4: string;
+ declare const VOICEMACRO_19_Ta_4_FEMALE: string;
+ declare const VOICEMACRO_19_Ta_5: string;
+ declare const VOICEMACRO_19_Tr_0: string;
+ declare const VOICEMACRO_19_Tr_0_FEMALE: string;
+ declare const VOICEMACRO_19_Tr_1: string;
+ declare const VOICEMACRO_19_Tr_1_FEMALE: string;
+ declare const VOICEMACRO_19_Tr_2: string;
+ declare const VOICEMACRO_19_Tr_2_FEMALE: string;
+ declare const VOICEMACRO_19_Tr_3: string;
+ declare const VOICEMACRO_19_Tr_3_FEMALE: string;
+ declare const VOICEMACRO_19_Tr_4_FEMALE: string;
+ declare const VOICEMACRO_1_Dw_0: string;
+ declare const VOICEMACRO_1_Dw_0_FEMALE: string;
+ declare const VOICEMACRO_1_Dw_1: string;
+ declare const VOICEMACRO_1_Dw_1_FEMALE: string;
+ declare const VOICEMACRO_1_Gn_0: string;
+ declare const VOICEMACRO_1_Gn_0_FEMALE: string;
+ declare const VOICEMACRO_1_Hu_0: string;
+ declare const VOICEMACRO_1_Hu_0_FEMALE: string;
+ declare const VOICEMACRO_1_Hu_1: string;
+ declare const VOICEMACRO_1_Hu_1_FEMALE: string;
+ declare const VOICEMACRO_1_Ni_0: string;
+ declare const VOICEMACRO_1_Ni_0_FEMALE: string;
+ declare const VOICEMACRO_1_Ni_1: string;
+ declare const VOICEMACRO_1_Ni_1_FEMALE: string;
+ declare const VOICEMACRO_1_Or_0: string;
+ declare const VOICEMACRO_1_Or_0_FEMALE: string;
+ declare const VOICEMACRO_1_Or_1: string;
+ declare const VOICEMACRO_1_Or_1_FEMALE: string;
+ declare const VOICEMACRO_1_Or_2: string;
+ declare const VOICEMACRO_1_Sc_0: string;
+ declare const VOICEMACRO_1_Sc_0_FEMALE: string;
+ declare const VOICEMACRO_1_Sc_1: string;
+ declare const VOICEMACRO_1_Sc_1_FEMALE: string;
+ declare const VOICEMACRO_1_Ta_0: string;
+ declare const VOICEMACRO_1_Ta_0_FEMALE: string;
+ declare const VOICEMACRO_1_Ta_1: string;
+ declare const VOICEMACRO_1_Ta_1_FEMALE: string;
+ declare const VOICEMACRO_1_Ta_2_FEMALE: string;
+ declare const VOICEMACRO_1_Tr_0: string;
+ declare const VOICEMACRO_1_Tr_0_FEMALE: string;
+ declare const VOICEMACRO_1_Tr_1: string;
+ declare const VOICEMACRO_1_Tr_1_FEMALE: string;
+ declare const VOICEMACRO_20_Dw_0: string;
+ declare const VOICEMACRO_20_Dw_0_FEMALE: string;
+ declare const VOICEMACRO_20_Dw_1: string;
+ declare const VOICEMACRO_20_Dw_1_FEMALE: string;
+ declare const VOICEMACRO_20_Dw_2: string;
+ declare const VOICEMACRO_20_Dw_2_FEMALE: string;
+ declare const VOICEMACRO_20_Dw_3: string;
+ declare const VOICEMACRO_20_Dw_3_FEMALE: string;
+ declare const VOICEMACRO_20_Dw_4: string;
+ declare const VOICEMACRO_20_Dw_4_FEMALE: string;
+ declare const VOICEMACRO_20_Dw_5: string;
+ declare const VOICEMACRO_20_Dw_5_FEMALE: string;
+ declare const VOICEMACRO_20_Dw_6: string;
+ declare const VOICEMACRO_20_Gn_0: string;
+ declare const VOICEMACRO_20_Gn_0_FEMALE: string;
+ declare const VOICEMACRO_20_Gn_1: string;
+ declare const VOICEMACRO_20_Gn_1_FEMALE: string;
+ declare const VOICEMACRO_20_Gn_2: string;
+ declare const VOICEMACRO_20_Gn_2_FEMALE: string;
+ declare const VOICEMACRO_20_Gn_3: string;
+ declare const VOICEMACRO_20_Gn_3_FEMALE: string;
+ declare const VOICEMACRO_20_Gn_4: string;
+ declare const VOICEMACRO_20_Gn_5: string;
+ declare const VOICEMACRO_20_Hu_0: string;
+ declare const VOICEMACRO_20_Hu_0_FEMALE: string;
+ declare const VOICEMACRO_20_Hu_1: string;
+ declare const VOICEMACRO_20_Hu_1_FEMALE: string;
+ declare const VOICEMACRO_20_Hu_2: string;
+ declare const VOICEMACRO_20_Hu_2_FEMALE: string;
+ declare const VOICEMACRO_20_Hu_3: string;
+ declare const VOICEMACRO_20_Hu_3_FEMALE: string;
+ declare const VOICEMACRO_20_Hu_4: string;
+ declare const VOICEMACRO_20_Hu_4_FEMALE: string;
+ declare const VOICEMACRO_20_Hu_5: string;
+ declare const VOICEMACRO_20_Hu_5_FEMALE: string;
+ declare const VOICEMACRO_20_Hu_6_FEMALE: string;
+ declare const VOICEMACRO_20_Ni_0: string;
+ declare const VOICEMACRO_20_Ni_0_FEMALE: string;
+ declare const VOICEMACRO_20_Ni_1: string;
+ declare const VOICEMACRO_20_Ni_1_FEMALE: string;
+ declare const VOICEMACRO_20_Ni_2: string;
+ declare const VOICEMACRO_20_Ni_2_FEMALE: string;
+ declare const VOICEMACRO_20_Ni_3: string;
+ declare const VOICEMACRO_20_Ni_3_FEMALE: string;
+ declare const VOICEMACRO_20_Ni_4: string;
+ declare const VOICEMACRO_20_Ni_4_FEMALE: string;
+ declare const VOICEMACRO_20_Ni_5: string;
+ declare const VOICEMACRO_20_Ni_6: string;
+ declare const VOICEMACRO_20_Ni_7: string;
+ declare const VOICEMACRO_20_Or_0: string;
+ declare const VOICEMACRO_20_Or_0_FEMALE: string;
+ declare const VOICEMACRO_20_Or_1: string;
+ declare const VOICEMACRO_20_Or_1_FEMALE: string;
+ declare const VOICEMACRO_20_Or_2: string;
+ declare const VOICEMACRO_20_Or_2_FEMALE: string;
+ declare const VOICEMACRO_20_Or_3: string;
+ declare const VOICEMACRO_20_Or_3_FEMALE: string;
+ declare const VOICEMACRO_20_Or_4: string;
+ declare const VOICEMACRO_20_Or_4_FEMALE: string;
+ declare const VOICEMACRO_20_Or_5: string;
+ declare const VOICEMACRO_20_Or_5_FEMALE: string;
+ declare const VOICEMACRO_20_Sc_0: string;
+ declare const VOICEMACRO_20_Sc_0_FEMALE: string;
+ declare const VOICEMACRO_20_Sc_1: string;
+ declare const VOICEMACRO_20_Sc_1_FEMALE: string;
+ declare const VOICEMACRO_20_Sc_2: string;
+ declare const VOICEMACRO_20_Sc_2_FEMALE: string;
+ declare const VOICEMACRO_20_Sc_3: string;
+ declare const VOICEMACRO_20_Sc_3_FEMALE: string;
+ declare const VOICEMACRO_20_Sc_4: string;
+ declare const VOICEMACRO_20_Sc_4_FEMALE: string;
+ declare const VOICEMACRO_20_Sc_5_FEMALE: string;
+ declare const VOICEMACRO_20_Sc_6_FEMALE: string;
+ declare const VOICEMACRO_20_Sc_7_FEMALE: string;
+ declare const VOICEMACRO_20_Ta_0: string;
+ declare const VOICEMACRO_20_Ta_0_FEMALE: string;
+ declare const VOICEMACRO_20_Ta_1: string;
+ declare const VOICEMACRO_20_Ta_1_FEMALE: string;
+ declare const VOICEMACRO_20_Ta_2: string;
+ declare const VOICEMACRO_20_Ta_2_FEMALE: string;
+ declare const VOICEMACRO_20_Ta_3: string;
+ declare const VOICEMACRO_20_Ta_3_FEMALE: string;
+ declare const VOICEMACRO_20_Ta_4: string;
+ declare const VOICEMACRO_20_Tr_0: string;
+ declare const VOICEMACRO_20_Tr_0_FEMALE: string;
+ declare const VOICEMACRO_20_Tr_1: string;
+ declare const VOICEMACRO_20_Tr_1_FEMALE: string;
+ declare const VOICEMACRO_20_Tr_2: string;
+ declare const VOICEMACRO_20_Tr_2_FEMALE: string;
+ declare const VOICEMACRO_20_Tr_3: string;
+ declare const VOICEMACRO_20_Tr_3_FEMALE: string;
+ declare const VOICEMACRO_20_Tr_4: string;
+ declare const VOICEMACRO_20_Tr_4_FEMALE: string;
+ declare const VOICEMACRO_20_Tr_5: string;
+ declare const VOICEMACRO_2_Dw_0: string;
+ declare const VOICEMACRO_2_Dw_0_FEMALE: string;
+ declare const VOICEMACRO_2_Dw_1: string;
+ declare const VOICEMACRO_2_Dw_1_FEMALE: string;
+ declare const VOICEMACRO_2_Gn_0: string;
+ declare const VOICEMACRO_2_Gn_0_FEMALE: string;
+ declare const VOICEMACRO_2_Gn_1: string;
+ declare const VOICEMACRO_2_Gn_1_FEMALE: string;
+ declare const VOICEMACRO_2_Gn_2: string;
+ declare const VOICEMACRO_2_Hu_0: string;
+ declare const VOICEMACRO_2_Hu_0_FEMALE: string;
+ declare const VOICEMACRO_2_Hu_1: string;
+ declare const VOICEMACRO_2_Hu_1_FEMALE: string;
+ declare const VOICEMACRO_2_Ni_0: string;
+ declare const VOICEMACRO_2_Ni_0_FEMALE: string;
+ declare const VOICEMACRO_2_Ni_1: string;
+ declare const VOICEMACRO_2_Ni_1_FEMALE: string;
+ declare const VOICEMACRO_2_Ni_2_FEMALE: string;
+ declare const VOICEMACRO_2_Or_0: string;
+ declare const VOICEMACRO_2_Or_0_FEMALE: string;
+ declare const VOICEMACRO_2_Or_1: string;
+ declare const VOICEMACRO_2_Or_1_FEMALE: string;
+ declare const VOICEMACRO_2_Or_2: string;
+ declare const VOICEMACRO_2_Or_2_FEMALE: string;
+ declare const VOICEMACRO_2_Sc_0: string;
+ declare const VOICEMACRO_2_Sc_0_FEMALE: string;
+ declare const VOICEMACRO_2_Sc_1: string;
+ declare const VOICEMACRO_2_Sc_1_FEMALE: string;
+ declare const VOICEMACRO_2_Ta_0: string;
+ declare const VOICEMACRO_2_Ta_0_FEMALE: string;
+ declare const VOICEMACRO_2_Ta_1: string;
+ declare const VOICEMACRO_2_Ta_1_FEMALE: string;
+ declare const VOICEMACRO_2_Ta_2: string;
+ declare const VOICEMACRO_2_Tr_0: string;
+ declare const VOICEMACRO_2_Tr_0_FEMALE: string;
+ declare const VOICEMACRO_2_Tr_1: string;
+ declare const VOICEMACRO_2_Tr_1_FEMALE: string;
+ declare const VOICEMACRO_3_Dw_0: string;
+ declare const VOICEMACRO_3_Dw_0_FEMALE: string;
+ declare const VOICEMACRO_3_Dw_1: string;
+ declare const VOICEMACRO_3_Dw_1_FEMALE: string;
+ declare const VOICEMACRO_3_Dw_2: string;
+ declare const VOICEMACRO_3_Gn_0: string;
+ declare const VOICEMACRO_3_Gn_0_FEMALE: string;
+ declare const VOICEMACRO_3_Gn_1: string;
+ declare const VOICEMACRO_3_Gn_1_FEMALE: string;
+ declare const VOICEMACRO_3_Gn_2: string;
+ declare const VOICEMACRO_3_Gn_2_FEMALE: string;
+ declare const VOICEMACRO_3_Hu_0: string;
+ declare const VOICEMACRO_3_Hu_0_FEMALE: string;
+ declare const VOICEMACRO_3_Hu_1: string;
+ declare const VOICEMACRO_3_Hu_1_FEMALE: string;
+ declare const VOICEMACRO_3_Ni_0: string;
+ declare const VOICEMACRO_3_Ni_0_FEMALE: string;
+ declare const VOICEMACRO_3_Ni_1: string;
+ declare const VOICEMACRO_3_Ni_1_FEMALE: string;
+ declare const VOICEMACRO_3_Or_0: string;
+ declare const VOICEMACRO_3_Or_0_FEMALE: string;
+ declare const VOICEMACRO_3_Or_1: string;
+ declare const VOICEMACRO_3_Or_1_FEMALE: string;
+ declare const VOICEMACRO_3_Sc_0: string;
+ declare const VOICEMACRO_3_Sc_0_FEMALE: string;
+ declare const VOICEMACRO_3_Sc_1: string;
+ declare const VOICEMACRO_3_Sc_1_FEMALE: string;
+ declare const VOICEMACRO_3_Ta_0: string;
+ declare const VOICEMACRO_3_Ta_0_FEMALE: string;
+ declare const VOICEMACRO_3_Ta_1: string;
+ declare const VOICEMACRO_3_Ta_1_FEMALE: string;
+ declare const VOICEMACRO_3_Tr_0: string;
+ declare const VOICEMACRO_3_Tr_0_FEMALE: string;
+ declare const VOICEMACRO_3_Tr_1: string;
+ declare const VOICEMACRO_3_Tr_1_FEMALE: string;
+ declare const VOICEMACRO_4_Dw_0: string;
+ declare const VOICEMACRO_4_Dw_0_FEMALE: string;
+ declare const VOICEMACRO_4_Dw_1: string;
+ declare const VOICEMACRO_4_Dw_1_FEMALE: string;
+ declare const VOICEMACRO_4_Dw_2: string;
+ declare const VOICEMACRO_4_Gn_0: string;
+ declare const VOICEMACRO_4_Gn_0_FEMALE: string;
+ declare const VOICEMACRO_4_Gn_1: string;
+ declare const VOICEMACRO_4_Gn_1_FEMALE: string;
+ declare const VOICEMACRO_4_Hu_0: string;
+ declare const VOICEMACRO_4_Hu_0_FEMALE: string;
+ declare const VOICEMACRO_4_Hu_1: string;
+ declare const VOICEMACRO_4_Hu_1_FEMALE: string;
+ declare const VOICEMACRO_4_Ni_0: string;
+ declare const VOICEMACRO_4_Ni_0_FEMALE: string;
+ declare const VOICEMACRO_4_Ni_1: string;
+ declare const VOICEMACRO_4_Ni_1_FEMALE: string;
+ declare const VOICEMACRO_4_Ni_2_FEMALE: string;
+ declare const VOICEMACRO_4_Or_0: string;
+ declare const VOICEMACRO_4_Or_0_FEMALE: string;
+ declare const VOICEMACRO_4_Or_1: string;
+ declare const VOICEMACRO_4_Or_1_FEMALE: string;
+ declare const VOICEMACRO_4_Or_2: string;
+ declare const VOICEMACRO_4_Or_2_FEMALE: string;
+ declare const VOICEMACRO_4_Sc_0: string;
+ declare const VOICEMACRO_4_Sc_0_FEMALE: string;
+ declare const VOICEMACRO_4_Sc_1: string;
+ declare const VOICEMACRO_4_Sc_1_FEMALE: string;
+ declare const VOICEMACRO_4_Ta_0: string;
+ declare const VOICEMACRO_4_Ta_0_FEMALE: string;
+ declare const VOICEMACRO_4_Ta_1: string;
+ declare const VOICEMACRO_4_Ta_1_FEMALE: string;
+ declare const VOICEMACRO_4_Tr_0: string;
+ declare const VOICEMACRO_4_Tr_0_FEMALE: string;
+ declare const VOICEMACRO_4_Tr_1: string;
+ declare const VOICEMACRO_4_Tr_1_FEMALE: string;
+ declare const VOICEMACRO_5_Dw_0: string;
+ declare const VOICEMACRO_5_Dw_0_FEMALE: string;
+ declare const VOICEMACRO_5_Dw_1: string;
+ declare const VOICEMACRO_5_Dw_1_FEMALE: string;
+ declare const VOICEMACRO_5_Gn_0: string;
+ declare const VOICEMACRO_5_Gn_0_FEMALE: string;
+ declare const VOICEMACRO_5_Gn_1: string;
+ declare const VOICEMACRO_5_Gn_1_FEMALE: string;
+ declare const VOICEMACRO_5_Hu_0: string;
+ declare const VOICEMACRO_5_Hu_0_FEMALE: string;
+ declare const VOICEMACRO_5_Hu_1: string;
+ declare const VOICEMACRO_5_Hu_1_FEMALE: string;
+ declare const VOICEMACRO_5_Ni_0: string;
+ declare const VOICEMACRO_5_Ni_0_FEMALE: string;
+ declare const VOICEMACRO_5_Ni_1: string;
+ declare const VOICEMACRO_5_Ni_1_FEMALE: string;
+ declare const VOICEMACRO_5_Or_0: string;
+ declare const VOICEMACRO_5_Or_0_FEMALE: string;
+ declare const VOICEMACRO_5_Or_1: string;
+ declare const VOICEMACRO_5_Or_1_FEMALE: string;
+ declare const VOICEMACRO_5_Sc_0: string;
+ declare const VOICEMACRO_5_Sc_0_FEMALE: string;
+ declare const VOICEMACRO_5_Sc_1: string;
+ declare const VOICEMACRO_5_Sc_1_FEMALE: string;
+ declare const VOICEMACRO_5_Ta_0: string;
+ declare const VOICEMACRO_5_Ta_0_FEMALE: string;
+ declare const VOICEMACRO_5_Ta_1: string;
+ declare const VOICEMACRO_5_Ta_1_FEMALE: string;
+ declare const VOICEMACRO_5_Tr_0: string;
+ declare const VOICEMACRO_5_Tr_0_FEMALE: string;
+ declare const VOICEMACRO_5_Tr_1: string;
+ declare const VOICEMACRO_5_Tr_1_FEMALE: string;
+ declare const VOICEMACRO_6_Dw_0: string;
+ declare const VOICEMACRO_6_Dw_0_FEMALE: string;
+ declare const VOICEMACRO_6_Dw_1: string;
+ declare const VOICEMACRO_6_Dw_1_FEMALE: string;
+ declare const VOICEMACRO_6_Dw_2: string;
+ declare const VOICEMACRO_6_Gn_0: string;
+ declare const VOICEMACRO_6_Gn_0_FEMALE: string;
+ declare const VOICEMACRO_6_Gn_1: string;
+ declare const VOICEMACRO_6_Hu_0: string;
+ declare const VOICEMACRO_6_Hu_0_FEMALE: string;
+ declare const VOICEMACRO_6_Hu_1: string;
+ declare const VOICEMACRO_6_Hu_1_FEMALE: string;
+ declare const VOICEMACRO_6_Ni_0: string;
+ declare const VOICEMACRO_6_Ni_0_FEMALE: string;
+ declare const VOICEMACRO_6_Ni_1: string;
+ declare const VOICEMACRO_6_Ni_1_FEMALE: string;
+ declare const VOICEMACRO_6_Or_0: string;
+ declare const VOICEMACRO_6_Or_0_FEMALE: string;
+ declare const VOICEMACRO_6_Or_1: string;
+ declare const VOICEMACRO_6_Or_1_FEMALE: string;
+ declare const VOICEMACRO_6_Sc_0: string;
+ declare const VOICEMACRO_6_Sc_0_FEMALE: string;
+ declare const VOICEMACRO_6_Sc_1: string;
+ declare const VOICEMACRO_6_Sc_1_FEMALE: string;
+ declare const VOICEMACRO_6_Ta_0: string;
+ declare const VOICEMACRO_6_Ta_0_FEMALE: string;
+ declare const VOICEMACRO_6_Ta_1: string;
+ declare const VOICEMACRO_6_Ta_1_FEMALE: string;
+ declare const VOICEMACRO_6_Tr_0: string;
+ declare const VOICEMACRO_6_Tr_0_FEMALE: string;
+ declare const VOICEMACRO_6_Tr_1: string;
+ declare const VOICEMACRO_6_Tr_1_FEMALE: string;
+ declare const VOICEMACRO_7_Dw_0: string;
+ declare const VOICEMACRO_7_Dw_0_FEMALE: string;
+ declare const VOICEMACRO_7_Dw_1: string;
+ declare const VOICEMACRO_7_Dw_1_FEMALE: string;
+ declare const VOICEMACRO_7_Dw_2: string;
+ declare const VOICEMACRO_7_Gn_0: string;
+ declare const VOICEMACRO_7_Gn_0_FEMALE: string;
+ declare const VOICEMACRO_7_Gn_1: string;
+ declare const VOICEMACRO_7_Gn_1_FEMALE: string;
+ declare const VOICEMACRO_7_Hu_0: string;
+ declare const VOICEMACRO_7_Hu_0_FEMALE: string;
+ declare const VOICEMACRO_7_Hu_1: string;
+ declare const VOICEMACRO_7_Hu_1_FEMALE: string;
+ declare const VOICEMACRO_7_Hu_2: string;
+ declare const VOICEMACRO_7_Hu_2_FEMALE: string;
+ declare const VOICEMACRO_7_Ni_0: string;
+ declare const VOICEMACRO_7_Ni_0_FEMALE: string;
+ declare const VOICEMACRO_7_Ni_1: string;
+ declare const VOICEMACRO_7_Ni_1_FEMALE: string;
+ declare const VOICEMACRO_7_Or_0: string;
+ declare const VOICEMACRO_7_Or_0_FEMALE: string;
+ declare const VOICEMACRO_7_Or_1: string;
+ declare const VOICEMACRO_7_Or_1_FEMALE: string;
+ declare const VOICEMACRO_7_Sc_0: string;
+ declare const VOICEMACRO_7_Sc_0_FEMALE: string;
+ declare const VOICEMACRO_7_Sc_1: string;
+ declare const VOICEMACRO_7_Sc_1_FEMALE: string;
+ declare const VOICEMACRO_7_Ta_0: string;
+ declare const VOICEMACRO_7_Ta_0_FEMALE: string;
+ declare const VOICEMACRO_7_Ta_1: string;
+ declare const VOICEMACRO_7_Ta_1_FEMALE: string;
+ declare const VOICEMACRO_7_Ta_2: string;
+ declare const VOICEMACRO_7_Tr_0: string;
+ declare const VOICEMACRO_7_Tr_0_FEMALE: string;
+ declare const VOICEMACRO_7_Tr_1: string;
+ declare const VOICEMACRO_7_Tr_1_FEMALE: string;
+ declare const VOICEMACRO_7_Tr_2: string;
+ declare const VOICEMACRO_7_Tr_2_FEMALE: string;
+ declare const VOICEMACRO_8_Dw_0: string;
+ declare const VOICEMACRO_8_Dw_0_FEMALE: string;
+ declare const VOICEMACRO_8_Dw_1: string;
+ declare const VOICEMACRO_8_Dw_1_FEMALE: string;
+ declare const VOICEMACRO_8_Dw_2: string;
+ declare const VOICEMACRO_8_Dw_2_FEMALE: string;
+ declare const VOICEMACRO_8_Gn_0: string;
+ declare const VOICEMACRO_8_Gn_0_FEMALE: string;
+ declare const VOICEMACRO_8_Gn_1: string;
+ declare const VOICEMACRO_8_Gn_1_FEMALE: string;
+ declare const VOICEMACRO_8_Hu_0: string;
+ declare const VOICEMACRO_8_Hu_0_FEMALE: string;
+ declare const VOICEMACRO_8_Hu_1: string;
+ declare const VOICEMACRO_8_Hu_1_FEMALE: string;
+ declare const VOICEMACRO_8_Ni_0: string;
+ declare const VOICEMACRO_8_Ni_0_FEMALE: string;
+ declare const VOICEMACRO_8_Ni_1: string;
+ declare const VOICEMACRO_8_Ni_1_FEMALE: string;
+ declare const VOICEMACRO_8_Or_0: string;
+ declare const VOICEMACRO_8_Or_0_FEMALE: string;
+ declare const VOICEMACRO_8_Or_1: string;
+ declare const VOICEMACRO_8_Or_1_FEMALE: string;
+ declare const VOICEMACRO_8_Sc_0: string;
+ declare const VOICEMACRO_8_Sc_0_FEMALE: string;
+ declare const VOICEMACRO_8_Sc_1: string;
+ declare const VOICEMACRO_8_Sc_1_FEMALE: string;
+ declare const VOICEMACRO_8_Ta_0: string;
+ declare const VOICEMACRO_8_Ta_0_FEMALE: string;
+ declare const VOICEMACRO_8_Ta_1: string;
+ declare const VOICEMACRO_8_Ta_1_FEMALE: string;
+ declare const VOICEMACRO_8_Tr_0: string;
+ declare const VOICEMACRO_8_Tr_0_FEMALE: string;
+ declare const VOICEMACRO_8_Tr_1: string;
+ declare const VOICEMACRO_8_Tr_1_FEMALE: string;
+ declare const VOICEMACRO_8_Tr_2: string;
+ declare const VOICEMACRO_8_Tr_2_FEMALE: string;
+ declare const VOICEMACRO_LABEL: string;
+ declare const VOICEMACRO_LABEL_AID1: string;
+ declare const VOICEMACRO_LABEL_ATTACKMYTARGET1: string;
+ declare const VOICEMACRO_LABEL_ATTACKMYTARGET2: string;
+ declare const VOICEMACRO_LABEL_CHARGE1: string;
+ declare const VOICEMACRO_LABEL_CHEER1: string;
+ declare const VOICEMACRO_LABEL_CONGRATULATIONS1: string;
+ declare const VOICEMACRO_LABEL_CONGRATULATIONS2: string;
+ declare const VOICEMACRO_LABEL_CONGRATULATIONS3: string;
+ declare const VOICEMACRO_LABEL_FLEE1: string;
+ declare const VOICEMACRO_LABEL_FLEE2: string;
+ declare const VOICEMACRO_LABEL_FLIRT1: string;
+ declare const VOICEMACRO_LABEL_FOLLOW1: string;
+ declare const VOICEMACRO_LABEL_FOLLOWME1: string;
+ declare const VOICEMACRO_LABEL_FOLLOWME2: string;
+ declare const VOICEMACRO_LABEL_FOLLOWME3: string;
+ declare const VOICEMACRO_LABEL_GOODBYE1: string;
+ declare const VOICEMACRO_LABEL_GOODBYE2: string;
+ declare const VOICEMACRO_LABEL_HEALME1: string;
+ declare const VOICEMACRO_LABEL_HEALME2: string;
+ declare const VOICEMACRO_LABEL_HELLO1: string;
+ declare const VOICEMACRO_LABEL_HELP1: string;
+ declare const VOICEMACRO_LABEL_HELPME1: string;
+ declare const VOICEMACRO_LABEL_HELPME2: string;
+ declare const VOICEMACRO_LABEL_INCOMING1: string;
+ declare const VOICEMACRO_LABEL_INCOMING2: string;
+ declare const VOICEMACRO_LABEL_JOKE1: string;
+ declare const VOICEMACRO_LABEL_NO1: string;
+ declare const VOICEMACRO_LABEL_OPENFIRE1: string;
+ declare const VOICEMACRO_LABEL_OPENFIRE2: string;
+ declare const VOICEMACRO_LABEL_OUTOFMANA1: string;
+ declare const VOICEMACRO_LABEL_OUTOFMANA2: string;
+ declare const VOICEMACRO_LABEL_RASPBERRY1: string;
+ declare const VOICEMACRO_LABEL_RASPBERRY2: string;
+ declare const VOICEMACRO_LABEL_SILLY1: string;
+ declare const VOICEMACRO_LABEL_THANKYOU1: string;
+ declare const VOICEMACRO_LABEL_THANKYOU2: string;
+ declare const VOICEMACRO_LABEL_THANKYOU3: string;
+ declare const VOICEMACRO_LABEL_TRAIN1: string;
+ declare const VOICEMACRO_LABEL_WAITHERE1: string;
+ declare const VOICEMACRO_LABEL_WAITHERE2: string;
+ declare const VOICEMACRO_LABEL_YES1: string;
+ declare const VOICEMACRO_LABEL_YOUREWELCOME1: string;
+ declare const VOICEMACRO_LABEL_YOUREWELCOME2: string;
+ declare const VOICE_ACTIVATED: string;
+ declare const VOICE_ACTIVATION_SENSITIVITY: string;
+ declare const VOICE_AMBIENCE: string;
+ declare const VOICE_CHAT: string;
+ declare const VOICE_CHAT_AUDIO_DUCKING: string;
+ declare const VOICE_CHAT_BATTLEGROUND: string;
+ declare const VOICE_CHAT_MODE: string;
+ declare const VOICE_CHAT_NORMAL: string;
+ declare const VOICE_CHAT_OPTIONS: string;
+ declare const VOICE_CHAT_OUTPUT_DEVICE: string;
+ declare const VOICE_CHAT_PARTY_RAID: string;
+ declare const VOICE_GAME_DUCKING: string;
+ declare const VOICE_INPUT_VOLUME: string;
+ declare const VOICE_LABEL: string;
+ declare const VOICE_LISTENING: string;
+ declare const VOICE_MICROPHONE_TEST: string;
+ declare const VOICE_MIC_TEST_PLAY: string;
+ declare const VOICE_MIC_TEST_RECORD: string;
+ declare const VOICE_MUSIC: string;
+ declare const VOICE_OUTPUT_VOLUME: string;
+ declare const VOICE_SOUND: string;
+ declare const VOICE_SUBTEXT: string;
+ declare const VOICE_TALKING: string;
+ declare const VOLUME: string;
+ declare const VOTE_BOOT_PLAYER: string;
+ declare const VOTE_BOOT_REASON_REQUIRED: string;
+ declare const VOTE_TO_KICK: string;
+ declare const VULNERABLE_TRAILER: string;
+ declare const WAISTSLOT: string;
+ declare const WARLOCK_INTELLECT_TOOLTIP: string;
+ declare const WARRIOR_STRENGTH_TOOLTIP: string;
+ declare const WATCHFRAME_LOCK: string;
+ declare const WATCH_FRAME_WIDTH_TEXT: string;
+ declare const WATER_COLLISION: string;
+ declare const WATER_DETAIL: string;
+ declare const WEAPON_SKILL_RATING: string;
+ declare const WEAPON_SKILL_RATING_BONUS: string;
+ declare const WEAPON_SPEED: string;
+ declare const WEATHER_DETAIL: string;
+ declare const WEEKDAY_FRIDAY: string;
+ declare const WEEKDAY_MONDAY: string;
+ declare const WEEKDAY_SATURDAY: string;
+ declare const WEEKDAY_SUNDAY: string;
+ declare const WEEKDAY_THURSDAY: string;
+ declare const WEEKDAY_TUESDAY: string;
+ declare const WEEKDAY_WEDNESDAY: string;
+ declare const WHISPER: string;
+ declare const WHISPER_MESSAGE: string;
+ declare const WHO: string;
+ declare const WHO_FRAME_SHOWN_TEMPLATE: string;
+ declare const WHO_FRAME_TOTAL_TEMPLATE: string;
+ declare const WHO_LIST: string;
+ declare const WHO_LIST_FORMAT: string;
+ declare const WHO_LIST_GUILD_FORMAT: string;
+ declare const WHO_NUM_RESULTS: string;
+ declare const WHO_TAG_CLASS: string;
+ declare const WHO_TAG_GUILD: string;
+ declare const WHO_TAG_NAME: string;
+ declare const WHO_TAG_RACE: string;
+ declare const WHO_TAG_ZONE: string;
+ declare const WIDESCREEN_TAG: string;
+ declare const WIN: string;
+ declare const WINDOWED_MAXIMIZED: string;
+ declare const WINDOWED_MODE: string;
+ declare const WINDOW_LOCK: string;
+ declare const WINTERGRASP_IN_PROGRESS: string;
+ declare const WIN_LOSS: string;
+ declare const WITHDRAW: string;
+ declare const WORK_IN_PROGRESS: string;
+ declare const WORLDMAP_BUTTON: string;
+ declare const WORLD_APPEARANCE: string;
+ declare const WORLD_LOD: string;
+ declare const WORLD_MAP: string;
+ declare const WORLD_PORT_ROOT_TIMER: string;
+ declare const WORLD_PVP_DISPLAY: string;
+ declare const WORLD_PVP_ENTER: string;
+ declare const WORLD_PVP_EXITED_BATTLE: string;
+ declare const WORLD_PVP_FAIL: string;
+ declare const WORLD_PVP_INVITED: string;
+ declare const WORLD_PVP_INVITED_WARMUP: string;
+ declare const WORLD_PVP_LOW_LEVEL: string;
+ declare const WORLD_PVP_PENDING: string;
+ declare const WORLD_PVP_PENDING_REMOTE: string;
+ declare const WORLD_PVP_QUEUED: string;
+ declare const WORLD_PVP_QUEUED_WARMUP: string;
+ declare const WOW_MOUSE: string;
+ declare const WOW_MOUSE_NOT_FOUND: string;
+ declare const WRISTSLOT: string;
+ declare const WRONG_SLOT_FOR_ITEM: string;
+ declare const XP: string;
+ declare const XPBAR_LABEL: string;
+ declare const XP_BAR_TEXT: string;
+ declare const XP_TEXT: string;
+ declare const YELL: string;
+ declare const YELLOW_GEM: string;
+ declare const YELL_MESSAGE: string;
+ declare const YES: string;
+ declare const YOU: string;
+ declare const YOUR_BID: string;
+ declare const YOUR_CLASS_MAY_NOT_PERFORM_ROLE: string;
+ declare const YOUR_ROLE: string;
+ declare const YOU_ARE_IN_DUNGEON_GROUP: string;
+ declare const YOU_ARE_LISTED_IN_LFR: string;
+ declare const YOU_LOOT_MONEY: string;
+ declare const YOU_MAY_NOT_QUEUE_FOR_DUNGEON: string;
+ declare const YOU_MAY_NOT_QUEUE_FOR_THIS: string;
+ declare const YOU_RECEIVED: string;
+ declare const ZHCN: string;
+ declare const ZHTW: string;
+ declare const ZONE: string;
+ declare const ZONE_COLON: string;
+ declare const ZONE_UNDER_ATTACK: string;
+ declare const ZOOM_IN: string;
+ declare const ZOOM_OUT: string;
+ declare const ZOOM_OUT_BUTTON_TEXT: string;
+ declare const _RECORDING_WARNING_CORRUPTED: string;
 
 /**
  * ##################################
@@ -13959,9 +23093,10 @@ declare function UIDropDownMenu_SetText(dropdown: WoWAPI.Frame, text: string): v
  * initialize the given dropdown frame
  *
  * @param dropdown the dropdown frame
- * @param callback the initializer function
+ * @param initFunc the initializer function
+ * @param displayMode if "MENU", the visual elements of dropDown will be hidden and the menu, when shown, will be styled as a context menu rather than a dropdown list
  */
-declare function UIDropDownMenu_Initialize(dropdown: WoWAPI.Frame, callback: (self: WoWAPI.Frame, level: number, menuList: number) => void): void;
+declare function UIDropDownMenu_Initialize(dropdown: WoWAPI.Frame, initFunc: (self: WoWAPI.Frame, level: number, menuList: object) => void, displayMode?: WoWAPI.UIDropDownMenuDisplayMode, level?: number, menuList?: object): void;
 
 /**
  * create an info object for a dropdown element
@@ -13972,11 +23107,29 @@ declare function UIDropDownMenu_CreateInfo(): WoWAPI.UIDropdownInfo;
  * add the given info object to the current inizialized dropdown frame
  *
  * @param info the info to add
+ * @param level nesting level to which the menu item should be added. If 1, the menu item will be added to the outer-most menu level; 2 will add it to the first open sub-menu, 3 to the second open sub-menu, etc.
  */
-declare function UIDropDownMenu_AddButton(info: WoWAPI.UIDropdownInfo): void;
+declare function UIDropDownMenu_AddButton(info: WoWAPI.UIDropdownInfo, level?: number): void;
+
+/**
+ * Toggles a dropdown menu
+ * 
+ * @param level Nesting level of this dropdown
+ * @param value Custom value for the dropdown item, if 'level' > 1
+ * @param dropDownFrame The frame object to toggle, not its string name. This object should be derived from 'UIDropDownMenuTemplate'
+ * @param anchorName Sets the 'relativeTo' member of this frame
+ * @param xOffset Sets the x offset
+ * @param yOffset Sets the y offset
+ * @param menuList Automatically Passed to the to 'menuList' on the API UIDropDownMenu_Initialize function, and set to 'menuList' member on the dropDownFrame frame table
+ * @param button Drop down menu anchor point. Default is 'dropDownFrame' or successive parent dropdown menu button
+ * @param autoHideDelay Seconds to delay before hiding an inactive menu. Default is 2.
+ */
+declare function ToggleDropDownMenu(level: number, value: any, dropDownFrame: WoWAPI.Frame, anchorName?: string | WoWAPI.Frame, xOffset?: number, yOffset?: number, menuList?: object, button?: object, autoHideDelay?: number): void;
+ 
+declare type SoundChannel = "Master" | "SFX" | "Ambience" | "Music";
 
 declare function PlaySoundFile(path:string): void;
-declare function PlaySound(soundIndex:number): void;
+declare function PlaySound(soundName: string, channel?: SoundChannel): void;
 
 /**
  * comma separated list of enabled flags
@@ -14043,6 +23196,7 @@ declare function InterfaceOptions_AddCategory(panel: WoWAPI.FrameInterfaceCatego
 
 declare namespace WoWAPI {
     type UnitIdArena = "arena1" | "arena2" | "arena3" | "arena4" | "arena5";
+    type UnitIdBoss = "boss1" | "boss2" | "boss3" | "boss4" | "boss5" | "boss6" | "boss7" | "boss8";
     type UnitIdRaidPlayer = "raid1" | "raid2" | "raid3" | "raid4" | "raid5" | "raid6" | "raid7" | "raid8" | "raid9" |
         "raid10" | "raid11" | "raid12" | "raid13" | "raid14" | "raid15" | "raid16" | "raid17" | "raid18" | "raid19" | "raid20" |
         "raid21" | "raid22" | "raid23" | "raid24" | "raid25" | "raid26" | "raid27" | "raid28" | "raid29" | "raid30" | "raid31" |
@@ -14055,7 +23209,7 @@ declare namespace WoWAPI {
     type UnitIdParty = "party1" | "party2" | "party3" | "party4";
     type UnitIdPartyPet = "partypet1" | "partypet2" | "partypet3" | "partypet4";
     type UnitIdOther = "player" | "pet" | "focus" | "mouseover" | "vehicle" | "target" | "none" | "npc" | "targettarget";
-    type UnitId = UnitIdOther | UnitIdArena | UnitIdRaidPlayer | UnitIdRaidPlayerPet | UnitIdParty | UnitIdPartyPet;
+    type UnitId = UnitIdOther | UnitIdArena | UnitIdBoss | UnitIdRaidPlayer | UnitIdRaidPlayerPet | UnitIdParty | UnitIdPartyPet;
 
     type UnitRoleType = "TANK" | "DAMAGER" | "HEALER";
 
@@ -14300,3 +23454,5302 @@ declare class TSPacketRead {
 declare function UTAG(mod: string, name: string): number
 declare function TAG(mod: string, name: string): number[]
 declare function HAS_TAG(id: number, mod: string, name: string);
+
+/** @noSelfInFile */
+declare const lualib_bundle: any;
+declare const __unpack: any;
+declare class EventHolder {
+    events: {
+        [key: string]: ((...args: any[]) => void)[];
+    };
+    messageEvents: {
+        [key: number]: ((...args: any[]) => void)[];
+    };
+    registeredAddonMessage: boolean;
+    registeredBufferedMessage: boolean;
+    constructor();
+}
+declare const eventHolders: {
+    [key: string]: EventHolder;
+};
+declare const messageHolders: {
+    [id: number]: new () => any;
+};
+declare function addEvent(frame: any, name: string, callback: (...args: any[]) => void): void;
+declare const Events: {
+    AchievementInfo: {
+        /**
+         *
+         * Patch added: 3.0.3
+         *
+         * @param achievementID The id of the achievement gained.
+         * @param alreadyEarned (nilable)
+         */
+        OnAchievementEarned(frame: WoWAPI.Frame, callback: (achievementID: number, alreadyEarned?: boolean) => void): void;
+        /**
+         * Fires several times at once, presumably for different levels of achievements and yet-unknown feats of strength, but this has yet to be confirmed and there may be another use for this event.
+         *
+         * Patch added: ?
+         *
+         * @param args
+         */
+        OnCriteriaUpdate(frame: WoWAPI.Frame, callback: (...args: any[]) => void): void;
+        /**
+         *
+         * Patch added: ?
+         *
+         * @param GUID|guid Reference to the player character for whom achievement info is now ready
+         */
+        OnInspectAchievementReady(frame: WoWAPI.Frame, callback: (guid: string) => void): void;
+        /**
+         *
+         * Patch added: ?
+         *
+         * @param args
+         */
+        OnReceivedAchievementList(frame: WoWAPI.Frame, callback: (...args: any[]) => void): void;
+        /**
+         *
+         * Patch added: ?
+         *
+         * @param achievementID
+         */
+        OnReceivedAchievementMemberList(frame: WoWAPI.Frame, callback: (achievementID: number) => void): void;
+        /**
+         *
+         * Patch added: ?
+         *
+         * @param achievementID
+         * @param criteriaID (nilable)
+         * @param elapsed (nilable) - Actual time
+         * @param duration (nilable) - Time limit
+         */
+        OnTrackedAchievementUpdate(frame: WoWAPI.Frame, callback: (achievementID: number, criteriaID?: number, elapsed?: number, duration?: number) => void): void;
+    };
+    ActionBar: {
+        /**
+         *
+         * Patch added: ?
+         *
+         * @param args
+         */
+        OnActionbarHidegrid(frame: WoWAPI.Frame, callback: (...args: any[]) => void): void;
+        /**
+         *
+         * Patch added: ?
+         *
+         * @param args
+         */
+        OnActionbarPageChanged(frame: WoWAPI.Frame, callback: (...args: any[]) => void): void;
+        /**
+         *
+         * Patch added: ?
+         *
+         * @param args
+         */
+        OnActionbarShowgrid(frame: WoWAPI.Frame, callback: (...args: any[]) => void): void;
+        /**
+         * On 4/24/2006, [[Slouken]] stated "ACTIONBAR_SLOT_CHANGED is also sent whenever something changes whether or not the button should be dimmed. The first argument is the slot which changed." This means actions that affect the internal fields of action bar buttons also generate this event for the affected button(s). Examples include the Start and End of casting channeled spells, casting a new buff on yourself, and the cancellation or expiration of a buff on yourself.
+         *
+         * Patch added: ?
+         *
+         * @param slot
+         */
+        OnActionbarSlotChanged(frame: WoWAPI.Frame, callback: (slot: number) => void): void;
+        /**
+         *
+         * Patch added: ?
+         *
+         * @param args
+         */
+        OnActionbarUpdateCooldown(frame: WoWAPI.Frame, callback: (...args: any[]) => void): void;
+        /**
+         *
+         * Patch added: ?
+         *
+         * @param args
+         */
+        OnActionbarUpdateState(frame: WoWAPI.Frame, callback: (...args: any[]) => void): void;
+        /**
+         *
+         * Patch added: ?
+         *
+         * @param args
+         */
+        OnActionbarUpdateUsable(frame: WoWAPI.Frame, callback: (...args: any[]) => void): void;
+        /**
+         *
+         * Patch added: ?
+         *
+         * @param args
+         */
+        OnPetBarUpdate(frame: WoWAPI.Frame, callback: (...args: any[]) => void): void;
+        /**
+         *
+         * Patch added: ?
+         *
+         * @param args
+         */
+        OnUpdateBonusActionbar(frame: WoWAPI.Frame, callback: (...args: any[]) => void): void;
+        /**
+         *
+         * Patch added: ?
+         *
+         * @param args
+         */
+        OnUpdateExtraActionbar(frame: WoWAPI.Frame, callback: (...args: any[]) => void): void;
+        /**
+         *
+         * Patch added: ?
+         *
+         * @param args
+         */
+        OnUpdateMultiCastActionbar(frame: WoWAPI.Frame, callback: (...args: any[]) => void): void;
+    };
+    AddOns: {
+        /**
+         *
+         * Patch added: ?
+         *
+         * @param addOnName
+         */
+        OnAddonLoaded(frame: WoWAPI.Frame, callback: (addOnName: string) => void): void;
+    };
+    ArtifactUI: {
+        /**
+         *
+         * Patch added: ?
+         *
+         * @param newItem
+         */
+        OnArtifactUpdate(frame: WoWAPI.Frame, callback: (newItem: boolean) => void): void;
+    };
+    AuctionHouse: {
+        /**
+         * It appears to fire twice, but the reason is unknown.
+         *
+         * Patch added: ?
+         *
+         * @param args
+         */
+        OnAuctionHouseClosed(frame: WoWAPI.Frame, callback: (...args: any[]) => void): void;
+        /**
+         *
+         * Patch added: ?
+         *
+         * @param args
+         */
+        OnAuctionHouseDisabled(frame: WoWAPI.Frame, callback: (...args: any[]) => void): void;
+        /**
+         *
+         * Patch added: ?
+         *
+         * @param auctionID
+         */
+        OnAuctionHouseNewBidReceived(frame: WoWAPI.Frame, callback: (auctionID: number) => void): void;
+        /**
+         *
+         * Patch added: ?
+         *
+         * @param args
+         */
+        OnAuctionHouseShow(frame: WoWAPI.Frame, callback: (...args: any[]) => void): void;
+        /**
+         *
+         * Patch added: ?
+         *
+         * @param args
+         */
+        OnAuctionMultisellFailure(frame: WoWAPI.Frame, callback: (...args: any[]) => void): void;
+        /**
+         *
+         * Patch added: ?
+         *
+         * @param numRepetitions total number of stacks the client has to list.
+         */
+        OnAuctionMultisellStart(frame: WoWAPI.Frame, callback: (numRepetitions: number) => void): void;
+        /**
+         *
+         * Patch added: ?
+         *
+         * @param createdCount number of stacks listed so far.
+         * @param totalToCreate total number of stacks in the current mass-listing operation.
+         */
+        OnAuctionMultisellUpdate(frame: WoWAPI.Frame, callback: (createdCount: number, totalToCreate: number) => void): void;
+    };
+    Bank: {
+        /**
+         *
+         * Patch added: ?
+         *
+         * @param args
+         */
+        OnBankframeClosed(frame: WoWAPI.Frame, callback: (...args: any[]) => void): void;
+        /**
+         *
+         * Patch added: ?
+         *
+         * @param args
+         */
+        OnBankframeOpened(frame: WoWAPI.Frame, callback: (...args: any[]) => void): void;
+        /**
+         *
+         * Patch added: ?
+         *
+         * @param args
+         */
+        OnPlayerbankbagslotsChanged(frame: WoWAPI.Frame, callback: (...args: any[]) => void): void;
+        /**
+         *
+         * Patch added: ?
+         *
+         * @param slot When (slot &lt;= NUM_BANKGENERIC_SLOTS), slot is the index of the generic bank slot that changed.  When (slot > NUM_BANKGENERIC_SLOTS), (slot - NUM_BANKGENERIC_SLOTS) is the index of the equipped bank bag that changed.
+         */
+        OnPlayerbankslotsChanged(frame: WoWAPI.Frame, callback: (slot: number) => void): void;
+    };
+    BarberShop: {
+        /**
+         *
+         * Patch added: ?
+         *
+         * @param args
+         */
+        OnBarberShopAppearanceApplied(frame: WoWAPI.Frame, callback: (...args: any[]) => void): void;
+        /**
+         *
+         * Patch added: ?
+         *
+         * @param args
+         */
+        OnBarberShopClose(frame: WoWAPI.Frame, callback: (...args: any[]) => void): void;
+        /**
+         *
+         * Patch added: ?
+         *
+         * @param args
+         */
+        OnBarberShopOpen(frame: WoWAPI.Frame, callback: (...args: any[]) => void): void;
+    };
+    BattlePet: {
+        /**
+         * This event fires twice at the very end of a pet battle, instructing the client to transition back to normal character controls.
+          *
+         ** The &lt;code>[petbattle]&lt;/code> [[macro conditional]] evaluates to true during the first firing, and false during the second.
+         *
+         * Patch added: ?
+         *
+         * @param args
+         */
+        OnPetBattleClose(frame: WoWAPI.Frame, callback: (...args: any[]) => void): void;
+        /**
+         *
+         * Patch added: ?
+         *
+         * @param owner Team index of the team that won the pet battle; 1 for the player's team, 2 for the opponent.
+         */
+        OnPetBattleFinalRound(frame: WoWAPI.Frame, callback: (owner: number) => void): void;
+        /**
+         *
+         * Patch added: ?
+         *
+         * @param args
+         */
+        OnPetBattleOver(frame: WoWAPI.Frame, callback: (...args: any[]) => void): void;
+        /**
+         *
+         * Patch added: ?
+         *
+         * @param owner index of the team the active pet of which has changed.
+         */
+        OnPetBattlePetChanged(frame: WoWAPI.Frame, callback: (owner: number) => void): void;
+        /**
+         *
+         * Patch added: ?
+         *
+         * @param owner team to which the pet belongs, 1 for the player's team, 2 for the opponent.
+         * @param petIndex pet index within the team.
+         * @param xpChange amount of XP gained.
+         */
+        OnPetBattleXpChanged(frame: WoWAPI.Frame, callback: (owner: number, petIndex: number, xpChange: number) => void): void;
+    };
+    Calendar: {
+        /**
+         *
+         * Patch added: ?
+         *
+         * @param pending
+         */
+        OnCalendarActionPending(frame: WoWAPI.Frame, callback: (pending: boolean) => void): void;
+        /**
+         *
+         * Patch added: ?
+         *
+         * @param args
+         */
+        OnCalendarCloseEvent(frame: WoWAPI.Frame, callback: (...args: any[]) => void): void;
+        /**
+         *
+         * Patch added: ?
+         *
+         * @param title
+         * @param hour
+         * @param minute
+         */
+        OnCalendarEventAlarm(frame: WoWAPI.Frame, callback: (title: string, hour: number, minute: number) => void): void;
+        /**
+         *
+         * Patch added: ?
+         *
+         * @param isCopy
+         */
+        OnCalendarNewEvent(frame: WoWAPI.Frame, callback: (isCopy: boolean) => void): void;
+        /**
+         *
+         * Patch added: ?
+         *
+         * @param calendarType
+         */
+        OnCalendarOpenEvent(frame: WoWAPI.Frame, callback: (calendarType: string) => void): void;
+        /**
+         *
+         * Patch added: ?
+         *
+         * @param errorReason
+         */
+        OnCalendarUpdateError(frame: WoWAPI.Frame, callback: (errorReason: string) => void): void;
+        /**
+         *
+         * Patch added: ?
+         *
+         * @param args
+         */
+        OnCalendarUpdateEvent(frame: WoWAPI.Frame, callback: (...args: any[]) => void): void;
+        /**
+         *
+         * Patch added: ?
+         *
+         * @param args
+         */
+        OnCalendarUpdateEventList(frame: WoWAPI.Frame, callback: (...args: any[]) => void): void;
+        /**
+         *
+         * Patch added: ?
+         *
+         * @param args
+         */
+        OnCalendarUpdateGuildEvents(frame: WoWAPI.Frame, callback: (...args: any[]) => void): void;
+        /**
+         *
+         * Patch added: ?
+         *
+         * @param hasCompleteList (nilable)
+         */
+        OnCalendarUpdateInviteList(frame: WoWAPI.Frame, callback: (hasCompleteList?: boolean) => void): void;
+        /**
+         *
+         * Patch added: ?
+         *
+         * @param args
+         */
+        OnCalendarUpdatePendingInvites(frame: WoWAPI.Frame, callback: (...args: any[]) => void): void;
+    };
+    ChatInfo: {
+        /**
+         *
+         * Patch added: ?
+         *
+         * @param displayIndex channel id (item number in Blizzards ChannelFrame. See also {{api|GetChannelDisplayInfo}}
+         * @param count number of players in channel
+         */
+        OnChannelCountUpdate(frame: WoWAPI.Frame, callback: (displayIndex: number, count: number) => void): void;
+        /**
+         *
+         * Patch added: ?
+         *
+         * @param displayIndex channel id (item number in Blizzards ChannelFrame. See also {{api|GetChannelDisplayInfo}}
+         */
+        OnChannelFlagsUpdated(frame: WoWAPI.Frame, callback: (displayIndex: number) => void): void;
+        /**
+         *
+         * Patch added: ?
+         *
+         * @param channelID
+         * @param name
+         */
+        OnChannelInviteRequest(frame: WoWAPI.Frame, callback: (channelID: string, name: string) => void): void;
+        /**
+         *
+         * Patch added: ?
+         *
+         * @param channelID
+         */
+        OnChannelPasswordRequest(frame: WoWAPI.Frame, callback: (channelID: string) => void): void;
+        /**
+         *
+         * Patch added: ?
+         *
+         * @param displayIndex
+         * @param count
+         */
+        OnChannelRosterUpdate(frame: WoWAPI.Frame, callback: (displayIndex: number, count: number) => void): void;
+        /**
+         *
+         * Patch added: ?
+         *
+         * @param args
+         */
+        OnChannelUiUpdate(frame: WoWAPI.Frame, callback: (...args: any[]) => void): void;
+        /**
+         *
+         * Patch added: ?
+         *
+         * @param text Text content being received in the message
+         * @param playerName Name of the player sending the message
+         * @param langName Name of the language (if applicable) of the message
+         * @param channelName Name of the channel
+         * @param playerName2 Name of the second player, if involved (used in whispers)
+         * @param specialFlags
+         * @param zoneChannelID
+         * @param channelIndex
+         * @param channelBaseName
+         * @param unused
+         * @param lineID
+         * @param guid
+         */
+        OnChatMsgAchievement(frame: WoWAPI.Frame, callback: (text: string, playerName: string, langName: string, channelName: string, playerName2: string, specialFlags: string, zoneChannelID: string, channelIndex: number, channelBaseName: string, unused: number, lineID: number, guid: string) => void): void;
+        /**
+         *
+         * Patch added: 1.12.0
+         *
+         * @param prefix The message prefix (maximum of 4 characters)
+         * @param body The main message
+         * @param channel The addon channel's chat type, e.g. "PARTY" or "WHISPER"
+         * @param sender Name of the player sending the message
+         * @param target ??
+         * @param zoneChannelId - always 0
+         * @param localId - Channel index or 0 if not applicable
+         * @param name - Channel name or empty if not applicable
+         * @param instanceid - Seems to always be 0
+         */
+        OnChatMsgAddon(frame: WoWAPI.Frame, callback: (prefix: string, body: string, channel: string, sender: string, target: string, zoneChannelId: number, localId: number, name: string, instanceid: number) => void): void;
+        /**
+         *
+         * Patch added: ?
+         *
+         * @param text Text content being received in the message
+         * @param playerName Name of the player sending the message
+         * @param langName Name of the language (if applicable) of the message
+         * @param channelName Name of the channel
+         * @param playerName2 Name of the second player, if involved (used in whispers)
+         * @param specialFlags
+         * @param zoneChannelID
+         * @param channelIndex
+         * @param channelBaseName
+         * @param unused
+         * @param lineID
+         * @param guid
+         */
+        OnChatMsgAfk(frame: WoWAPI.Frame, callback: (text: string, playerName: string, langName: string, channelName: string, playerName2: string, specialFlags: string, zoneChannelID: string, channelIndex: number, channelBaseName: string, unused: number, lineID: number, guid: string) => void): void;
+        /**
+         *
+         * Patch added: ?
+         *
+         * @param text Text content being received in the message
+         * @param playerName Name of the player sending the message
+         * @param langName Name of the language (if applicable) of the message
+         * @param channelName Name of the channel
+         * @param playerName2 Name of the second player, if involved (used in whispers)
+         * @param specialFlags
+         * @param zoneChannelID
+         * @param channelIndex
+         * @param channelBaseName
+         * @param unused
+         * @param lineID
+         * @param guid
+         */
+        OnChatMsgBgSystemAlliance(frame: WoWAPI.Frame, callback: (text: string, playerName: string, langName: string, channelName: string, playerName2: string, specialFlags: string, zoneChannelID: string, channelIndex: number, channelBaseName: string, unused: number, lineID: number, guid: string) => void): void;
+        /**
+         *
+         * Patch added: ?
+         *
+         * @param text Text content being received in the message
+         * @param playerName Name of the player sending the message
+         * @param langName Name of the language (if applicable) of the message
+         * @param channelName Name of the channel
+         * @param playerName2 Name of the second player, if involved (used in whispers)
+         * @param specialFlags
+         * @param zoneChannelID
+         * @param channelIndex
+         * @param channelBaseName
+         * @param unused
+         * @param lineID
+         * @param guid
+         */
+        OnChatMsgBgSystemHorde(frame: WoWAPI.Frame, callback: (text: string, playerName: string, langName: string, channelName: string, playerName2: string, specialFlags: string, zoneChannelID: string, channelIndex: number, channelBaseName: string, unused: number, lineID: number, guid: string) => void): void;
+        /**
+         *
+         * Patch added: ?
+         *
+         * @param text Text content being received in the message
+         * @param playerName Name of the player sending the message
+         * @param langName Name of the language (if applicable) of the message
+         * @param channelName Name of the channel
+         * @param playerName2 Name of the second player, if involved (used in whispers)
+         * @param specialFlags
+         * @param zoneChannelID
+         * @param channelIndex
+         * @param channelBaseName
+         * @param unused
+         * @param lineID
+         * @param guid
+         */
+        OnChatMsgBgSystemNeutral(frame: WoWAPI.Frame, callback: (text: string, playerName: string, langName: string, channelName: string, playerName2: string, specialFlags: string, zoneChannelID: string, channelIndex: number, channelBaseName: string, unused: number, lineID: number, guid: string) => void): void;
+        /**
+         *
+         * Patch added: ?
+         *
+         * @param text Text content being received in the message
+         * @param playerName Name of the player sending the message
+         * @param langName Name of the language (if applicable) of the message
+         * @param channelName Name of the channel
+         * @param playerName2 Name of the second player, if involved (used in whispers)
+         * @param specialFlags
+         * @param zoneChannelID
+         * @param channelIndex
+         * @param channelBaseName
+         * @param unused
+         * @param lineID
+         * @param guid
+         */
+        OnChatMsgBn(frame: WoWAPI.Frame, callback: (text: string, playerName: string, langName: string, channelName: string, playerName2: string, specialFlags: string, zoneChannelID: string, channelIndex: number, channelBaseName: string, unused: number, lineID: number, guid: string) => void): void;
+        /**
+         *
+         * Patch added: ?
+         *
+         * @param text Text content being received in the message
+         * @param playerName Name of the player sending the message
+         * @param langName Name of the language (if applicable) of the message
+         * @param channelName Name of the channel
+         * @param playerName2 Name of the second player, if involved (used in whispers)
+         * @param specialFlags
+         * @param zoneChannelID
+         * @param channelIndex
+         * @param channelBaseName
+         * @param unused
+         * @param lineID
+         * @param guid
+         */
+        OnChatMsgBnInlineToastAlert(frame: WoWAPI.Frame, callback: (text: string, playerName: string, langName: string, channelName: string, playerName2: string, specialFlags: string, zoneChannelID: string, channelIndex: number, channelBaseName: string, unused: number, lineID: number, guid: string) => void): void;
+        /**
+         *
+         * Patch added: ?
+         *
+         * @param text Text content being received in the message
+         * @param playerName Name of the player sending the message
+         * @param langName Name of the language (if applicable) of the message
+         * @param channelName Name of the channel
+         * @param playerName2 Name of the second player, if involved (used in whispers)
+         * @param specialFlags
+         * @param zoneChannelID
+         * @param channelIndex
+         * @param channelBaseName
+         * @param unused
+         * @param lineID
+         * @param guid
+         */
+        OnChatMsgBnInlineToastBroadcast(frame: WoWAPI.Frame, callback: (text: string, playerName: string, langName: string, channelName: string, playerName2: string, specialFlags: string, zoneChannelID: string, channelIndex: number, channelBaseName: string, unused: number, lineID: number, guid: string) => void): void;
+        /**
+         *
+         * Patch added: ?
+         *
+         * @param text Text content being received in the message
+         * @param playerName Name of the player sending the message
+         * @param langName Name of the language (if applicable) of the message
+         * @param channelName Name of the channel
+         * @param playerName2 Name of the second player, if involved (used in whispers)
+         * @param specialFlags
+         * @param zoneChannelID
+         * @param channelIndex
+         * @param channelBaseName
+         * @param unused
+         * @param lineID
+         * @param guid
+         */
+        OnChatMsgBnInlineToastBroadcastInform(frame: WoWAPI.Frame, callback: (text: string, playerName: string, langName: string, channelName: string, playerName2: string, specialFlags: string, zoneChannelID: string, channelIndex: number, channelBaseName: string, unused: number, lineID: number, guid: string) => void): void;
+        /**
+         *
+         * Patch added: ?
+         *
+         * @param text Text content being received in the message
+         * @param playerName Name of the player sending the message
+         * @param langName Name of the language (if applicable) of the message
+         * @param channelName Name of the channel
+         * @param playerName2 Name of the second player, if involved (used in whispers)
+         * @param specialFlags
+         * @param zoneChannelID
+         * @param channelIndex
+         * @param channelBaseName
+         * @param unused
+         * @param lineID
+         * @param guid
+         */
+        OnChatMsgBnInlineToastConversation(frame: WoWAPI.Frame, callback: (text: string, playerName: string, langName: string, channelName: string, playerName2: string, specialFlags: string, zoneChannelID: string, channelIndex: number, channelBaseName: string, unused: number, lineID: number, guid: string) => void): void;
+        /**
+         *
+         * Patch added: ?
+         *
+         * @param text Text content being received in the message
+         * @param playerName Name of the player sending the message
+         * @param langName Name of the language (if applicable) of the message
+         * @param channelName Name of the channel
+         * @param playerName2 Name of the second player, if involved (used in whispers)
+         * @param specialFlags
+         * @param zoneChannelID
+         * @param channelIndex
+         * @param channelBaseName
+         * @param unused
+         * @param lineID
+         * @param guid
+         */
+        OnChatMsgBnWhisper(frame: WoWAPI.Frame, callback: (text: string, playerName: string, langName: string, channelName: string, playerName2: string, specialFlags: string, zoneChannelID: string, channelIndex: number, channelBaseName: string, unused: number, lineID: number, guid: string) => void): void;
+        /**
+         *
+         * Patch added: ?
+         *
+         * @param text Text content being received in the message
+         * @param playerName Name of the player sending the message
+         * @param langName Name of the language (if applicable) of the message
+         * @param channelName Name of the channel
+         * @param playerName2 Name of the second player, if involved (used in whispers)
+         * @param specialFlags
+         * @param zoneChannelID
+         * @param channelIndex
+         * @param channelBaseName
+         * @param unused
+         * @param lineID
+         * @param guid
+         */
+        OnChatMsgBnWhisperInform(frame: WoWAPI.Frame, callback: (text: string, playerName: string, langName: string, channelName: string, playerName2: string, specialFlags: string, zoneChannelID: string, channelIndex: number, channelBaseName: string, unused: number, lineID: number, guid: string) => void): void;
+        /**
+         *
+         * Patch added: ?
+         *
+         * @param text Text content being received in the message
+         * @param playerName Name of the player sending the message
+         * @param langName Name of the language (if applicable) of the message
+         * @param channelName Name of the channel
+         * @param playerName2 Name of the second player, if involved (used in whispers)
+         * @param specialFlags
+         * @param zoneChannelID
+         * @param channelIndex
+         * @param channelBaseName
+         * @param unused
+         * @param lineID
+         * @param guid
+         */
+        OnChatMsgBnWhisperPlayerOffline(frame: WoWAPI.Frame, callback: (text: string, playerName: string, langName: string, channelName: string, playerName2: string, specialFlags: string, zoneChannelID: string, channelIndex: number, channelBaseName: string, unused: number, lineID: number, guid: string) => void): void;
+        /**
+         *
+         * Patch added: ?
+         *
+         * @param text Text content being received in the message
+         * @param playerName Name of the player sending the message
+         * @param langName Name of the language (if applicable) of the message
+         * @param channelName Name of the channel
+         * @param playerName2 Name of the second player, if involved (used in whispers)
+         * @param specialFlags
+         * @param zoneChannelID
+         * @param channelIndex
+         * @param channelBaseName
+         * @param unused
+         * @param lineID
+         * @param guid
+         */
+        OnChatMsgChannel(frame: WoWAPI.Frame, callback: (text: string, playerName: string, langName: string, channelName: string, playerName2: string, specialFlags: string, zoneChannelID: string, channelIndex: number, channelBaseName: string, unused: number, lineID: number, guid: string) => void): void;
+        /**
+         *
+         * Patch added: ?
+         *
+         * @param text Text content being received in the message
+         * @param playerName Name of the player sending the message
+         * @param langName Name of the language (if applicable) of the message
+         * @param channelName Name of the channel
+         * @param playerName2 Name of the second player, if involved (used in whispers)
+         * @param specialFlags
+         * @param zoneChannelID
+         * @param channelIndex
+         * @param channelBaseName
+         * @param unused
+         * @param lineID
+         * @param guid
+         */
+        OnChatMsgChannelJoin(frame: WoWAPI.Frame, callback: (text: string, playerName: string, langName: string, channelName: string, playerName2: string, specialFlags: string, zoneChannelID: string, channelIndex: number, channelBaseName: string, unused: number, lineID: number, guid: string) => void): void;
+        /**
+         *
+         * Patch added: ?
+         *
+         * @param text Text content being received in the message
+         * @param playerName Name of the player sending the message
+         * @param langName Name of the language (if applicable) of the message
+         * @param channelName Name of the channel
+         * @param playerName2 Name of the second player, if involved (used in whispers)
+         * @param specialFlags
+         * @param zoneChannelID
+         * @param channelIndex
+         * @param channelBaseName
+         * @param unused
+         * @param lineID
+         * @param guid
+         */
+        OnChatMsgChannelLeave(frame: WoWAPI.Frame, callback: (text: string, playerName: string, langName: string, channelName: string, playerName2: string, specialFlags: string, zoneChannelID: string, channelIndex: number, channelBaseName: string, unused: number, lineID: number, guid: string) => void): void;
+        /**
+         *
+         * Patch added: ?
+         *
+         * @param text Text content being received in the message
+         * @param playerName Name of the player sending the message
+         * @param langName Name of the language (if applicable) of the message
+         * @param channelName Name of the channel
+         * @param playerName2 Name of the second player, if involved (used in whispers)
+         * @param specialFlags
+         * @param zoneChannelID
+         * @param channelIndex
+         * @param channelBaseName
+         * @param unused
+         * @param lineID
+         * @param guid
+         */
+        OnChatMsgChannelList(frame: WoWAPI.Frame, callback: (text: string, playerName: string, langName: string, channelName: string, playerName2: string, specialFlags: string, zoneChannelID: string, channelIndex: number, channelBaseName: string, unused: number, lineID: number, guid: string) => void): void;
+        /**
+         *
+         * Patch added: ?
+         *
+         * @param text Text content being received in the message
+         * @param playerName Name of the player sending the message
+         * @param langName Name of the language (if applicable) of the message
+         * @param channelName Name of the channel
+         * @param playerName2 Name of the second player, if involved (used in whispers)
+         * @param specialFlags
+         * @param zoneChannelID
+         * @param channelIndex
+         * @param channelBaseName
+         * @param unused
+         * @param lineID
+         * @param guid
+         */
+        OnChatMsgChannelNotice(frame: WoWAPI.Frame, callback: (text: string, playerName: string, langName: string, channelName: string, playerName2: string, specialFlags: string, zoneChannelID: string, channelIndex: number, channelBaseName: string, unused: number, lineID: number, guid: string) => void): void;
+        /**
+         *
+         * Patch added: ?
+         *
+         * @param text Text content being received in the message
+         * @param playerName Name of the player sending the message
+         * @param langName Name of the language (if applicable) of the message
+         * @param channelName Name of the channel
+         * @param playerName2 Name of the second player, if involved (used in whispers)
+         * @param specialFlags
+         * @param zoneChannelID
+         * @param channelIndex
+         * @param channelBaseName
+         * @param unused
+         * @param lineID
+         * @param guid
+         */
+        OnChatMsgChannelNoticeUser(frame: WoWAPI.Frame, callback: (text: string, playerName: string, langName: string, channelName: string, playerName2: string, specialFlags: string, zoneChannelID: string, channelIndex: number, channelBaseName: string, unused: number, lineID: number, guid: string) => void): void;
+        /**
+         *
+         * Patch added: ?
+         *
+         * @param text Text content being received in the message
+         * @param playerName Name of the player sending the message
+         * @param langName Name of the language (if applicable) of the message
+         * @param channelName Name of the channel
+         * @param playerName2 Name of the second player, if involved (used in whispers)
+         * @param specialFlags
+         * @param zoneChannelID
+         * @param channelIndex
+         * @param channelBaseName
+         * @param unused
+         * @param lineID
+         * @param guid
+         */
+        OnChatMsgCombatFactionChange(frame: WoWAPI.Frame, callback: (text: string, playerName: string, langName: string, channelName: string, playerName2: string, specialFlags: string, zoneChannelID: string, channelIndex: number, channelBaseName: string, unused: number, lineID: number, guid: string) => void): void;
+        /**
+         *
+         * Patch added: ?
+         *
+         * @param text Text content being received in the message
+         * @param playerName Name of the player sending the message
+         * @param langName Name of the language (if applicable) of the message
+         * @param channelName Name of the channel
+         * @param playerName2 Name of the second player, if involved (used in whispers)
+         * @param specialFlags
+         * @param zoneChannelID
+         * @param channelIndex
+         * @param channelBaseName
+         * @param unused
+         * @param lineID
+         * @param guid
+         */
+        OnChatMsgCombatHonorGain(frame: WoWAPI.Frame, callback: (text: string, playerName: string, langName: string, channelName: string, playerName2: string, specialFlags: string, zoneChannelID: string, channelIndex: number, channelBaseName: string, unused: number, lineID: number, guid: string) => void): void;
+        /**
+         *
+         * Patch added: ?
+         *
+         * @param text Text content being received in the message
+         * @param playerName Name of the player sending the message
+         * @param langName Name of the language (if applicable) of the message
+         * @param channelName Name of the channel
+         * @param playerName2 Name of the second player, if involved (used in whispers)
+         * @param specialFlags
+         * @param zoneChannelID
+         * @param channelIndex
+         * @param channelBaseName
+         * @param unused
+         * @param lineID
+         * @param guid
+         */
+        OnChatMsgCombatMiscInfo(frame: WoWAPI.Frame, callback: (text: string, playerName: string, langName: string, channelName: string, playerName2: string, specialFlags: string, zoneChannelID: string, channelIndex: number, channelBaseName: string, unused: number, lineID: number, guid: string) => void): void;
+        /**
+         *
+         * Patch added: ?
+         *
+         * @param text Text content being received in the message
+         * @param playerName Name of the player sending the message
+         * @param langName Name of the language (if applicable) of the message
+         * @param channelName Name of the channel
+         * @param playerName2 Name of the second player, if involved (used in whispers)
+         * @param specialFlags
+         * @param zoneChannelID
+         * @param channelIndex
+         * @param channelBaseName
+         * @param unused
+         * @param lineID
+         * @param guid
+         */
+        OnChatMsgCombatXpGain(frame: WoWAPI.Frame, callback: (text: string, playerName: string, langName: string, channelName: string, playerName2: string, specialFlags: string, zoneChannelID: string, channelIndex: number, channelBaseName: string, unused: number, lineID: number, guid: string) => void): void;
+        /**
+         *
+         * Patch added: ?
+         *
+         * @param text Text content being received in the message
+         * @param playerName Name of the player sending the message
+         * @param langName Name of the language (if applicable) of the message
+         * @param channelName Name of the channel
+         * @param playerName2 Name of the second player, if involved (used in whispers)
+         * @param specialFlags
+         * @param zoneChannelID
+         * @param channelIndex
+         * @param channelBaseName
+         * @param unused
+         * @param lineID
+         * @param guid
+         */
+        OnChatMsgCurrency(frame: WoWAPI.Frame, callback: (text: string, playerName: string, langName: string, channelName: string, playerName2: string, specialFlags: string, zoneChannelID: string, channelIndex: number, channelBaseName: string, unused: number, lineID: number, guid: string) => void): void;
+        /**
+         *
+         * Patch added: ?
+         *
+         * @param text Text content being received in the message
+         * @param playerName Name of the player sending the message
+         * @param langName Name of the language (if applicable) of the message
+         * @param channelName Name of the channel
+         * @param playerName2 Name of the second player, if involved (used in whispers)
+         * @param specialFlags
+         * @param zoneChannelID
+         * @param channelIndex
+         * @param channelBaseName
+         * @param unused
+         * @param lineID
+         * @param guid
+         */
+        OnChatMsgDnd(frame: WoWAPI.Frame, callback: (text: string, playerName: string, langName: string, channelName: string, playerName2: string, specialFlags: string, zoneChannelID: string, channelIndex: number, channelBaseName: string, unused: number, lineID: number, guid: string) => void): void;
+        /**
+         *
+         * Patch added: ?
+         *
+         * @param text Text content being received in the message
+         * @param playerName Name of the player sending the message
+         * @param langName Name of the language (if applicable) of the message
+         * @param channelName Name of the channel
+         * @param playerName2 Name of the second player, if involved (used in whispers)
+         * @param specialFlags
+         * @param zoneChannelID
+         * @param channelIndex
+         * @param channelBaseName
+         * @param unused
+         * @param lineID
+         * @param guid
+         */
+        OnChatMsgEmote(frame: WoWAPI.Frame, callback: (text: string, playerName: string, langName: string, channelName: string, playerName2: string, specialFlags: string, zoneChannelID: string, channelIndex: number, channelBaseName: string, unused: number, lineID: number, guid: string) => void): void;
+        /**
+         *
+         * Patch added: ?
+         *
+         * @param text Text content being received in the message
+         * @param playerName Name of the player sending the message
+         * @param langName Name of the language (if applicable) of the message
+         * @param channelName Name of the channel
+         * @param playerName2 Name of the second player, if involved (used in whispers)
+         * @param specialFlags
+         * @param zoneChannelID
+         * @param channelIndex
+         * @param channelBaseName
+         * @param unused
+         * @param lineID
+         * @param guid
+         */
+        OnChatMsgFiltered(frame: WoWAPI.Frame, callback: (text: string, playerName: string, langName: string, channelName: string, playerName2: string, specialFlags: string, zoneChannelID: string, channelIndex: number, channelBaseName: string, unused: number, lineID: number, guid: string) => void): void;
+        /**
+         *
+         * Patch added: ?
+         *
+         * @param text Text content being received in the message
+         * @param playerName Name of the player sending the message
+         * @param langName Name of the language (if applicable) of the message
+         * @param channelName Name of the channel
+         * @param playerName2 Name of the second player, if involved (used in whispers)
+         * @param specialFlags
+         * @param zoneChannelID
+         * @param channelIndex
+         * @param channelBaseName
+         * @param unused
+         * @param lineID
+         * @param guid
+         */
+        OnChatMsgGuild(frame: WoWAPI.Frame, callback: (text: string, playerName: string, langName: string, channelName: string, playerName2: string, specialFlags: string, zoneChannelID: string, channelIndex: number, channelBaseName: string, unused: number, lineID: number, guid: string) => void): void;
+        /**
+         *
+         * Patch added: ?
+         *
+         * @param text Text content being received in the message
+         * @param playerName Name of the player sending the message
+         * @param langName Name of the language (if applicable) of the message
+         * @param channelName Name of the channel
+         * @param playerName2 Name of the second player, if involved (used in whispers)
+         * @param specialFlags
+         * @param zoneChannelID
+         * @param channelIndex
+         * @param channelBaseName
+         * @param unused
+         * @param lineID
+         * @param guid
+         */
+        OnChatMsgGuildAchievement(frame: WoWAPI.Frame, callback: (text: string, playerName: string, langName: string, channelName: string, playerName2: string, specialFlags: string, zoneChannelID: string, channelIndex: number, channelBaseName: string, unused: number, lineID: number, guid: string) => void): void;
+        /**
+         *
+         * Patch added: ?
+         *
+         * @param text Text content being received in the message
+         * @param playerName Name of the player sending the message
+         * @param langName Name of the language (if applicable) of the message
+         * @param channelName Name of the channel
+         * @param playerName2 Name of the second player, if involved (used in whispers)
+         * @param specialFlags
+         * @param zoneChannelID
+         * @param channelIndex
+         * @param channelBaseName
+         * @param unused
+         * @param lineID
+         * @param guid
+         */
+        OnChatMsgIgnored(frame: WoWAPI.Frame, callback: (text: string, playerName: string, langName: string, channelName: string, playerName2: string, specialFlags: string, zoneChannelID: string, channelIndex: number, channelBaseName: string, unused: number, lineID: number, guid: string) => void): void;
+        /**
+         *
+         * Patch added: ?
+         *
+         * @param text Text content being received in the message
+         * @param playerName Name of the player sending the message
+         * @param langName Name of the language (if applicable) of the message
+         * @param channelName Name of the channel
+         * @param playerName2 Name of the second player, if involved (used in whispers)
+         * @param specialFlags
+         * @param zoneChannelID
+         * @param channelIndex
+         * @param channelBaseName
+         * @param unused
+         * @param lineID
+         * @param guid
+         */
+        OnChatMsgLoot(frame: WoWAPI.Frame, callback: (text: string, playerName: string, langName: string, channelName: string, playerName2: string, specialFlags: string, zoneChannelID: string, channelIndex: number, channelBaseName: string, unused: number, lineID: number, guid: string) => void): void;
+        /**
+         *
+         * Patch added: ?
+         *
+         * @param text Text content being received in the message
+         * @param playerName Name of the player sending the message
+         * @param langName Name of the language (if applicable) of the message
+         * @param channelName Name of the channel
+         * @param playerName2 Name of the second player, if involved (used in whispers)
+         * @param specialFlags
+         * @param zoneChannelID
+         * @param channelIndex
+         * @param channelBaseName
+         * @param unused
+         * @param lineID
+         * @param guid
+         */
+        OnChatMsgMoney(frame: WoWAPI.Frame, callback: (text: string, playerName: string, langName: string, channelName: string, playerName2: string, specialFlags: string, zoneChannelID: string, channelIndex: number, channelBaseName: string, unused: number, lineID: number, guid: string) => void): void;
+        /**
+         *
+         * Patch added: ?
+         *
+         * @param text Text content being received in the message
+         * @param playerName Name of the player sending the message
+         * @param langName Name of the language (if applicable) of the message
+         * @param channelName Name of the channel
+         * @param playerName2 Name of the second player, if involved (used in whispers)
+         * @param specialFlags
+         * @param zoneChannelID
+         * @param channelIndex
+         * @param channelBaseName
+         * @param unused
+         * @param lineID
+         * @param guid
+         */
+        OnChatMsgMonsterEmote(frame: WoWAPI.Frame, callback: (text: string, playerName: string, langName: string, channelName: string, playerName2: string, specialFlags: string, zoneChannelID: string, channelIndex: number, channelBaseName: string, unused: number, lineID: number, guid: string) => void): void;
+        /**
+         *
+         * Patch added: ?
+         *
+         * @param text Text content being received in the message
+         * @param playerName Name of the player sending the message
+         * @param langName Name of the language (if applicable) of the message
+         * @param channelName Name of the channel
+         * @param playerName2 Name of the second player, if involved (used in whispers)
+         * @param specialFlags
+         * @param zoneChannelID
+         * @param channelIndex
+         * @param channelBaseName
+         * @param unused
+         * @param lineID
+         * @param guid
+         */
+        OnChatMsgMonsterParty(frame: WoWAPI.Frame, callback: (text: string, playerName: string, langName: string, channelName: string, playerName2: string, specialFlags: string, zoneChannelID: string, channelIndex: number, channelBaseName: string, unused: number, lineID: number, guid: string) => void): void;
+        /**
+         *
+         * Patch added: ?
+         *
+         * @param text Text content being received in the message
+         * @param playerName Name of the player sending the message
+         * @param langName Name of the language (if applicable) of the message
+         * @param channelName Name of the channel
+         * @param playerName2 Name of the second player, if involved (used in whispers)
+         * @param specialFlags
+         * @param zoneChannelID
+         * @param channelIndex
+         * @param channelBaseName
+         * @param unused
+         * @param lineID
+         * @param guid
+         */
+        OnChatMsgMonsterSay(frame: WoWAPI.Frame, callback: (text: string, playerName: string, langName: string, channelName: string, playerName2: string, specialFlags: string, zoneChannelID: string, channelIndex: number, channelBaseName: string, unused: number, lineID: number, guid: string) => void): void;
+        /**
+         *
+         * Patch added: ?
+         *
+         * @param text Text content being received in the message
+         * @param playerName Name of the player sending the message
+         * @param langName Name of the language (if applicable) of the message
+         * @param channelName Name of the channel
+         * @param playerName2 Name of the second player, if involved (used in whispers)
+         * @param specialFlags
+         * @param zoneChannelID
+         * @param channelIndex
+         * @param channelBaseName
+         * @param unused
+         * @param lineID
+         * @param guid
+         */
+        OnChatMsgMonsterWhisper(frame: WoWAPI.Frame, callback: (text: string, playerName: string, langName: string, channelName: string, playerName2: string, specialFlags: string, zoneChannelID: string, channelIndex: number, channelBaseName: string, unused: number, lineID: number, guid: string) => void): void;
+        /**
+         *
+         * Patch added: ?
+         *
+         * @param text Text content being received in the message
+         * @param playerName Name of the player sending the message
+         * @param langName Name of the language (if applicable) of the message
+         * @param channelName Name of the channel
+         * @param playerName2 Name of the second player, if involved (used in whispers)
+         * @param specialFlags
+         * @param zoneChannelID
+         * @param channelIndex
+         * @param channelBaseName
+         * @param unused
+         * @param lineID
+         * @param guid
+         */
+        OnChatMsgMonsterYell(frame: WoWAPI.Frame, callback: (text: string, playerName: string, langName: string, channelName: string, playerName2: string, specialFlags: string, zoneChannelID: string, channelIndex: number, channelBaseName: string, unused: number, lineID: number, guid: string) => void): void;
+        /**
+         *
+         * Patch added: ?
+         *
+         * @param text Text content being received in the message
+         * @param playerName Name of the player sending the message
+         * @param langName Name of the language (if applicable) of the message
+         * @param channelName Name of the channel
+         * @param playerName2 Name of the second player, if involved (used in whispers)
+         * @param specialFlags
+         * @param zoneChannelID
+         * @param channelIndex
+         * @param channelBaseName
+         * @param unused
+         * @param lineID
+         * @param guid
+         */
+        OnChatMsgOfficer(frame: WoWAPI.Frame, callback: (text: string, playerName: string, langName: string, channelName: string, playerName2: string, specialFlags: string, zoneChannelID: string, channelIndex: number, channelBaseName: string, unused: number, lineID: number, guid: string) => void): void;
+        /**
+         *
+         * Patch added: ?
+         *
+         * @param text Text content being received in the message
+         * @param playerName Name of the player sending the message
+         * @param langName Name of the language (if applicable) of the message
+         * @param channelName Name of the channel
+         * @param playerName2 Name of the second player, if involved (used in whispers)
+         * @param specialFlags
+         * @param zoneChannelID
+         * @param channelIndex
+         * @param channelBaseName
+         * @param unused
+         * @param lineID
+         * @param guid
+         */
+        OnChatMsgOpening(frame: WoWAPI.Frame, callback: (text: string, playerName: string, langName: string, channelName: string, playerName2: string, specialFlags: string, zoneChannelID: string, channelIndex: number, channelBaseName: string, unused: number, lineID: number, guid: string) => void): void;
+        /**
+         *
+         * Patch added: ?
+         *
+         * @param text Text content being received in the message
+         * @param playerName Name of the player sending the message
+         * @param langName Name of the language (if applicable) of the message
+         * @param channelName Name of the channel
+         * @param playerName2 Name of the second player, if involved (used in whispers)
+         * @param specialFlags
+         * @param zoneChannelID
+         * @param channelIndex
+         * @param channelBaseName
+         * @param unused
+         * @param lineID
+         * @param guid
+         */
+        OnChatMsgParty(frame: WoWAPI.Frame, callback: (text: string, playerName: string, langName: string, channelName: string, playerName2: string, specialFlags: string, zoneChannelID: string, channelIndex: number, channelBaseName: string, unused: number, lineID: number, guid: string) => void): void;
+        /**
+         *
+         * Patch added: ?
+         *
+         * @param text Text content being received in the message
+         * @param playerName Name of the player sending the message
+         * @param langName Name of the language (if applicable) of the message
+         * @param channelName Name of the channel
+         * @param playerName2 Name of the second player, if involved (used in whispers)
+         * @param specialFlags
+         * @param zoneChannelID
+         * @param channelIndex
+         * @param channelBaseName
+         * @param unused
+         * @param lineID
+         * @param guid
+         */
+        OnChatMsgPartyLeader(frame: WoWAPI.Frame, callback: (text: string, playerName: string, langName: string, channelName: string, playerName2: string, specialFlags: string, zoneChannelID: string, channelIndex: number, channelBaseName: string, unused: number, lineID: number, guid: string) => void): void;
+        /**
+         *
+         * Patch added: ?
+         *
+         * @param text Text content being received in the message
+         * @param playerName Name of the player sending the message
+         * @param langName Name of the language (if applicable) of the message
+         * @param channelName Name of the channel
+         * @param playerName2 Name of the second player, if involved (used in whispers)
+         * @param specialFlags
+         * @param zoneChannelID
+         * @param channelIndex
+         * @param channelBaseName
+         * @param unused
+         * @param lineID
+         * @param guid
+         */
+        OnChatMsgPetInfo(frame: WoWAPI.Frame, callback: (text: string, playerName: string, langName: string, channelName: string, playerName2: string, specialFlags: string, zoneChannelID: string, channelIndex: number, channelBaseName: string, unused: number, lineID: number, guid: string) => void): void;
+        /**
+         *
+         * Patch added: ?
+         *
+         * @param text Text content being received in the message
+         * @param playerName Name of the player sending the message
+         * @param langName Name of the language (if applicable) of the message
+         * @param channelName Name of the channel
+         * @param playerName2 Name of the second player, if involved (used in whispers)
+         * @param specialFlags
+         * @param zoneChannelID
+         * @param channelIndex
+         * @param channelBaseName
+         * @param unused
+         * @param lineID
+         * @param guid
+         */
+        OnChatMsgRaid(frame: WoWAPI.Frame, callback: (text: string, playerName: string, langName: string, channelName: string, playerName2: string, specialFlags: string, zoneChannelID: string, channelIndex: number, channelBaseName: string, unused: number, lineID: number, guid: string) => void): void;
+        /**
+         *
+         * Patch added: ?
+         *
+         * @param text Text content being received in the message
+         * @param playerName Name of the player sending the message
+         * @param langName Name of the language (if applicable) of the message
+         * @param channelName Name of the channel
+         * @param playerName2 Name of the second player, if involved (used in whispers)
+         * @param specialFlags
+         * @param zoneChannelID
+         * @param channelIndex
+         * @param channelBaseName
+         * @param unused
+         * @param lineID
+         * @param guid
+         */
+        OnChatMsgRaidBossEmote(frame: WoWAPI.Frame, callback: (text: string, playerName: string, langName: string, channelName: string, playerName2: string, specialFlags: string, zoneChannelID: string, channelIndex: number, channelBaseName: string, unused: number, lineID: number, guid: string) => void): void;
+        /**
+         *
+         * Patch added: ?
+         *
+         * @param text Text content being received in the message
+         * @param playerName Name of the player sending the message
+         * @param langName Name of the language (if applicable) of the message
+         * @param channelName Name of the channel
+         * @param playerName2 Name of the second player, if involved (used in whispers)
+         * @param specialFlags
+         * @param zoneChannelID
+         * @param channelIndex
+         * @param channelBaseName
+         * @param unused
+         * @param lineID
+         * @param guid
+         */
+        OnChatMsgRaidBossWhisper(frame: WoWAPI.Frame, callback: (text: string, playerName: string, langName: string, channelName: string, playerName2: string, specialFlags: string, zoneChannelID: string, channelIndex: number, channelBaseName: string, unused: number, lineID: number, guid: string) => void): void;
+        /**
+         *
+         * Patch added: ?
+         *
+         * @param text Text content being received in the message
+         * @param playerName Name of the player sending the message
+         * @param langName Name of the language (if applicable) of the message
+         * @param channelName Name of the channel
+         * @param playerName2 Name of the second player, if involved (used in whispers)
+         * @param specialFlags
+         * @param zoneChannelID
+         * @param channelIndex
+         * @param channelBaseName
+         * @param unused
+         * @param lineID
+         * @param guid
+         */
+        OnChatMsgRaidLeader(frame: WoWAPI.Frame, callback: (text: string, playerName: string, langName: string, channelName: string, playerName2: string, specialFlags: string, zoneChannelID: string, channelIndex: number, channelBaseName: string, unused: number, lineID: number, guid: string) => void): void;
+        /**
+         *
+         * Patch added: ?
+         *
+         * @param text Text content being received in the message
+         * @param playerName Name of the player sending the message
+         * @param langName Name of the language (if applicable) of the message
+         * @param channelName Name of the channel
+         * @param playerName2 Name of the second player, if involved (used in whispers)
+         * @param specialFlags
+         * @param zoneChannelID
+         * @param channelIndex
+         * @param channelBaseName
+         * @param unused
+         * @param lineID
+         * @param guid
+         */
+        OnChatMsgRaidWarning(frame: WoWAPI.Frame, callback: (text: string, playerName: string, langName: string, channelName: string, playerName2: string, specialFlags: string, zoneChannelID: string, channelIndex: number, channelBaseName: string, unused: number, lineID: number, guid: string) => void): void;
+        /**
+         *
+         * Patch added: ?
+         *
+         * @param text Text content being received in the message
+         * @param playerName Name of the player sending the message
+         * @param langName Name of the language (if applicable) of the message
+         * @param channelName Name of the channel
+         * @param playerName2 Name of the second player, if involved (used in whispers)
+         * @param specialFlags
+         * @param zoneChannelID
+         * @param channelIndex
+         * @param channelBaseName
+         * @param unused
+         * @param lineID
+         * @param guid
+         */
+        OnChatMsgRestricted(frame: WoWAPI.Frame, callback: (text: string, playerName: string, langName: string, channelName: string, playerName2: string, specialFlags: string, zoneChannelID: string, channelIndex: number, channelBaseName: string, unused: number, lineID: number, guid: string) => void): void;
+        /**
+         *
+         * Patch added: ?
+         *
+         * @param text Text content being received in the message
+         * @param playerName Name of the player sending the message
+         * @param langName Name of the language (if applicable) of the message
+         * @param channelName Name of the channel
+         * @param playerName2 Name of the second player, if involved (used in whispers)
+         * @param specialFlags
+         * @param zoneChannelID
+         * @param channelIndex
+         * @param channelBaseName
+         * @param unused
+         * @param lineID
+         * @param guid
+         */
+        OnChatMsgSay(frame: WoWAPI.Frame, callback: (text: string, playerName: string, langName: string, channelName: string, playerName2: string, specialFlags: string, zoneChannelID: string, channelIndex: number, channelBaseName: string, unused: number, lineID: number, guid: string) => void): void;
+        /**
+         *
+         * Patch added: ?
+         *
+         * @param text Text content being received in the message
+         * @param playerName Name of the player sending the message
+         * @param langName Name of the language (if applicable) of the message
+         * @param channelName Name of the channel
+         * @param playerName2 Name of the second player, if involved (used in whispers)
+         * @param specialFlags
+         * @param zoneChannelID
+         * @param channelIndex
+         * @param channelBaseName
+         * @param unused
+         * @param lineID
+         * @param guid
+         */
+        OnChatMsgSkill(frame: WoWAPI.Frame, callback: (text: string, playerName: string, langName: string, channelName: string, playerName2: string, specialFlags: string, zoneChannelID: string, channelIndex: number, channelBaseName: string, unused: number, lineID: number, guid: string) => void): void;
+        /**
+         *
+         * Patch added: ?
+         *
+         * @param text Text content being received in the message
+         * @param playerName Name of the player sending the message
+         * @param langName Name of the language (if applicable) of the message
+         * @param channelName Name of the channel
+         * @param playerName2 Name of the second player, if involved (used in whispers)
+         * @param specialFlags
+         * @param zoneChannelID
+         * @param channelIndex
+         * @param channelBaseName
+         * @param unused
+         * @param lineID
+         * @param guid
+         */
+        OnChatMsgSystem(frame: WoWAPI.Frame, callback: (text: string, playerName: string, langName: string, channelName: string, playerName2: string, specialFlags: string, zoneChannelID: string, channelIndex: number, channelBaseName: string, unused: number, lineID: number, guid: string) => void): void;
+        /**
+         *
+         * Patch added: ?
+         *
+         * @param text Text content being received in the message
+         * @param playerName Name of the player sending the message
+         * @param langName Name of the language (if applicable) of the message
+         * @param channelName Name of the channel
+         * @param playerName2 Name of the second player, if involved (used in whispers)
+         * @param specialFlags
+         * @param zoneChannelID
+         * @param channelIndex
+         * @param channelBaseName
+         * @param unused
+         * @param lineID
+         * @param guid
+         */
+        OnChatMsgTargeticons(frame: WoWAPI.Frame, callback: (text: string, playerName: string, langName: string, channelName: string, playerName2: string, specialFlags: string, zoneChannelID: string, channelIndex: number, channelBaseName: string, unused: number, lineID: number, guid: string) => void): void;
+        /**
+         *
+         * Patch added: ?
+         *
+         * @param text Text content being received in the message
+         * @param playerName Name of the player sending the message
+         * @param langName Name of the language (if applicable) of the message
+         * @param channelName Name of the channel
+         * @param playerName2 Name of the second player, if involved (used in whispers)
+         * @param specialFlags
+         * @param zoneChannelID
+         * @param channelIndex
+         * @param channelBaseName
+         * @param unused
+         * @param lineID
+         * @param guid
+         */
+        OnChatMsgTextEmote(frame: WoWAPI.Frame, callback: (text: string, playerName: string, langName: string, channelName: string, playerName2: string, specialFlags: string, zoneChannelID: string, channelIndex: number, channelBaseName: string, unused: number, lineID: number, guid: string) => void): void;
+        /**
+         *
+         * Patch added: ?
+         *
+         * @param text Text content being received in the message
+         * @param playerName Name of the player sending the message
+         * @param langName Name of the language (if applicable) of the message
+         * @param channelName Name of the channel
+         * @param playerName2 Name of the second player, if involved (used in whispers)
+         * @param specialFlags
+         * @param zoneChannelID
+         * @param channelIndex
+         * @param channelBaseName
+         * @param unused
+         * @param lineID
+         * @param guid
+         */
+        OnChatMsgTradeskills(frame: WoWAPI.Frame, callback: (text: string, playerName: string, langName: string, channelName: string, playerName2: string, specialFlags: string, zoneChannelID: string, channelIndex: number, channelBaseName: string, unused: number, lineID: number, guid: string) => void): void;
+        /**
+         *
+         * Patch added: ?
+         *
+         * @param text Text content being received in the message
+         * @param playerName Name of the player sending the message
+         * @param langName Name of the language (if applicable) of the message
+         * @param channelName Name of the channel
+         * @param playerName2 Name of the second player, if involved (used in whispers)
+         * @param specialFlags
+         * @param zoneChannelID
+         * @param channelIndex
+         * @param channelBaseName
+         * @param unused
+         * @param lineID
+         * @param guid
+         */
+        OnChatMsgWhisper(frame: WoWAPI.Frame, callback: (text: string, playerName: string, langName: string, channelName: string, playerName2: string, specialFlags: string, zoneChannelID: string, channelIndex: number, channelBaseName: string, unused: number, lineID: number, guid: string) => void): void;
+        /**
+         *
+         * Patch added: ?
+         *
+         * @param text Text content being received in the message
+         * @param playerName Name of the player sending the message
+         * @param langName Name of the language (if applicable) of the message
+         * @param channelName Name of the channel
+         * @param playerName2 Name of the second player, if involved (used in whispers)
+         * @param specialFlags
+         * @param zoneChannelID
+         * @param channelIndex
+         * @param channelBaseName
+         * @param unused
+         * @param lineID
+         * @param guid
+         */
+        OnChatMsgWhisperInform(frame: WoWAPI.Frame, callback: (text: string, playerName: string, langName: string, channelName: string, playerName2: string, specialFlags: string, zoneChannelID: string, channelIndex: number, channelBaseName: string, unused: number, lineID: number, guid: string) => void): void;
+        /**
+         *
+         * Patch added: ?
+         *
+         * @param text Text content being received in the message
+         * @param playerName Name of the player sending the message
+         * @param langName Name of the language (if applicable) of the message
+         * @param channelName Name of the channel
+         * @param playerName2 Name of the second player, if involved (used in whispers)
+         * @param specialFlags
+         * @param zoneChannelID
+         * @param channelIndex
+         * @param channelBaseName
+         * @param unused
+         * @param lineID
+         * @param guid
+         */
+        OnChatMsgYell(frame: WoWAPI.Frame, callback: (text: string, playerName: string, langName: string, channelName: string, playerName2: string, specialFlags: string, zoneChannelID: string, channelIndex: number, channelBaseName: string, unused: number, lineID: number, guid: string) => void): void;
+        /**
+         *
+         * Patch added: ?
+         *
+         * @param isInitialMessage (nilable)
+         */
+        OnChatServerDisconnected(frame: WoWAPI.Frame, callback: (isInitialMessage?: boolean) => void): void;
+        /**
+         *
+         * Patch added: ?
+         *
+         * @param args
+         */
+        OnChatServerReconnected(frame: WoWAPI.Frame, callback: (...args: any[]) => void): void;
+        /**
+         *
+         * Patch added: ?
+         *
+         * @param args
+         */
+        OnClearBossEmotes(frame: WoWAPI.Frame, callback: (...args: any[]) => void): void;
+        /**
+         *
+         * Patch added: ?
+         *
+         * @param args
+         */
+        OnLanguageListChanged(frame: WoWAPI.Frame, callback: (...args: any[]) => void): void;
+        /**
+         *
+         * Patch added: ?
+         *
+         * @param text
+         * @param playerName
+         * @param displayTime
+         * @param enableBossEmoteWarningSound
+         */
+        OnRaidBossEmote(frame: WoWAPI.Frame, callback: (text: string, playerName: string, displayTime: number, enableBossEmoteWarningSound: boolean) => void): void;
+        /**
+         *
+         * Patch added: ?
+         *
+         * @param text
+         * @param playerName
+         * @param displayTime
+         * @param enableBossEmoteWarningSound
+         */
+        OnRaidBossWhisper(frame: WoWAPI.Frame, callback: (text: string, playerName: string, displayTime: number, enableBossEmoteWarningSound: boolean) => void): void;
+        /**
+         *
+         * Patch added: ?
+         *
+         * @param mapname instance name
+         * @param timeLeft seconds until reset
+         * @param locked
+         * @param extended
+         */
+        OnRaidInstanceWelcome(frame: WoWAPI.Frame, callback: (mapname: string, timeLeft: number, locked: number, extended: number) => void): void;
+        /**
+         *
+         * Patch added: ?
+         *
+         * @param name Chat type
+         * @param r red
+         * @param g green
+         * @param b blue
+         */
+        OnUpdateChatColor(frame: WoWAPI.Frame, callback: (name: string, r: number, g: number, b: number) => void): void;
+        /**
+         *
+         * Patch added: ?
+         *
+         * @param name
+         * @param colorNameByClass
+         */
+        OnUpdateChatColorNameByClass(frame: WoWAPI.Frame, callback: (name: string, colorNameByClass: boolean) => void): void;
+        /**
+         *
+         * Patch added: ?
+         *
+         * @param args
+         */
+        OnUpdateChatWindows(frame: WoWAPI.Frame, callback: (...args: any[]) => void): void;
+        /**
+         *
+         * Patch added: ?
+         *
+         * @param args
+         */
+        OnUpdateFloatingChatWindows(frame: WoWAPI.Frame, callback: (...args: any[]) => void): void;
+    };
+    Cinematic: {
+        /**
+         *
+         * Patch added: ?
+         *
+         * @param  canBeCancelled Intuitively true when a cinematic may be interrupted by the player, but comments in the FrameXML code suggest this payload is true when the cinematic is "real".&lt;ref>{{ref FrameXML|CinematicFrame.lua|4.0.1|13164|51|20101019}}&lt;/ref>
+         */
+        OnCinematicStart(frame: WoWAPI.Frame, callback: (canBeCancelled: boolean) => void): void;
+        /**
+         *
+         * Patch added: ?
+         *
+         * @param args
+         */
+        OnCinematicStop(frame: WoWAPI.Frame, callback: (...args: any[]) => void): void;
+        /**
+         *
+         * Patch added: ?
+         *
+         * @param movieID
+         */
+        OnPlayMovie(frame: WoWAPI.Frame, callback: (movieID: number) => void): void;
+    };
+    CombatLog: {
+        /**
+         * 9 base parameters from CLEU (event, source unit and dest unit)
+          *
+         ** 0-3 prefix params from CLEU (spell/environmental events)
+          *
+         ** 16 advanced parameters which require CVar {{api|t=c|advancedCombatLogging}} (added in 6.0.2) to be enabled for meaningful values.
+          *
+         ** 10 suffix params from CLEU
+          *
+         ** '''Stats''' – Those are the current stat values at the time of the log line. Secondary stats are in terms of the Rating amount, not a %.
+          *
+         ** '''Armor''' – This is the Armor amount before multipliers (such as Bear Form).
+          *
+         ** '''Talents''' – A list of the selected talents. Today’s build will print this ID as a TalentID, a record type that is not dataminable. This will be fixed in a future build to be the SpellID of the talent.
+          *
+         ** '''Artifact Traits''' – This will be a list of the selected traits for the character’s current specialization’s artifact (even if it’s not equipped). The Artifact Trait ID is an ID to a new record type to 7.0, which should be dataminable already. Trait Effective Level is the number of points placed in that talent. Note that some Relics will allow this to go beyond the max.
+          *
+         ** '''Equipment''' – This is a list of all equipped gear on the character. The first ID is the standard Item ID of the item, followed by its ilvl. After that is a list of enchants on the item, one of each of the 3 possible enchantment types (using the ItemEnchantment ID).
+          *
+         ** '''Interesting Auras''' – This is a list of interesting auras (buffs/debuffs) that we have manually flagged to be included in this log line. We’ll welcome feedback about what should be included here but currently plan for set bonuses, well fed, flasks, combat potions, Vantus runes, and player buffs. Nothing has been flagged for this yet, so you won’t see anything here in the current build.
+          *
+         ** {{Patch 8.0.1|note=COMBAT_LOG_EVENT and CLEU no longer have any payload, which is now returned by {{api|CombatLogGetCurrentEventInfo}}(). The payload itself is unchanged. &lt;ref>{{ref web|url=https://us.battle.net/forums/en/wow/topic/20762318007|author=[[Ythisens]]|date=2018-04-24 16:45|title=Combat Log Event Changes}}&lt;/ref>}}
+          *
+         **{{Patch 6.1.0|note=Additional parameters: recapID is added to UNIT_DIED; and unconsciousOnDeath is added to UNIT_DIED, UNIT_DESTROYED and UNIT_DISSIPATES.&lt;ref>{{ref FrameXML|Blizzard_CombatLog/Blizzard_CombatLog.lua|8.1.5||2684|}}&lt;/ref>}}
+          *
+         ** {{Patch 5.0.4|note=The environmental types are now a non-localized, proper-case strings instead of capitalized ones (e.g. "Falling" instead "FALLING").}}
+          *
+         ** {{Patch 4.2.0|note=Added two new parameters, [[raidFlag|sourceRaidFlags]] and [[raidFlag|destRaidFlags]], after sourceFlags and destFlags respectively.}}
+          *
+         ** {{Patch 4.1.0|note=Added hideCaster, after the event param.}}
+          *
+         ** {{Patch 2.4.0|note=Reworked to support filters and the terse format. &lt;ref>{{ref web|url=https://blue.mmo-champion.com/topic/86577-05-02-240-guide-to-the-new-combat-log/|author=[[Slouken]]|date=2008-02-05|title=2.4.0 Guide to the New Combat Log}}&lt;/ref>}}
+          *
+         ** {{Hotfix|date=2020-06-22|classic=|doc=|link=https://us.forums.blizzard.com/en/wow/t/wow-classic-hotfixes-updated-september-14/361448|note=The Combat Log is no longer restricted for dungeons and raids. The open world remains restricted to 50 yards.}}
+          *
+         ** {{Hotfix|date=2019-11-20|classic=|doc=|link=https://us.forums.blizzard.com/en/wow/t/in-game-combat-log-range-decreased/370390|note=The Combat Log is restricted to events within 50 yards of the player. (Build 32600)}}
+          *
+         ** {{Patch 1.13.2|note=The spellId and extraSpellId parameters are defunct in Classic, returning &lt;code>0&lt;/code> to resemble the pre-2.4.0 combat log.}}
+         *
+         * Patch added: ?
+         *
+         * @param args
+         */
+        OnCombatLogEvent(frame: WoWAPI.Frame, callback: (...args: any[]) => void): void;
+        /**
+         * 9 base parameters from CLEU (event, source unit and dest unit)
+          *
+         ** 0-3 prefix params from CLEU (spell/environmental events)
+          *
+         ** 16 advanced parameters which require CVar {{api|t=c|advancedCombatLogging}} (added in 6.0.2) to be enabled for meaningful values.
+          *
+         ** 10 suffix params from CLEU
+          *
+         ** '''Stats''' – Those are the current stat values at the time of the log line. Secondary stats are in terms of the Rating amount, not a %.
+          *
+         ** '''Armor''' – This is the Armor amount before multipliers (such as Bear Form).
+          *
+         ** '''Talents''' – A list of the selected talents. Today’s build will print this ID as a TalentID, a record type that is not dataminable. This will be fixed in a future build to be the SpellID of the talent.
+          *
+         ** '''Artifact Traits''' – This will be a list of the selected traits for the character’s current specialization’s artifact (even if it’s not equipped). The Artifact Trait ID is an ID to a new record type to 7.0, which should be dataminable already. Trait Effective Level is the number of points placed in that talent. Note that some Relics will allow this to go beyond the max.
+          *
+         ** '''Equipment''' – This is a list of all equipped gear on the character. The first ID is the standard Item ID of the item, followed by its ilvl. After that is a list of enchants on the item, one of each of the 3 possible enchantment types (using the ItemEnchantment ID).
+          *
+         ** '''Interesting Auras''' – This is a list of interesting auras (buffs/debuffs) that we have manually flagged to be included in this log line. We’ll welcome feedback about what should be included here but currently plan for set bonuses, well fed, flasks, combat potions, Vantus runes, and player buffs. Nothing has been flagged for this yet, so you won’t see anything here in the current build.
+          *
+         ** {{Patch 8.0.1|note=COMBAT_LOG_EVENT and CLEU no longer have any payload, which is now returned by {{api|CombatLogGetCurrentEventInfo}}(). The payload itself is unchanged. &lt;ref>{{ref web|url=https://us.battle.net/forums/en/wow/topic/20762318007|author=[[Ythisens]]|date=2018-04-24 16:45|title=Combat Log Event Changes}}&lt;/ref>}}
+          *
+         **{{Patch 6.1.0|note=Additional parameters: recapID is added to UNIT_DIED; and unconsciousOnDeath is added to UNIT_DIED, UNIT_DESTROYED and UNIT_DISSIPATES.&lt;ref>{{ref FrameXML|Blizzard_CombatLog/Blizzard_CombatLog.lua|8.1.5||2684|}}&lt;/ref>}}
+          *
+         ** {{Patch 5.0.4|note=The environmental types are now a non-localized, proper-case strings instead of capitalized ones (e.g. "Falling" instead "FALLING").}}
+          *
+         ** {{Patch 4.2.0|note=Added two new parameters, [[raidFlag|sourceRaidFlags]] and [[raidFlag|destRaidFlags]], after sourceFlags and destFlags respectively.}}
+          *
+         ** {{Patch 4.1.0|note=Added hideCaster, after the event param.}}
+          *
+         ** {{Patch 2.4.0|note=Reworked to support filters and the terse format. &lt;ref>{{ref web|url=https://blue.mmo-champion.com/topic/86577-05-02-240-guide-to-the-new-combat-log/|author=[[Slouken]]|date=2008-02-05|title=2.4.0 Guide to the New Combat Log}}&lt;/ref>}}
+          *
+         ** {{Hotfix|date=2020-06-22|classic=|doc=|link=https://us.forums.blizzard.com/en/wow/t/wow-classic-hotfixes-updated-september-14/361448|note=The Combat Log is no longer restricted for dungeons and raids. The open world remains restricted to 50 yards.}}
+          *
+         ** {{Hotfix|date=2019-11-20|classic=|doc=|link=https://us.forums.blizzard.com/en/wow/t/in-game-combat-log-range-decreased/370390|note=The Combat Log is restricted to events within 50 yards of the player. (Build 32600)}}
+          *
+         ** {{Patch 1.13.2|note=The spellId and extraSpellId parameters are defunct in Classic, returning &lt;code>0&lt;/code> to resemble the pre-2.4.0 combat log.}}
+         *
+         * Patch added: ?
+         *
+         * @param args
+         */
+        OnCombatLogEventUnfiltered(frame: WoWAPI.Frame, callback: (...args: any[]) => void): void;
+        /**
+         *
+         * Patch added: 1.12.0
+         *
+         * @param combatTextType Combat message type. Known values include
+         */
+        OnCombatTextUpdate(frame: WoWAPI.Frame, callback: (combatTextType: string) => void): void;
+    };
+    Commentator: {
+        /**
+         *
+         * Patch added: ?
+         *
+         * @param args
+         */
+        OnCommentatorEnterWorld(frame: WoWAPI.Frame, callback: (...args: any[]) => void): void;
+        /**
+         *
+         * Patch added: ?
+         *
+         * @param args
+         */
+        OnCommentatorMapUpdate(frame: WoWAPI.Frame, callback: (...args: any[]) => void): void;
+        /**
+         *
+         * Patch added: ?
+         *
+         * @param args
+         */
+        OnCommentatorPlayerUpdate(frame: WoWAPI.Frame, callback: (...args: any[]) => void): void;
+    };
+    CompactUnitFrames: {
+        /**
+         *
+         * Patch added: ?
+         *
+         * @param args
+         */
+        OnCompactUnitFrameProfilesLoaded(frame: WoWAPI.Frame, callback: (...args: any[]) => void): void;
+    };
+    Console: {
+        /**
+         *
+         * Patch added: ?
+         *
+         * @param eventName The "scriptCVar" parameter from {{api|C_CVar.SetCVar}}.
+         * @param value
+         */
+        OnCvarUpdate(frame: WoWAPI.Frame, callback: (eventName: string, value: string) => void): void;
+    };
+    Container: {
+        /**
+         *
+         * Patch added: ?
+         *
+         * @param bagID
+         */
+        OnBagClosed(frame: WoWAPI.Frame, callback: (bagID: number) => void): void;
+        /**
+         *
+         * Patch added: ?
+         *
+         * @param bagID
+         */
+        OnBagOpen(frame: WoWAPI.Frame, callback: (bagID: number) => void): void;
+        /**
+         *  Bag zero, the sixteen slot default backpack, may not fire on login. Upon login (or reloading the console) this event fires even for bank bags. When moving an item in your inventory, this fires multiple times: once each for the source and destination bag. If the bag involved is the default backpack, this event will also fire with a container ID of "-2" (twice if you are moving the item inside the same bag).
+         *
+         * Patch added: ?
+         *
+         * @param bagID
+         */
+        OnBagUpdate(frame: WoWAPI.Frame, callback: (bagID: number) => void): void;
+        /**
+         *
+         * Patch added: ?
+         *
+         * @param args
+         */
+        OnBagUpdateCooldown(frame: WoWAPI.Frame, callback: (...args: any[]) => void): void;
+        /**
+         *
+         * Patch added: ?
+         *
+         * @param args
+         */
+        OnInventorySearchUpdate(frame: WoWAPI.Frame, callback: (...args: any[]) => void): void;
+        /**
+         * Usually fires in pairs when an item is swapping with another.
+          *
+         ** Empty slots do not lock.
+          *
+         ** {{api|GetContainerItemInfo}} and {{api|IsInventoryItemLocked}} can be used to query lock status.
+          *
+         ** This does NOT fire on ammo pickups.
+         *
+         * Patch added: ?
+         *
+         * @param bagOrSlotIndex If slotIndex is nil: Equipment slot of item; otherwise bag of updated item.
+         * @param slotIndex (nilable) - Slot of updated item.
+         */
+        OnItemLockChanged(frame: WoWAPI.Frame, callback: (bagOrSlotIndex: number, slotIndex?: number) => void): void;
+        /**
+         *
+         * Patch added: ?
+         *
+         * @param bagOrSlotIndex
+         * @param slotIndex (nilable)
+         */
+        OnItemLocked(frame: WoWAPI.Frame, callback: (bagOrSlotIndex: number, slotIndex?: number) => void): void;
+        /**
+         *
+         * Patch added: ?
+         *
+         * @param bagOrSlotIndex
+         * @param slotIndex (nilable)
+         */
+        OnItemUnlocked(frame: WoWAPI.Frame, callback: (bagOrSlotIndex: number, slotIndex?: number) => void): void;
+    };
+    CurrencyInfo: {
+        /**
+         * As of Patch 5.0.5 it seems currencies are already available on {{api|t=e|PLAYER_ENTERING_WORLD}}.
+         *
+         * Patch added: ?
+         *
+         * @param currencyType (nilable)
+         * @param quantity (nilable)
+         * @param quantityChange (nilable)
+         * @param quantityGainSource (nilable)
+         * @param quantityLostSource (nilable)
+         */
+        OnCurrencyDisplayUpdate(frame: WoWAPI.Frame, callback: (currencyType?: number, quantity?: number, quantityChange?: number, quantityGainSource?: number, quantityLostSource?: number) => void): void;
+        /**
+         * To get the amount of money earned/lost, you'll need to save the return value from {{api|GetMoney}} from the last time PLAYER_MONEY fired and compare it to the new return value from GetMoney.
+          *
+         ** [[User:Egingell/PLAYER_MONEY|Egingell:PLAYER_MONEY]]
+         *
+         * Patch added: ?
+         *
+         * @param args
+         */
+        OnPlayerMoney(frame: WoWAPI.Frame, callback: (...args: any[]) => void): void;
+    };
+    Cursor: {
+        /**
+         *
+         * Patch added: ?
+         *
+         * @param args
+         */
+        OnCursorUpdate(frame: WoWAPI.Frame, callback: (...args: any[]) => void): void;
+    };
+    DeathInfo: {
+        /**
+         *
+         * Patch added: ?
+         *
+         * @param args
+         */
+        OnAreaSpiritHealerInRange(frame: WoWAPI.Frame, callback: (...args: any[]) => void): void;
+        /**
+         *
+         * Patch added: ?
+         *
+         * @param args
+         */
+        OnAreaSpiritHealerOutOfRange(frame: WoWAPI.Frame, callback: (...args: any[]) => void): void;
+        /**
+         * ''History: Way back before WoW was released, you lost experience rather than durability when you resurrected at a spirit healer.''
+          *
+         ** {{api|AcceptXPLoss}}
+          *
+         ** [https://www.townlong-yak.com/framexml/live/Blizzard_APIDocumentation#CONFIRM_XP_LOSS Blizzard API Documentation]
+         *
+         * Patch added: ?
+         *
+         * @param args
+         */
+        OnConfirmXpLoss(frame: WoWAPI.Frame, callback: (...args: any[]) => void): void;
+        /**
+         *
+         * Patch added: ?
+         *
+         * @param args
+         */
+        OnCorpseInInstance(frame: WoWAPI.Frame, callback: (...args: any[]) => void): void;
+        /**
+         *
+         * Patch added: ?
+         *
+         * @param args
+         */
+        OnCorpseInRange(frame: WoWAPI.Frame, callback: (...args: any[]) => void): void;
+        /**
+         *
+         * Patch added: ?
+         *
+         * @param args
+         */
+        OnCorpseOutOfRange(frame: WoWAPI.Frame, callback: (...args: any[]) => void): void;
+        /**
+         * Does '''not''' fire when the player is alive after being a ghost. {{api|t=e|PLAYER_UNGHOST}} is triggered in that case.
+         *
+         * Patch added: ?
+         *
+         * @param args
+         */
+        OnPlayerAlive(frame: WoWAPI.Frame, callback: (...args: any[]) => void): void;
+        /**
+         *
+         * Patch added: ?
+         *
+         * @param args
+         */
+        OnPlayerDead(frame: WoWAPI.Frame, callback: (...args: any[]) => void): void;
+        /**
+         *
+         * Patch added: ?
+         *
+         * @param hasFreeRepop
+         */
+        OnPlayerSkinned(frame: WoWAPI.Frame, callback: (hasFreeRepop: number) => void): void;
+        /**
+         * Performing a successful corpse run and the player accepts the 'Resurrect Now' box.
+          *
+         ** Accepting a resurrect from another player after releasing from a death.
+          *
+         ** Zoning into an instance where the player is dead.
+          *
+         ** When the player accept a resurrect from a Spirit Healer.
+         *
+         * Patch added: ?
+         *
+         * @param args
+         */
+        OnPlayerUnghost(frame: WoWAPI.Frame, callback: (...args: any[]) => void): void;
+        /**
+         *
+         * Patch added: ?
+         *
+         * @param isGossipTriggered
+         */
+        OnRequestCemeteryListResponse(frame: WoWAPI.Frame, callback: (isGossipTriggered: boolean) => void): void;
+        /**
+         *
+         * Patch added: ?
+         *
+         * @param inviter player name
+         */
+        OnResurrectRequest(frame: WoWAPI.Frame, callback: (inviter: string) => void): void;
+        /**
+         *
+         * Patch added: ?
+         *
+         * @param args
+         */
+        OnSelfResSpellChanged(frame: WoWAPI.Frame, callback: (...args: any[]) => void): void;
+    };
+    DuelInfo: {
+        /**
+         *
+         * Patch added: ?
+         *
+         * @param args
+         */
+        OnDuelFinished(frame: WoWAPI.Frame, callback: (...args: any[]) => void): void;
+        /**
+         *
+         * Patch added: ?
+         *
+         * @param args
+         */
+        OnDuelInbounds(frame: WoWAPI.Frame, callback: (...args: any[]) => void): void;
+        /**
+         *
+         * Patch added: ?
+         *
+         * @param args
+         */
+        OnDuelOutofbounds(frame: WoWAPI.Frame, callback: (...args: any[]) => void): void;
+        /**
+         *
+         * Patch added: ?
+         *
+         * @param playerName opponent name
+         */
+        OnDuelRequested(frame: WoWAPI.Frame, callback: (playerName: string) => void): void;
+    };
+    EncounterInfo: {
+        /**
+         *
+         * Patch added: ?
+         *
+         * @param args
+         */
+        OnDisableLowLevelRaid(frame: WoWAPI.Frame, callback: (...args: any[]) => void): void;
+        /**
+         *
+         * Patch added: ?
+         *
+         * @param args
+         */
+        OnEnableLowLevelRaid(frame: WoWAPI.Frame, callback: (...args: any[]) => void): void;
+        /**
+         *
+         * Patch added: ?
+         *
+         * @param args
+         */
+        OnInstanceLockStart(frame: WoWAPI.Frame, callback: (...args: any[]) => void): void;
+        /**
+         *
+         * Patch added: ?
+         *
+         * @param args
+         */
+        OnInstanceLockStop(frame: WoWAPI.Frame, callback: (...args: any[]) => void): void;
+        /**
+         *
+         * Patch added: ?
+         *
+         * @param args
+         */
+        OnInstanceLockWarning(frame: WoWAPI.Frame, callback: (...args: any[]) => void): void;
+        /**
+         * Does not get triggered if a mob wearing a raid target icon dies (the icon is removed from that mob, however.)
+         *
+         * Patch added: 1.11.0
+         *
+         * @param args
+         */
+        OnRaidTargetUpdate(frame: WoWAPI.Frame, callback: (...args: any[]) => void): void;
+        /**
+         *
+         * Patch added: ?
+         *
+         * @param args
+         */
+        OnUpdateInstanceInfo(frame: WoWAPI.Frame, callback: (...args: any[]) => void): void;
+    };
+    EncounterJournal: {
+        /**
+         *
+         * Patch added: ?
+         *
+         * @param itemID (nilable)
+         */
+        OnEjLootDataRecieved(frame: WoWAPI.Frame, callback: (itemID?: number) => void): void;
+    };
+    EquipmentSet: {
+        /**
+         *
+         * Patch added: ?
+         *
+         * @param args
+         */
+        OnEquipmentSetsChanged(frame: WoWAPI.Frame, callback: (...args: any[]) => void): void;
+        /**
+         *
+         * Patch added: ?
+         *
+         * @param result True if the set change was successful
+         * @param setID (nilable) - The ID of the set that was changed.
+         */
+        OnEquipmentSwapFinished(frame: WoWAPI.Frame, callback: (result: boolean, setID?: number) => void): void;
+        /**
+         *
+         * Patch added: ?
+         *
+         * @param args
+         */
+        OnEquipmentSwapPending(frame: WoWAPI.Frame, callback: (...args: any[]) => void): void;
+        /**
+         *
+         * Patch added: ?
+         *
+         * @param setID
+         */
+        OnWearEquipmentSet(frame: WoWAPI.Frame, callback: (setID: number) => void): void;
+    };
+    FriendList: {
+        /**
+         *
+         * Patch added: ?
+         *
+         * @param blockType
+         */
+        OnBnBlockFailedTooMany(frame: WoWAPI.Frame, callback: (blockType: string) => void): void;
+        /**
+         *
+         * Patch added: ?
+         *
+         * @param args
+         */
+        OnBnBlockListUpdated(frame: WoWAPI.Frame, callback: (...args: any[]) => void): void;
+        /**
+         *
+         * Patch added: ?
+         *
+         * @param senderID
+         */
+        OnBnChatWhisperUndeliverable(frame: WoWAPI.Frame, callback: (senderID: number) => void): void;
+        /**
+         *
+         * Patch added: ?
+         *
+         * @param suppressNotification
+         */
+        OnBnConnected(frame: WoWAPI.Frame, callback: (suppressNotification: boolean) => void): void;
+        /**
+         *
+         * Patch added: ?
+         *
+         * @param id (nilable)
+         */
+        OnBnCustomMessageChanged(frame: WoWAPI.Frame, callback: (id?: number) => void): void;
+        /**
+         *
+         * Patch added: ?
+         *
+         * @param args
+         */
+        OnBnCustomMessageLoaded(frame: WoWAPI.Frame, callback: (...args: any[]) => void): void;
+        /**
+         *
+         * Patch added: ?
+         *
+         * @param result
+         * @param suppressNotification
+         */
+        OnBnDisconnected(frame: WoWAPI.Frame, callback: (result: boolean, suppressNotification: boolean) => void): void;
+        /**
+         *
+         * Patch added: ?
+         *
+         * @param friendId
+         * @param isCompanionApp
+         */
+        OnBnFriendAccountOffline(frame: WoWAPI.Frame, callback: (friendId: number, isCompanionApp: boolean) => void): void;
+        /**
+         *
+         * Patch added: ?
+         *
+         * @param friendId
+         * @param isCompanionApp
+         */
+        OnBnFriendAccountOnline(frame: WoWAPI.Frame, callback: (friendId: number, isCompanionApp: boolean) => void): void;
+        /**
+         *
+         * Patch added: ?
+         *
+         * @param friendIndex (nilable)
+         */
+        OnBnFriendInfoChanged(frame: WoWAPI.Frame, callback: (friendIndex?: number) => void): void;
+        /**
+         *
+         * Patch added: ?
+         *
+         * @param accountID
+         */
+        OnBnFriendInviteAdded(frame: WoWAPI.Frame, callback: (accountID: number) => void): void;
+        /**
+         *
+         * Patch added: ?
+         *
+         * @param listSize
+         */
+        OnBnFriendInviteListInitialized(frame: WoWAPI.Frame, callback: (listSize: number) => void): void;
+        /**
+         *
+         * Patch added: ?
+         *
+         * @param args
+         */
+        OnBnFriendInviteRemoved(frame: WoWAPI.Frame, callback: (...args: any[]) => void): void;
+        /**
+         *
+         * Patch added: ?
+         *
+         * @param accountID (nilable)
+         */
+        OnBnFriendListSizeChanged(frame: WoWAPI.Frame, callback: (accountID?: number) => void): void;
+        /**
+         *
+         * Patch added: ?
+         *
+         * @param args
+         */
+        OnBnRequestFofSucceeded(frame: WoWAPI.Frame, callback: (...args: any[]) => void): void;
+        /**
+         * You log in
+          *
+         ** Open the friends window (twice)
+          *
+         ** Switch from the ignore list to the friend's list
+          *
+         ** Switch from the guild, raid, or who tab back to the friends tab (twice)
+          *
+         ** Add a friend
+          *
+         ** Remove a friend
+          *
+         ** Friend comes online
+          *
+         ** Friend goes offline
+         *
+         * Patch added: ?
+         *
+         * @param args
+         */
+        OnFriendlistUpdate(frame: WoWAPI.Frame, callback: (...args: any[]) => void): void;
+        /**
+         *
+         * Patch added: ?
+         *
+         * @param args
+         */
+        OnIgnorelistUpdate(frame: WoWAPI.Frame, callback: (...args: any[]) => void): void;
+        /**
+         *
+         * Patch added: ?
+         *
+         * @param args
+         */
+        OnMutelistUpdate(frame: WoWAPI.Frame, callback: (...args: any[]) => void): void;
+        /**
+         * Use {{api|C_FriendList.SetWhoToUi}} to manipulate this functionality. This event is only triggered if the Who panel was open at the time the Who data was received (this includes the case where the Blizzard UI opens it automatically because the return data was too big to display in the chat frame).
+         *
+         * Patch added: ?
+         *
+         * @param args
+         */
+        OnWhoListUpdate(frame: WoWAPI.Frame, callback: (...args: any[]) => void): void;
+    };
+    GMTicketInfo: {
+        /**
+         *
+         * Patch added: ?
+         *
+         * @param name
+         * @param info
+         */
+        OnGmPlayerInfo(frame: WoWAPI.Frame, callback: (name: string, info: string) => void): void;
+        /**
+         *
+         * Patch added: ?
+         *
+         * @param args
+         */
+        OnItemRestorationButtonStatus(frame: WoWAPI.Frame, callback: (...args: any[]) => void): void;
+        /**
+         *
+         * Patch added: ?
+         *
+         * @param args
+         */
+        OnPetitionClosed(frame: WoWAPI.Frame, callback: (...args: any[]) => void): void;
+        /**
+         *
+         * Patch added: ?
+         *
+         * @param args
+         */
+        OnPetitionShow(frame: WoWAPI.Frame, callback: (...args: any[]) => void): void;
+        /**
+         *
+         * Patch added: ?
+         *
+         * @param invitedByGUID
+         */
+        OnPlayerReportSubmitted(frame: WoWAPI.Frame, callback: (invitedByGUID: string) => void): void;
+        /**
+         *
+         * Patch added: ?
+         *
+         * @param args
+         */
+        OnQuickTicketSystemStatus(frame: WoWAPI.Frame, callback: (...args: any[]) => void): void;
+        /**
+         *
+         * Patch added: ?
+         *
+         * @param args
+         */
+        OnQuickTicketThrottleChanged(frame: WoWAPI.Frame, callback: (...args: any[]) => void): void;
+    };
+    GossipInfo: {
+        /**
+         *
+         * Patch added: ?
+         *
+         * @param args
+         */
+        OnGossipClosed(frame: WoWAPI.Frame, callback: (...args: any[]) => void): void;
+        /**
+         *
+         * Patch added: ?
+         *
+         * @param gossipIndex
+         * @param text
+         * @param cost
+         */
+        OnGossipConfirm(frame: WoWAPI.Frame, callback: (gossipIndex: number, text: string, cost: number) => void): void;
+        /**
+         *
+         * Patch added: ?
+         *
+         * @param args
+         */
+        OnGossipConfirmCancel(frame: WoWAPI.Frame, callback: (...args: any[]) => void): void;
+        /**
+         *
+         * Patch added: ?
+         *
+         * @param gossipIndex
+         */
+        OnGossipEnterCode(frame: WoWAPI.Frame, callback: (gossipIndex: number) => void): void;
+        /**
+         * :This event typically fires when you are given several choices, including choosing to sell item, select available and active quests, just talk about something, or bind to a location. Even when the the only available choices are quests, this event is often used instead of {{api|t=e|QUEST_GREETING}}.
+         *
+         * Patch added: ?
+         *
+         * @param args
+         */
+        OnGossipShow(frame: WoWAPI.Frame, callback: (...args: any[]) => void): void;
+    };
+    GuildBank: {
+        /**
+         *
+         * Patch added: ?
+         *
+         * @param args
+         */
+        OnGuildbankItemLockChanged(frame: WoWAPI.Frame, callback: (...args: any[]) => void): void;
+        /**
+         *
+         * Patch added: ?
+         *
+         * @param guildBankTab
+         */
+        OnGuildbankTextChanged(frame: WoWAPI.Frame, callback: (guildBankTab: number) => void): void;
+        /**
+         *
+         * Patch added: ?
+         *
+         * @param args
+         */
+        OnGuildbankUpdateMoney(frame: WoWAPI.Frame, callback: (...args: any[]) => void): void;
+        /**
+         *
+         * Patch added: ?
+         *
+         * @param args
+         */
+        OnGuildbankUpdateTabs(frame: WoWAPI.Frame, callback: (...args: any[]) => void): void;
+        /**
+         *
+         * Patch added: ?
+         *
+         * @param guildBankTab
+         */
+        OnGuildbankUpdateText(frame: WoWAPI.Frame, callback: (guildBankTab: number) => void): void;
+        /**
+         *
+         * Patch added: ?
+         *
+         * @param args
+         */
+        OnGuildbankUpdateWithdrawmoney(frame: WoWAPI.Frame, callback: (...args: any[]) => void): void;
+        /**
+         *
+         * Patch added: ?
+         *
+         * @param args
+         */
+        OnGuildbankbagslotsChanged(frame: WoWAPI.Frame, callback: (...args: any[]) => void): void;
+        /**
+         *
+         * Patch added: ?
+         *
+         * @param args
+         */
+        OnGuildbankframeClosed(frame: WoWAPI.Frame, callback: (...args: any[]) => void): void;
+        /**
+         *
+         * Patch added: ?
+         *
+         * @param args
+         */
+        OnGuildbankframeOpened(frame: WoWAPI.Frame, callback: (...args: any[]) => void): void;
+        /**
+         *
+         * Patch added: ?
+         *
+         * @param args
+         */
+        OnGuildbanklogUpdate(frame: WoWAPI.Frame, callback: (...args: any[]) => void): void;
+    };
+    GuildInfo: {
+        /**
+         *
+         * Patch added: ?
+         *
+         * @param args
+         */
+        OnCloseTabardFrame(frame: WoWAPI.Frame, callback: (...args: any[]) => void): void;
+        /**
+         *
+         * Patch added: ?
+         *
+         * @param args
+         */
+        OnDisableDeclineGuildInvite(frame: WoWAPI.Frame, callback: (...args: any[]) => void): void;
+        /**
+         *
+         * Patch added: ?
+         *
+         * @param args
+         */
+        OnEnableDeclineGuildInvite(frame: WoWAPI.Frame, callback: (...args: any[]) => void): void;
+        /**
+         *
+         * Patch added: ?
+         *
+         * @param challengeType
+         * @param currentCount
+         * @param maxCount
+         * @param goldAwarded
+         */
+        OnGuildChallengeCompleted(frame: WoWAPI.Frame, callback: (challengeType: number, currentCount: number, maxCount: number, goldAwarded: number) => void): void;
+        /**
+         *
+         * Patch added: ?
+         *
+         * @param args
+         */
+        OnGuildChallengeUpdated(frame: WoWAPI.Frame, callback: (...args: any[]) => void): void;
+        /**
+         *
+         * Patch added: ?
+         *
+         * @param args
+         */
+        OnGuildEventLogUpdate(frame: WoWAPI.Frame, callback: (...args: any[]) => void): void;
+        /**
+         *
+         * Patch added: ?
+         *
+         * @param args
+         */
+        OnGuildInviteCancel(frame: WoWAPI.Frame, callback: (...args: any[]) => void): void;
+        /**
+         *
+         * Patch added: ?
+         *
+         * @param inviter
+         * @param guildName
+         * @param guildAchievementPoints
+         * @param oldGuildName
+         * @param isNewGuild (nilable)
+         * @param tabardInfo GuildTabardInfo (nilable)
+         */
+        OnGuildInviteRequest(frame: WoWAPI.Frame, callback: (inviter: string, guildName: string, guildAchievementPoints: number, oldGuildName: string, isNewGuild?: boolean, tabardInfo?: any) => void): void;
+        /**
+         *
+         * Patch added: ?
+         *
+         * @param motdText
+         */
+        OnGuildMotd(frame: WoWAPI.Frame, callback: (motdText: string) => void): void;
+        /**
+         *
+         * Patch added: ?
+         *
+         * @param args
+         */
+        OnGuildNewsUpdate(frame: WoWAPI.Frame, callback: (...args: any[]) => void): void;
+        /**
+         *
+         * Patch added: ?
+         *
+         * @param inGuildParty
+         */
+        OnGuildPartyStateUpdated(frame: WoWAPI.Frame, callback: (inGuildParty: boolean) => void): void;
+        /**
+         *
+         * Patch added: ?
+         *
+         * @param args
+         */
+        OnGuildRanksUpdate(frame: WoWAPI.Frame, callback: (...args: any[]) => void): void;
+        /**
+         *
+         * Patch added: ?
+         *
+         * @param args
+         */
+        OnGuildRecipeKnownByMembers(frame: WoWAPI.Frame, callback: (...args: any[]) => void): void;
+        /**
+         *
+         * Patch added: ?
+         *
+         * @param args
+         */
+        OnGuildRegistrarClosed(frame: WoWAPI.Frame, callback: (...args: any[]) => void): void;
+        /**
+         *
+         * Patch added: ?
+         *
+         * @param args
+         */
+        OnGuildRegistrarShow(frame: WoWAPI.Frame, callback: (...args: any[]) => void): void;
+        /**
+         *
+         * Patch added: ?
+         *
+         * @param flagSet
+         */
+        OnGuildRenameRequired(frame: WoWAPI.Frame, callback: (flagSet: boolean) => void): void;
+        /**
+         *
+         * Patch added: ?
+         *
+         * @param args
+         */
+        OnGuildRewardsList(frame: WoWAPI.Frame, callback: (...args: any[]) => void): void;
+        /**
+         *
+         * Patch added: ?
+         *
+         * @param canRequestRosterUpdate
+         */
+        OnGuildRosterUpdate(frame: WoWAPI.Frame, callback: (canRequestRosterUpdate: boolean) => void): void;
+        /**
+         *
+         * Patch added: ?
+         *
+         * @param args
+         */
+        OnGuildTradeskillUpdate(frame: WoWAPI.Frame, callback: (...args: any[]) => void): void;
+        /**
+         *
+         * Patch added: ?
+         *
+         * @param args
+         */
+        OnGuildtabardUpdate(frame: WoWAPI.Frame, callback: (...args: any[]) => void): void;
+        /**
+         *
+         * Patch added: ?
+         *
+         * @param args
+         */
+        OnOpenTabardFrame(frame: WoWAPI.Frame, callback: (...args: any[]) => void): void;
+        /**
+         *
+         * Patch added: ?
+         *
+         * @param unitTarget
+         */
+        OnPlayerGuildUpdate(frame: WoWAPI.Frame, callback: (unitTarget: string) => void): void;
+        /**
+         *
+         * Patch added: ?
+         *
+         * @param success
+         */
+        OnRequiredGuildRenameResult(frame: WoWAPI.Frame, callback: (success: boolean) => void): void;
+        /**
+         *
+         * Patch added: ?
+         *
+         * @param args
+         */
+        OnTabardCansaveChanged(frame: WoWAPI.Frame, callback: (...args: any[]) => void): void;
+        /**
+         *
+         * Patch added: ?
+         *
+         * @param args
+         */
+        OnTabardSavePending(frame: WoWAPI.Frame, callback: (...args: any[]) => void): void;
+    };
+    InstanceEncounter: {
+        /**
+         *
+         * Patch added: ?
+         *
+         * @param args
+         */
+        OnInstanceEncounterEngageUnit(frame: WoWAPI.Frame, callback: (...args: any[]) => void): void;
+    };
+    Item: {
+        /**
+         *
+         * Patch added: ?
+         *
+         * @param args
+         */
+        OnBindEnchant(frame: WoWAPI.Frame, callback: (...args: any[]) => void): void;
+        /**
+         *
+         * Patch added: ?
+         *
+         * @param args
+         */
+        OnConfirmBeforeUse(frame: WoWAPI.Frame, callback: (...args: any[]) => void): void;
+        /**
+         *
+         * Patch added: ?
+         *
+         * @param itemName
+         * @param qualityID
+         * @param bonding
+         * @param questWarn
+         */
+        OnDeleteItemConfirm(frame: WoWAPI.Frame, callback: (itemName: string, qualityID: number, bonding: number, questWarn: number) => void): void;
+        /**
+         *
+         * Patch added: ?
+         *
+         * @param reason
+         */
+        OnEndBoundTradeable(frame: WoWAPI.Frame, callback: (reason: string) => void): void;
+        /**
+         *
+         * Patch added: ?
+         *
+         * @param  itemID The Item ID of the received item info.
+         * @param  success
+         */
+        OnGetItemInfoReceived(frame: WoWAPI.Frame, callback: (itemID: number, success: boolean) => void): void;
+        /**
+         *
+         * Patch added: ?
+         *
+         * @param existingStr enchantment
+         * @param replacementStr current enchantment
+         */
+        OnReplaceEnchant(frame: WoWAPI.Frame, callback: (existingStr: string, replacementStr: string) => void): void;
+        /**
+         *
+         * Patch added: ?
+         *
+         * @param existing new enchantment
+         * @param replacement current enchantment
+         */
+        OnTradeReplaceEnchant(frame: WoWAPI.Frame, callback: (existing: string, replacement: string) => void): void;
+        /**
+         *
+         * Patch added: ?
+         *
+         * @param args
+         */
+        OnUseBindConfirm(frame: WoWAPI.Frame, callback: (...args: any[]) => void): void;
+    };
+    ItemSocketInfo: {
+        /**
+         *
+         * Patch added: ?
+         *
+         * @param args
+         */
+        OnSocketInfoAccept(frame: WoWAPI.Frame, callback: (...args: any[]) => void): void;
+        /**
+         *
+         * Patch added: ?
+         *
+         * @param args
+         */
+        OnSocketInfoClose(frame: WoWAPI.Frame, callback: (...args: any[]) => void): void;
+        /**
+         *
+         * Patch added: ?
+         *
+         * @param args
+         */
+        OnSocketInfoSuccess(frame: WoWAPI.Frame, callback: (...args: any[]) => void): void;
+        /**
+         *
+         * Patch added: ?
+         *
+         * @param args
+         */
+        OnSocketInfoUpdate(frame: WoWAPI.Frame, callback: (...args: any[]) => void): void;
+    };
+    ItemText: {
+        /**
+         *
+         * Patch added: ?
+         *
+         * @param args
+         */
+        OnItemTextBegin(frame: WoWAPI.Frame, callback: (...args: any[]) => void): void;
+        /**
+         *
+         * Patch added: ?
+         *
+         * @param args
+         */
+        OnItemTextClosed(frame: WoWAPI.Frame, callback: (...args: any[]) => void): void;
+        /**
+         *
+         * Patch added: ?
+         *
+         * @param args
+         */
+        OnItemTextReady(frame: WoWAPI.Frame, callback: (...args: any[]) => void): void;
+        /**
+         *
+         * Patch added: ?
+         *
+         * @param delay
+         */
+        OnItemTextTranslation(frame: WoWAPI.Frame, callback: (delay: number) => void): void;
+    };
+    KeyBindings: {
+        /**
+         *
+         * Patch added: ?
+         *
+         * @param key "LSHIFT", "RSHIFT", "LCTRL", "RCTRL", "LALT", "RALT"
+         * @param down 1 for pressed, 0 for released
+         */
+        OnModifierStateChanged(frame: WoWAPI.Frame, callback: (key: string, down: number) => void): void;
+        /**
+         *
+         * Patch added: ?
+         *
+         * @param args
+         */
+        OnUpdateBindings(frame: WoWAPI.Frame, callback: (...args: any[]) => void): void;
+    };
+    KnowledgeBase: {
+        /**
+         *
+         * Patch added: ?
+         *
+         * @param args
+         */
+        OnKnowledgeBaseArticleLoadFailure(frame: WoWAPI.Frame, callback: (...args: any[]) => void): void;
+        /**
+         *
+         * Patch added: ?
+         *
+         * @param args
+         */
+        OnKnowledgeBaseArticleLoadSuccess(frame: WoWAPI.Frame, callback: (...args: any[]) => void): void;
+        /**
+         *
+         * Patch added: ?
+         *
+         * @param args
+         */
+        OnKnowledgeBaseQueryLoadFailure(frame: WoWAPI.Frame, callback: (...args: any[]) => void): void;
+        /**
+         *
+         * Patch added: ?
+         *
+         * @param args
+         */
+        OnKnowledgeBaseQueryLoadSuccess(frame: WoWAPI.Frame, callback: (...args: any[]) => void): void;
+        /**
+         *
+         * Patch added: ?
+         *
+         * @param args
+         */
+        OnKnowledgeBaseServerMessage(frame: WoWAPI.Frame, callback: (...args: any[]) => void): void;
+        /**
+         *
+         * Patch added: ?
+         *
+         * @param args
+         */
+        OnKnowledgeBaseSetupLoadFailure(frame: WoWAPI.Frame, callback: (...args: any[]) => void): void;
+        /**
+         *
+         * Patch added: ?
+         *
+         * @param args
+         */
+        OnKnowledgeBaseSetupLoadSuccess(frame: WoWAPI.Frame, callback: (...args: any[]) => void): void;
+        /**
+         *
+         * Patch added: ?
+         *
+         * @param args
+         */
+        OnKnowledgeBaseSystemMotdUpdated(frame: WoWAPI.Frame, callback: (...args: any[]) => void): void;
+    };
+    LFGInfo: {
+        /**
+         *
+         * Patch added: ?
+         *
+         * @param args
+         */
+        OnLfgBootProposalUpdate(frame: WoWAPI.Frame, callback: (...args: any[]) => void): void;
+        /**
+         *
+         * Patch added: ?
+         *
+         * @param args
+         */
+        OnLfgCompletionReward(frame: WoWAPI.Frame, callback: (...args: any[]) => void): void;
+        /**
+         *
+         * Patch added: ?
+         *
+         * @param reason
+         * @param subReason1
+         * @param subReason2
+         */
+        OnLfgInvalidErrorMessage(frame: WoWAPI.Frame, callback: (reason: number, subReason1: number, subReason2: number) => void): void;
+        /**
+         *
+         * Patch added: ?
+         *
+         * @param args
+         */
+        OnLfgLockInfoReceived(frame: WoWAPI.Frame, callback: (...args: any[]) => void): void;
+        /**
+         *
+         * Patch added: ?
+         *
+         * @param name
+         * @param LfgDungeonID|lfgDungeonsID
+         * @param typeID
+         */
+        OnLfgOfferContinue(frame: WoWAPI.Frame, callback: (name: string, lfgDungeonsID: number, typeID: number) => void): void;
+        /**
+         *
+         * Patch added: ?
+         *
+         * @param LfgDungeonID|dungeonID
+         */
+        OnLfgOpenFromGossip(frame: WoWAPI.Frame, callback: (dungeonID: number) => void): void;
+        /**
+         *
+         * Patch added: ?
+         *
+         * @param args
+         */
+        OnLfgProposalFailed(frame: WoWAPI.Frame, callback: (...args: any[]) => void): void;
+        /**
+         *
+         * Patch added: ?
+         *
+         * @param args
+         */
+        OnLfgProposalShow(frame: WoWAPI.Frame, callback: (...args: any[]) => void): void;
+        /**
+         *
+         * Patch added: ?
+         *
+         * @param args
+         */
+        OnLfgProposalSucceeded(frame: WoWAPI.Frame, callback: (...args: any[]) => void): void;
+        /**
+         *
+         * Patch added: ?
+         *
+         * @param args
+         */
+        OnLfgProposalUpdate(frame: WoWAPI.Frame, callback: (...args: any[]) => void): void;
+        /**
+         *
+         * Patch added: ?
+         *
+         * @param args
+         */
+        OnLfgQueueStatusUpdate(frame: WoWAPI.Frame, callback: (...args: any[]) => void): void;
+        /**
+         *
+         * Patch added: ?
+         *
+         * @param args
+         */
+        OnLfgRoleCheckHide(frame: WoWAPI.Frame, callback: (...args: any[]) => void): void;
+        /**
+         *
+         * Patch added: ?
+         *
+         * @param name
+         * @param isTank
+         * @param isHealer
+         * @param isDamage
+         */
+        OnLfgRoleCheckRoleChosen(frame: WoWAPI.Frame, callback: (name: string, isTank: boolean, isHealer: boolean, isDamage: boolean) => void): void;
+        /**
+         *
+         * Patch added: ?
+         *
+         * @param isRequeue
+         */
+        OnLfgRoleCheckShow(frame: WoWAPI.Frame, callback: (isRequeue: boolean) => void): void;
+        /**
+         *
+         * Patch added: ?
+         *
+         * @param args
+         */
+        OnLfgRoleCheckUpdate(frame: WoWAPI.Frame, callback: (...args: any[]) => void): void;
+        /**
+         *
+         * Patch added: ?
+         *
+         * @param args
+         */
+        OnLfgRoleUpdate(frame: WoWAPI.Frame, callback: (...args: any[]) => void): void;
+        /**
+         *
+         * Patch added: ?
+         *
+         * @param args
+         */
+        OnLfgUpdate(frame: WoWAPI.Frame, callback: (...args: any[]) => void): void;
+        /**
+         *
+         * Patch added: ?
+         *
+         * @param args
+         */
+        OnLfgUpdateRandomInfo(frame: WoWAPI.Frame, callback: (...args: any[]) => void): void;
+        /**
+         *
+         * Patch added: ?
+         *
+         * @param args
+         */
+        OnUpdateLfgList(frame: WoWAPI.Frame, callback: (...args: any[]) => void): void;
+    };
+    LFGuildInfo: {
+        /**
+         *
+         * Patch added: ?
+         *
+         * @param args
+         */
+        OnLfGuildBrowseUpdated(frame: WoWAPI.Frame, callback: (...args: any[]) => void): void;
+        /**
+         *
+         * Patch added: ?
+         *
+         * @param args
+         */
+        OnLfGuildMembershipListChanged(frame: WoWAPI.Frame, callback: (...args: any[]) => void): void;
+        /**
+         *
+         * Patch added: ?
+         *
+         * @param numApplicationsRemaining
+         */
+        OnLfGuildMembershipListUpdated(frame: WoWAPI.Frame, callback: (numApplicationsRemaining: number) => void): void;
+        /**
+         *
+         * Patch added: ?
+         *
+         * @param args
+         */
+        OnLfGuildPostUpdated(frame: WoWAPI.Frame, callback: (...args: any[]) => void): void;
+        /**
+         *
+         * Patch added: ?
+         *
+         * @param args
+         */
+        OnLfGuildRecruitListChanged(frame: WoWAPI.Frame, callback: (...args: any[]) => void): void;
+        /**
+         *
+         * Patch added: ?
+         *
+         * @param args
+         */
+        OnLfGuildRecruitsUpdated(frame: WoWAPI.Frame, callback: (...args: any[]) => void): void;
+    };
+    Loot: {
+        /**
+         *
+         * Patch added: ?
+         *
+         * @param rollID
+         */
+        OnCancelLootRoll(frame: WoWAPI.Frame, callback: (rollID: number) => void): void;
+        /**
+         *
+         * Patch added: ?
+         *
+         * @param rollID
+         * @param rollType 1=Need, 2=Greed, 3=Disenchant
+         */
+        OnConfirmDisenchantRoll(frame: WoWAPI.Frame, callback: (rollID: number, rollType: number) => void): void;
+        /**
+         *
+         * Patch added: ?
+         *
+         * @param rollID
+         * @param rollType 1=Need, 2=Greed, 3=Disenchant
+         * @param confirmReason
+         */
+        OnConfirmLootRoll(frame: WoWAPI.Frame, callback: (rollID: number, rollType: number, confirmReason: string) => void): void;
+        /**
+         *
+         * Patch added: ?
+         *
+         * @param bagSlot the bag that has received the new item
+         * @param iconFileID the [[FileID]] of the item's icon
+         */
+        OnItemPush(frame: WoWAPI.Frame, callback: (bagSlot: number, iconFileID: number) => void): void;
+        /**
+         *
+         * Patch added: ?
+         *
+         * @param lootSlot
+         */
+        OnLootBindConfirm(frame: WoWAPI.Frame, callback: (lootSlot: number) => void): void;
+        /**
+         *
+         * Patch added: ?
+         *
+         * @param args
+         */
+        OnLootClosed(frame: WoWAPI.Frame, callback: (...args: any[]) => void): void;
+        /**
+         *
+         * Patch added: ?
+         *
+         * @param autoLoot Equal to [[CVar_autoLootDefault|autoLootDefault]].
+         * @param isFromItem
+         */
+        OnLootOpened(frame: WoWAPI.Frame, callback: (autoLoot: boolean, isFromItem: boolean) => void): void;
+        /**
+         *
+         * Patch added: ?
+         *
+         * @param lootSlot
+         */
+        OnLootSlotChanged(frame: WoWAPI.Frame, callback: (lootSlot: number) => void): void;
+        /**
+         *
+         * Patch added: ?
+         *
+         * @param lootSlot
+         */
+        OnLootSlotCleared(frame: WoWAPI.Frame, callback: (lootSlot: number) => void): void;
+        /**
+         *
+         * Patch added: ?
+         *
+         * @param args
+         */
+        OnOpenMasterLootList(frame: WoWAPI.Frame, callback: (...args: any[]) => void): void;
+        /**
+         *
+         * Patch added: ?
+         *
+         * @param rollID
+         * @param rollTime
+         * @param lootHandle (nilable)
+         */
+        OnStartLootRoll(frame: WoWAPI.Frame, callback: (rollID: number, rollTime: number, lootHandle?: number) => void): void;
+        /**
+         *
+         * Patch added: ?
+         *
+         * @param args
+         */
+        OnTrialCapReachedMoney(frame: WoWAPI.Frame, callback: (...args: any[]) => void): void;
+        /**
+         *
+         * Patch added: ?
+         *
+         * @param args
+         */
+        OnUpdateMasterLootList(frame: WoWAPI.Frame, callback: (...args: any[]) => void): void;
+    };
+    LossOfControl: {
+        /**
+         *
+         * Patch added: ?
+         *
+         * @param args
+         */
+        OnPlayerControlGained(frame: WoWAPI.Frame, callback: (...args: any[]) => void): void;
+        /**
+         *
+         * Patch added: ?
+         *
+         * @param args
+         */
+        OnPlayerControlLost(frame: WoWAPI.Frame, callback: (...args: any[]) => void): void;
+    };
+    Macro: {
+        /**
+         *
+         * Patch added: ?
+         *
+         * @param chatLine The macro text body to execute.
+         */
+        OnExecuteChatLine(frame: WoWAPI.Frame, callback: (chatLine: string) => void): void;
+        /**
+         *
+         * Patch added: ?
+         *
+         * @param args
+         */
+        OnUpdateMacros(frame: WoWAPI.Frame, callback: (...args: any[]) => void): void;
+    };
+    Mail: {
+        /**
+         *
+         * Patch added: ?
+         *
+         * @param mailIndex
+         */
+        OnCloseInboxItem(frame: WoWAPI.Frame, callback: (mailIndex: number) => void): void;
+        /**
+         *
+         * Patch added: ?
+         *
+         * @param args
+         */
+        OnMailClosed(frame: WoWAPI.Frame, callback: (...args: any[]) => void): void;
+        /**
+         *
+         * Patch added: ?
+         *
+         * @param itemID (nilable)
+         */
+        OnMailFailed(frame: WoWAPI.Frame, callback: (itemID?: number) => void): void;
+        /**
+         * Fires when the inbox list is loaded while the frame is open
+          *
+         ** Fires when mail item changes from new to read
+          *
+         ** Fires when mail item is opened for the first time in a session
+         *
+         * Patch added: ?
+         *
+         * @param args
+         */
+        OnMailInboxUpdate(frame: WoWAPI.Frame, callback: (...args: any[]) => void): void;
+        /**
+         *
+         * Patch added: ?
+         *
+         * @param attachSlot Mail Slot
+         * @param itemLink
+         */
+        OnMailLockSendItems(frame: WoWAPI.Frame, callback: (attachSlot: number, itemLink: string) => void): void;
+        /**
+         *
+         * Patch added: ?
+         *
+         * @param args
+         */
+        OnMailSendInfoUpdate(frame: WoWAPI.Frame, callback: (...args: any[]) => void): void;
+        /**
+         *
+         * Patch added: ?
+         *
+         * @param args
+         */
+        OnMailSendSuccess(frame: WoWAPI.Frame, callback: (...args: any[]) => void): void;
+        /**
+         *
+         * Patch added: ?
+         *
+         * @param args
+         */
+        OnMailShow(frame: WoWAPI.Frame, callback: (...args: any[]) => void): void;
+        /**
+         *
+         * Patch added: ?
+         *
+         * @param itemID (nilable)
+         */
+        OnMailSuccess(frame: WoWAPI.Frame, callback: (itemID?: number) => void): void;
+        /**
+         *
+         * Patch added: ?
+         *
+         * @param args
+         */
+        OnMailUnlockSendItems(frame: WoWAPI.Frame, callback: (...args: any[]) => void): void;
+        /**
+         *
+         * Patch added: ?
+         *
+         * @param args
+         */
+        OnSendMailCodChanged(frame: WoWAPI.Frame, callback: (...args: any[]) => void): void;
+        /**
+         *
+         * Patch added: ?
+         *
+         * @param args
+         */
+        OnSendMailMoneyChanged(frame: WoWAPI.Frame, callback: (...args: any[]) => void): void;
+        /**
+         * Fired when the player enters the world and enters/leaves an instance, if there is mail in the player's mailbox.
+          *
+         ** Fired when new mail is received.
+          *
+         ** Fired when mailbox window is closed if the number of mail items in the inbox changed (I.E. you deleted mail)
+          *
+         ** Does not appear to trigger when auction outbid mail is received... may not in other cases as well
+         *
+         * Patch added: ?
+         *
+         * @param args
+         */
+        OnUpdatePendingMail(frame: WoWAPI.Frame, callback: (...args: any[]) => void): void;
+    };
+    Map: {
+        /**
+         *
+         * Patch added: ?
+         *
+         * @param args
+         */
+        OnZoneChanged(frame: WoWAPI.Frame, callback: (...args: any[]) => void): void;
+        /**
+         *
+         * Patch added: ?
+         *
+         * @param args
+         */
+        OnZoneChangedIndoors(frame: WoWAPI.Frame, callback: (...args: any[]) => void): void;
+        /**
+         * When this event fires, the UI may still think you're in the zone you just left. Don't depend on {{api|GetRealZoneText}} and similar functions to report the new zone in reaction to ZONE_CHANGED_NEW_AREA. (untested for similar events)
+         *
+         * Patch added: ?
+         *
+         * @param args
+         */
+        OnZoneChangedNewArea(frame: WoWAPI.Frame, callback: (...args: any[]) => void): void;
+    };
+    MerchantFrame: {
+        /**
+         *
+         * Patch added: ?
+         *
+         * @param args
+         */
+        OnMerchantClosed(frame: WoWAPI.Frame, callback: (...args: any[]) => void): void;
+        /**
+         *
+         * Patch added: ?
+         *
+         * @param args
+         */
+        OnMerchantShow(frame: WoWAPI.Frame, callback: (...args: any[]) => void): void;
+        /**
+         *
+         * Patch added: ?
+         *
+         * @param args
+         */
+        OnMerchantUpdate(frame: WoWAPI.Frame, callback: (...args: any[]) => void): void;
+    };
+    Minimap: {
+        /**
+         *
+         * Patch added: ?
+         *
+         * @param unitTarget Unit that created the ping (i.e. "player" or any of the group members)
+         * @param y
+         * @param x
+         */
+        OnMinimapPing(frame: WoWAPI.Frame, callback: (unitTarget: string, y: number, x: number) => void): void;
+        /**
+         *
+         * Patch added: ?
+         *
+         * @param args
+         */
+        OnMinimapUpdateTracking(frame: WoWAPI.Frame, callback: (...args: any[]) => void): void;
+        /**
+         * This event does not relate to the '''+''' and '''-''' minimap zoom buttons.
+         *
+         * Patch added: ?
+         *
+         * @param args
+         */
+        OnMinimapUpdateZoom(frame: WoWAPI.Frame, callback: (...args: any[]) => void): void;
+    };
+    PaperDollInfo: {
+        /**
+         *
+         * Patch added: ?
+         *
+         * @param change indicates number of talent points changed.
+         */
+        OnCharacterPointsChanged(frame: WoWAPI.Frame, callback: (change: number) => void): void;
+        /**
+         *
+         * Patch added: ?
+         *
+         * @param args
+         */
+        OnCombatRatingUpdate(frame: WoWAPI.Frame, callback: (...args: any[]) => void): void;
+        /**
+         *
+         * Patch added: ?
+         *
+         * @param args
+         */
+        OnDisableXpGain(frame: WoWAPI.Frame, callback: (...args: any[]) => void): void;
+        /**
+         *
+         * Patch added: ?
+         *
+         * @param args
+         */
+        OnEnableXpGain(frame: WoWAPI.Frame, callback: (...args: any[]) => void): void;
+        /**
+         *
+         * Patch added: ?
+         *
+         * @param slot
+         */
+        OnEquipBindConfirm(frame: WoWAPI.Frame, callback: (slot: number) => void): void;
+        /**
+         *
+         * Patch added: ?
+         *
+         * @param args
+         */
+        OnInspectHonorUpdate(frame: WoWAPI.Frame, callback: (...args: any[]) => void): void;
+        /**
+         *
+         * Patch added: ?
+         *
+         * @param inspecteeGUID [[GUID]]
+         */
+        OnInspectReady(frame: WoWAPI.Frame, callback: (inspecteeGUID: string) => void): void;
+        /**
+         *
+         * Patch added: ?
+         *
+         * @param args
+         */
+        OnMasteryUpdate(frame: WoWAPI.Frame, callback: (...args: any[]) => void): void;
+        /**
+         *
+         * Patch added: ?
+         *
+         * @param args
+         */
+        OnPetSpellPowerUpdate(frame: WoWAPI.Frame, callback: (...args: any[]) => void): void;
+        /**
+         *
+         * Patch added: ?
+         *
+         * @param equipmentSlot [[InventorySlotId]]
+         * @param hasCurrent true for an item or false for emptied
+         */
+        OnPlayerEquipmentChanged(frame: WoWAPI.Frame, callback: (equipmentSlot: number, hasCurrent: boolean) => void): void;
+        /**
+         *
+         * Patch added: ?
+         *
+         * @param args
+         */
+        OnUpdateFaction(frame: WoWAPI.Frame, callback: (...args: any[]) => void): void;
+        /**
+         *
+         * Patch added: ?
+         *
+         * @param args
+         */
+        OnUpdateInventoryAlerts(frame: WoWAPI.Frame, callback: (...args: any[]) => void): void;
+        /**
+         *
+         * Patch added: ?
+         *
+         * @param args
+         */
+        OnUpdateInventoryDurability(frame: WoWAPI.Frame, callback: (...args: any[]) => void): void;
+    };
+    PartyInfo: {
+        /**
+         *
+         * Patch added: ?
+         *
+         * @param args
+         */
+        OnEnteredDifferentInstanceFromParty(frame: WoWAPI.Frame, callback: (...args: any[]) => void): void;
+        /**
+         *
+         * Patch added: ?
+         *
+         * @param args
+         */
+        OnInstanceBootStart(frame: WoWAPI.Frame, callback: (...args: any[]) => void): void;
+        /**
+         *
+         * Patch added: ?
+         *
+         * @param args
+         */
+        OnInstanceBootStop(frame: WoWAPI.Frame, callback: (...args: any[]) => void): void;
+        /**
+         *
+         * Patch added: ?
+         *
+         * @param args
+         */
+        OnPartyInviteCancel(frame: WoWAPI.Frame, callback: (...args: any[]) => void): void;
+        /**
+         *
+         * Patch added: ?
+         *
+         * @param name player that invited you.
+         * @param isTank
+         * @param isHealer
+         * @param isDamage
+         * @param isNativeRealm invite is cross realm (boolean)
+         * @param allowMultipleRoles
+         * @param inviterGUID
+         * @param isQuestSessionActive
+         */
+        OnPartyInviteRequest(frame: WoWAPI.Frame, callback: (name: string, isTank: boolean, isHealer: boolean, isDamage: boolean, isNativeRealm: boolean, allowMultipleRoles: boolean, inviterGUID: string, isQuestSessionActive: boolean) => void): void;
+        /**
+         *
+         * Patch added: ?
+         *
+         * @param args
+         */
+        OnPartyLeaderChanged(frame: WoWAPI.Frame, callback: (...args: any[]) => void): void;
+        /**
+         *
+         * Patch added: ?
+         *
+         * @param args
+         */
+        OnPartyLfgRestricted(frame: WoWAPI.Frame, callback: (...args: any[]) => void): void;
+        /**
+         *
+         * Patch added: ?
+         *
+         * @param args
+         */
+        OnPartyLootMethodChanged(frame: WoWAPI.Frame, callback: (...args: any[]) => void): void;
+        /**
+         *
+         * Patch added: ?
+         *
+         * @param unitTarget
+         */
+        OnPartyMemberDisable(frame: WoWAPI.Frame, callback: (unitTarget: string) => void): void;
+        /**
+         *
+         * Patch added: ?
+         *
+         * @param unitTarget
+         */
+        OnPartyMemberEnable(frame: WoWAPI.Frame, callback: (unitTarget: string) => void): void;
+        /**
+         *
+         * Patch added: ?
+         *
+         * @param args
+         */
+        OnPlayerDifficultyChanged(frame: WoWAPI.Frame, callback: (...args: any[]) => void): void;
+        /**
+         *
+         * Patch added: ?
+         *
+         * @param args
+         */
+        OnPlayerRolesAssigned(frame: WoWAPI.Frame, callback: (...args: any[]) => void): void;
+        /**
+         *
+         * Patch added: ?
+         *
+         * @param args
+         */
+        OnRaidRosterUpdate(frame: WoWAPI.Frame, callback: (...args: any[]) => void): void;
+        /**
+         *
+         * Patch added: 1.11.0
+         *
+         * @param initiatorName
+         * @param readyCheckTimeLeft Time before automatic check completion in seconds (usually 30).
+         */
+        OnReadyCheck(frame: WoWAPI.Frame, callback: (initiatorName: string, readyCheckTimeLeft: number) => void): void;
+        /**
+         *
+         * Patch added: ?
+         *
+         * @param unitTarget [[UnitId]] (raid1, party1). Fires twice if the confirming player is in your raid sub-group.
+         * @param isReady
+         */
+        OnReadyCheckConfirm(frame: WoWAPI.Frame, callback: (unitTarget: string, isReady: boolean) => void): void;
+        /**
+         *
+         * Patch added: ?
+         *
+         * @param preempted
+         */
+        OnReadyCheckFinished(frame: WoWAPI.Frame, callback: (preempted: boolean) => void): void;
+        /**
+         *
+         * Patch added: ?
+         *
+         * @param changedName player name
+         * @param fromName source of change
+         * @param oldRole previous role
+         * @param newRole new role
+         */
+        OnRoleChangedInform(frame: WoWAPI.Frame, callback: (changedName: string, fromName: string, oldRole: string, newRole: string) => void): void;
+        /**
+         *
+         * Patch added: ?
+         *
+         * @param fromName
+         */
+        OnRolePollBegin(frame: WoWAPI.Frame, callback: (fromName: string) => void): void;
+        /**
+         *
+         * Patch added: ?
+         *
+         * @param name Name of the player you wanted to initiate a kick vote for.
+         * @param resultGUID
+         */
+        OnVoteKickReasonNeeded(frame: WoWAPI.Frame, callback: (name: string, resultGUID: string) => void): void;
+    };
+    PetInfo: {
+        /**
+         *
+         * Patch added: ?
+         *
+         * @param args
+         */
+        OnPetAttackStart(frame: WoWAPI.Frame, callback: (...args: any[]) => void): void;
+        /**
+         *
+         * Patch added: ?
+         *
+         * @param args
+         */
+        OnPetAttackStop(frame: WoWAPI.Frame, callback: (...args: any[]) => void): void;
+        /**
+         *
+         * Patch added: ?
+         *
+         * @param args
+         */
+        OnPetBarHidegrid(frame: WoWAPI.Frame, callback: (...args: any[]) => void): void;
+        /**
+         *
+         * Patch added: ?
+         *
+         * @param args
+         */
+        OnPetBarShowgrid(frame: WoWAPI.Frame, callback: (...args: any[]) => void): void;
+        /**
+         *
+         * Patch added: ?
+         *
+         * @param args
+         */
+        OnPetBarUpdateCooldown(frame: WoWAPI.Frame, callback: (...args: any[]) => void): void;
+        /**
+         *
+         * Patch added: ?
+         *
+         * @param delay
+         */
+        OnPetDismissStart(frame: WoWAPI.Frame, callback: (delay: number) => void): void;
+        /**
+         *
+         * Patch added: ?
+         *
+         * @param name
+         * @param declinedName1 (nilable)
+         * @param declinedName2 (nilable)
+         * @param declinedName3 (nilable)
+         * @param declinedName4 (nilable)
+         * @param declinedName5 (nilable)
+         */
+        OnPetForceNameDeclension(frame: WoWAPI.Frame, callback: (name: string, declinedName1?: string, declinedName2?: string, declinedName3?: string, declinedName4?: string, declinedName5?: string) => void): void;
+        /**
+         *
+         * Patch added: ?
+         *
+         * @param args
+         */
+        OnPetUiClose(frame: WoWAPI.Frame, callback: (...args: any[]) => void): void;
+        /**
+         *
+         * Patch added: ?
+         *
+         * @param args
+         */
+        OnRaisedAsGhoul(frame: WoWAPI.Frame, callback: (...args: any[]) => void): void;
+    };
+    PetJournal: {
+        /**
+         *
+         * Patch added: ?
+         *
+         * @param args
+         */
+        OnCompanionLearned(frame: WoWAPI.Frame, callback: (...args: any[]) => void): void;
+        /**
+         *
+         * Patch added: ?
+         *
+         * @param args
+         */
+        OnCompanionUnlearned(frame: WoWAPI.Frame, callback: (...args: any[]) => void): void;
+        /**
+         * If the type is nil, the UI should update if it's visible, regardless of which type it's managing. If the type is non-nil, then it will be either "CRITTER" or "MOUNT" and that signifies that the active companion has changed and the UI should update if it's currently showing that type.
+          *
+         ** "Range" appears to be at least 40 yards.  If you are in a major city, expect this event to fire constantly.
+          *
+         ** You, or anyone within range, summons or dismisses a critter
+          *
+         ** You, or anyone within range, mounts or dismounts
+          *
+         ** Someone enters range with a critter summoned
+          *
+         ** Someone enters range while mounted
+         *
+         * Patch added: ?
+         *
+         * @param companionType (nilable)
+         */
+        OnCompanionUpdate(frame: WoWAPI.Frame, callback: (companionType?: string) => void): void;
+    };
+    PvP: {
+        /**
+         *
+         * Patch added: ?
+         *
+         * @param unitToken
+         * @param updateReason
+         */
+        OnArenaOpponentUpdate(frame: WoWAPI.Frame, callback: (unitToken: string, updateReason: string) => void): void;
+        /**
+         *
+         * Patch added: ?
+         *
+         * @param args
+         */
+        OnArenaSeasonWorldState(frame: WoWAPI.Frame, callback: (...args: any[]) => void): void;
+        /**
+         *
+         * Patch added: ?
+         *
+         * @param args
+         */
+        OnBattlefieldQueueTimeout(frame: WoWAPI.Frame, callback: (...args: any[]) => void): void;
+        /**
+         *
+         * Patch added: ?
+         *
+         * @param args
+         */
+        OnBattlefieldsClosed(frame: WoWAPI.Frame, callback: (...args: any[]) => void): void;
+        /**
+         *
+         * Patch added: ?
+         *
+         * @param isArena (nilable)
+         * @param battleMasterListID (nilable)
+         */
+        OnBattlefieldsShow(frame: WoWAPI.Frame, callback: (isArena?: boolean, battleMasterListID?: number) => void): void;
+        /**
+         *
+         * Patch added: ?
+         *
+         * @param args
+         */
+        OnPlayerEnteringBattleground(frame: WoWAPI.Frame, callback: (...args: any[]) => void): void;
+        /**
+         *
+         * Patch added: ?
+         *
+         * @param args
+         */
+        OnPvpRatedStatsUpdate(frame: WoWAPI.Frame, callback: (...args: any[]) => void): void;
+        /**
+         *
+         * Patch added: ?
+         *
+         * @param args
+         */
+        OnPvpRewardsUpdate(frame: WoWAPI.Frame, callback: (...args: any[]) => void): void;
+        /**
+         *
+         * Patch added: ?
+         *
+         * @param wargameBattlegrounds
+         * @param ratedBattlegrounds
+         * @param ratedArenas
+         */
+        OnPvpTypesEnabled(frame: WoWAPI.Frame, callback: (wargameBattlegrounds: boolean, ratedBattlegrounds: boolean, ratedArenas: boolean) => void): void;
+        /**
+         *
+         * Patch added: ?
+         *
+         * @param args
+         */
+        OnPvpqueueAnywhereShow(frame: WoWAPI.Frame, callback: (...args: any[]) => void): void;
+        /**
+         *
+         * Patch added: ?
+         *
+         * @param args
+         */
+        OnPvpqueueAnywhereUpdateAvailable(frame: WoWAPI.Frame, callback: (...args: any[]) => void): void;
+        /**
+         *
+         * Patch added: ?
+         *
+         * @param args
+         */
+        OnUpdateBattlefieldScore(frame: WoWAPI.Frame, callback: (...args: any[]) => void): void;
+        /**
+         *
+         * Patch added: ?
+         *
+         * @param battleFieldIndex
+         */
+        OnUpdateBattlefieldStatus(frame: WoWAPI.Frame, callback: (battleFieldIndex: number) => void): void;
+        /**
+         *
+         * Patch added: ?
+         *
+         * @param opposingPartyMemberName
+         * @param battlegroundName
+         * @param timeoutSeconds
+         * @param tournamentRules
+         */
+        OnWargameRequested(frame: WoWAPI.Frame, callback: (opposingPartyMemberName: string, battlegroundName: string, timeoutSeconds: number, tournamentRules: boolean) => void): void;
+    };
+    QuestLog: {
+        /**
+         *
+         * Patch added: ?
+         *
+         * @param args
+         */
+        OnQuestAccepted(frame: WoWAPI.Frame, callback: (...args: any[]) => void): void;
+        /**
+         *
+         * Patch added: ?
+         *
+         * @param questId
+         */
+        OnQuestAutocomplete(frame: WoWAPI.Frame, callback: (questId: number) => void): void;
+        /**
+         *
+         * Patch added: ?
+         *
+         * @param args
+         */
+        OnQuestComplete(frame: WoWAPI.Frame, callback: (...args: any[]) => void): void;
+        /**
+         *
+         * Patch added: ?
+         *
+         * @param questStartItemID (nilable) - The ItemID of the item which begins the quest displayed in the quest detail view.
+         */
+        OnQuestDetail(frame: WoWAPI.Frame, callback: (questStartItemID?: number) => void): void;
+        /**
+         * viewing a quest for the first time in a session in the Quest Log
+          *
+         ** every time the player changes zones across an instance boundary
+          *
+         ** every time the player picks up a non-grey item; every time after the player completes a quest goal, such as killing a mob for a ques
+          *
+         ** It also fires whenever the player (or addon using the {{api|t=e|CollapseQuestHeader}} or {{api|t=e|ExpandQuestHeader}} functions) collapses or expands any zone header in the quest log.
+         *
+         * Patch added: ?
+         *
+         * @param args
+         */
+        OnQuestLogUpdate(frame: WoWAPI.Frame, callback: (...args: any[]) => void): void;
+        /**
+         *
+         * Patch added: ?
+         *
+         * @param args
+         */
+        OnQuestPoiUpdate(frame: WoWAPI.Frame, callback: (...args: any[]) => void): void;
+        /**
+         *
+         * Patch added: ?
+         *
+         * @param args
+         */
+        OnQuestWatchUpdate(frame: WoWAPI.Frame, callback: (...args: any[]) => void): void;
+    };
+    QuestOffer: {
+        /**
+         *
+         * Patch added: ?
+         *
+         * @param name Name of player who is starting escort quest.
+         * @param questTitle Title of escort quest.  Eg. "Protecting the Shipment"
+         */
+        OnQuestAcceptConfirm(frame: WoWAPI.Frame, callback: (name: string, questTitle: string) => void): void;
+        /**
+         *
+         * Patch added: ?
+         *
+         * @param args
+         */
+        OnQuestFinished(frame: WoWAPI.Frame, callback: (...args: any[]) => void): void;
+        /**
+         *
+         * Patch added: ?
+         *
+         * @param args
+         */
+        OnQuestGreeting(frame: WoWAPI.Frame, callback: (...args: any[]) => void): void;
+        /**
+         *
+         * Patch added: ?
+         *
+         * @param args
+         */
+        OnQuestItemUpdate(frame: WoWAPI.Frame, callback: (...args: any[]) => void): void;
+        /**
+         *
+         * Patch added: ?
+         *
+         * @param args
+         */
+        OnQuestProgress(frame: WoWAPI.Frame, callback: (...args: any[]) => void): void;
+    };
+    ResearchInfo: {
+        /**
+         *
+         * Patch added: ?
+         *
+         * @param args
+         */
+        OnArchaeologyClosed(frame: WoWAPI.Frame, callback: (...args: any[]) => void): void;
+        /**
+         *
+         * Patch added: ?
+         *
+         * @param args
+         */
+        OnArchaeologyToggle(frame: WoWAPI.Frame, callback: (...args: any[]) => void): void;
+        /**
+         *
+         * Patch added: ?
+         *
+         * @param name The name of the completed artifact.
+         */
+        OnResearchArtifactComplete(frame: WoWAPI.Frame, callback: (name: string) => void): void;
+        /**
+         *
+         * Patch added: ?
+         *
+         * @param args
+         */
+        OnResearchArtifactDigSiteUpdated(frame: WoWAPI.Frame, callback: (...args: any[]) => void): void;
+        /**
+         *
+         * Patch added: ?
+         *
+         * @param args
+         */
+        OnResearchArtifactHistoryReady(frame: WoWAPI.Frame, callback: (...args: any[]) => void): void;
+    };
+    RestrictedActions: {
+        /**
+         *
+         * Patch added: ?
+         *
+         * @param isTainted
+         * @param func
+         */
+        OnAddonActionBlocked(frame: WoWAPI.Frame, callback: (isTainted: string, func: string) => void): void;
+        /**
+         *
+         * Patch added: ?
+         *
+         * @param isTainted Name of the AddOn that was last involved in the execution path. It's very possible that the name will not be the name of the addon that tried to call the protected function.
+         * @param func The protected function that was called.
+         */
+        OnAddonActionForbidden(frame: WoWAPI.Frame, callback: (isTainted: string, func: string) => void): void;
+        /**
+         *
+         * Patch added: ?
+         *
+         * @param func
+         */
+        OnMacroActionBlocked(frame: WoWAPI.Frame, callback: (func: string) => void): void;
+        /**
+         *
+         * Patch added: ?
+         *
+         * @param func The name of the forbidden function, e.g. "ToggleRun()"
+         */
+        OnMacroActionForbidden(frame: WoWAPI.Frame, callback: (func: string) => void): void;
+    };
+    SkillInfo: {
+        /**
+         * Using [[API Frame RegisterUnitEvent|Frame:RegisterUnitEvent]] to register for this event does not appear to work.
+         *
+         * Patch added: ?
+         *
+         * @param args
+         */
+        OnSkillLinesChanged(frame: WoWAPI.Frame, callback: (...args: any[]) => void): void;
+    };
+    Sound: {
+        /**
+         *
+         * Patch added: ?
+         *
+         * @param args
+         */
+        OnSoundDeviceUpdate(frame: WoWAPI.Frame, callback: (...args: any[]) => void): void;
+    };
+    SpecializationInfo: {
+        /**
+         *
+         * Patch added: ?
+         *
+         * @param curr Index of the talent group that is now active.
+         * @param prev Index of the talent group that was active before changing.
+         */
+        OnActiveTalentGroupChanged(frame: WoWAPI.Frame, callback: (curr: number, prev: number) => void): void;
+        /**
+         *
+         * Patch added: ?
+         *
+         * @param cost Cost in copper.
+         * @param respecType
+         */
+        OnConfirmTalentWipe(frame: WoWAPI.Frame, callback: (cost: number, respecType: number) => void): void;
+        /**
+         *
+         * Patch added: ?
+         *
+         * @param args
+         */
+        OnPlayerTalentUpdate(frame: WoWAPI.Frame, callback: (...args: any[]) => void): void;
+        /**
+         *
+         * Patch added: ?
+         *
+         * @param isPetTalents
+         */
+        OnTalentsInvoluntarilyReset(frame: WoWAPI.Frame, callback: (isPetTalents: boolean) => void): void;
+    };
+    SpellActivationOverlay: {
+        /**
+         *
+         * Patch added: ?
+         *
+         * @param spellID
+         */
+        OnSpellActivationOverlayGlowHide(frame: WoWAPI.Frame, callback: (spellID: number) => void): void;
+        /**
+         *
+         * Patch added: ?
+         *
+         * @param spellID
+         */
+        OnSpellActivationOverlayGlowShow(frame: WoWAPI.Frame, callback: (spellID: number) => void): void;
+        /**
+         *
+         * Patch added: ?
+         *
+         * @param spellID (nilable)
+         */
+        OnSpellActivationOverlayHide(frame: WoWAPI.Frame, callback: (spellID?: number) => void): void;
+    };
+    SpellBook: {
+        /**
+         *
+         * Patch added: ?
+         *
+         * @param cancelledCast
+         */
+        OnCurrentSpellCastChanged(frame: WoWAPI.Frame, callback: (cancelledCast: boolean) => void): void;
+        /**
+         *
+         * Patch added: ?
+         *
+         * @param spellID
+         * @param skillInfoIndex Number of the tab which the spell/ability is added to.
+         * @param isGuildPerkSpell
+         */
+        OnLearnedSpellInTab(frame: WoWAPI.Frame, callback: (spellID: number, skillInfoIndex: number, isGuildPerkSpell: boolean) => void): void;
+        /**
+         *
+         * Patch added: ?
+         *
+         * @param clampedNewQueueWindowMs
+         */
+        OnMaxSpellStartRecoveryOffsetChanged(frame: WoWAPI.Frame, callback: (clampedNewQueueWindowMs: number) => void): void;
+        /**
+         *
+         * Patch added: ?
+         *
+         * @param totemSlot The number of the totem slot (1-4) affected by the update.  See {{api|GetTotemInfo|GetTotemInfo}}.
+         */
+        OnPlayerTotemUpdate(frame: WoWAPI.Frame, callback: (totemSlot: number) => void): void;
+        /**
+         *
+         * Patch added: ?
+         *
+         * @param flyoutID (nilable)
+         * @param spellID (nilable)
+         * @param isLearned (nilable)
+         */
+        OnSpellFlyoutUpdate(frame: WoWAPI.Frame, callback: (flyoutID?: number, spellID?: number, isLearned?: boolean) => void): void;
+        /**
+         *
+         * Patch added: ?
+         *
+         * @param spellID
+         * @param slot
+         * @param page
+         */
+        OnSpellPushedToActionbar(frame: WoWAPI.Frame, callback: (spellID: number, slot: number, page: number) => void): void;
+        /**
+         * The spell you cast doesn't need to have any explicit "cooldown" of its own, since this event also triggers off of anything that incurs a GCD (global cooldown). In other words, it basically fires whenever you cast any spell or channel any spell.
+          *
+         ** ''(It may possibly even trigger from spells that are "off the GCD" and which don't have any cooldown of their own; but there's no way to verify that, since all spells in game that are "off the GCD" are special class "burst" abilities with long cooldowns.)''
+          *
+         ** It's worth noting that this event does NOT fire when spells ''finish'' their cooldown!
+          *
+         ** {{api|GetSpellCooldown}}
+          *
+         ** [https://www.townlong-yak.com/framexml/live/Blizzard_APIDocumentation#SPELL_UPDATE_COOLDOWN Blizzard API Documentation]
+         *
+         * Patch added: ?
+         *
+         * @param args
+         */
+        OnSpellUpdateCooldown(frame: WoWAPI.Frame, callback: (...args: any[]) => void): void;
+        /**
+         * The definition of useable and unusable is somewhat confusing. Firstly, range is not taken into account. Secondly if a spell requires a valid target and doesn't have one it gets marked as useable. If it requires mana or rage and there isn't enough then it gets marked as unusable. This results in the following behaviour:
+          *
+         ** It appears that the definition of useable is a little inaccurate and relates more to how it is displayed on the action bar than whether you can use the spell. Also after being attacked the event started firing every two seconds and this continued until well after the attacker was dead. Targetting a fresh enemy seemed to stop it.
+         *
+         * Patch added: ?
+         *
+         * @param args
+         */
+        OnSpellUpdateUsable(frame: WoWAPI.Frame, callback: (...args: any[]) => void): void;
+        /**
+         * ''In prior game versions, this event also fired every time the player navigated the spellbook (swapped pages/tabs), since that caused UpdateSpells to be called which in turn always triggered a SPELLS_CHANGED event. However, that API has been removed since [[Patch_4.0.1/API_changes|Patch 4.0.1]].''
+         *
+         * Patch added: ?
+         *
+         * @param args
+         */
+        OnSpellsChanged(frame: WoWAPI.Frame, callback: (...args: any[]) => void): void;
+        /**
+         *
+         * Patch added: ?
+         *
+         * @param args
+         */
+        OnStartAutorepeatSpell(frame: WoWAPI.Frame, callback: (...args: any[]) => void): void;
+        /**
+         *
+         * Patch added: ?
+         *
+         * @param args
+         */
+        OnStopAutorepeatSpell(frame: WoWAPI.Frame, callback: (...args: any[]) => void): void;
+        /**
+         * Fired when a unit tries to cast an instant, non-instant, or channeling spell even if out of range or out of line-of-sight (unless the unit is attempting to cast a non-instant spell while already casting or attempting to cast a spell that is on cooldown).
+         *
+         * Patch added: 2.0.1
+         *
+         * @param unit
+         * @param target
+         * @param castGUID e.g. for [[Flare]] (Spell ID 1543) &lt;code>"Cast-3-3783-1-7-1543-000197DD84"&lt;/code>
+         * @param spellID
+         */
+        OnUnitSpellcastSent(frame: WoWAPI.Frame, callback: (unit: string, target: string, castGUID: string, spellID: number) => void): void;
+        /**
+         *
+         * Patch added: ?
+         *
+         * @param args
+         */
+        OnUpdateShapeshiftCooldown(frame: WoWAPI.Frame, callback: (...args: any[]) => void): void;
+        /**
+         *
+         * Patch added: ?
+         *
+         * @param args
+         */
+        OnUpdateShapeshiftForm(frame: WoWAPI.Frame, callback: (...args: any[]) => void): void;
+        /**
+         *
+         * Patch added: ?
+         *
+         * @param args
+         */
+        OnUpdateShapeshiftForms(frame: WoWAPI.Frame, callback: (...args: any[]) => void): void;
+        /**
+         *
+         * Patch added: ?
+         *
+         * @param args
+         */
+        OnUpdateShapeshiftUsable(frame: WoWAPI.Frame, callback: (...args: any[]) => void): void;
+    };
+    StableInfo: {
+        /**
+         *
+         * Patch added: ?
+         *
+         * @param args
+         */
+        OnPetStableClosed(frame: WoWAPI.Frame, callback: (...args: any[]) => void): void;
+        /**
+         *
+         * Patch added: ?
+         *
+         * @param args
+         */
+        OnPetStableShow(frame: WoWAPI.Frame, callback: (...args: any[]) => void): void;
+        /**
+         *
+         * Patch added: ?
+         *
+         * @param args
+         */
+        OnPetStableUpdate(frame: WoWAPI.Frame, callback: (...args: any[]) => void): void;
+        /**
+         *
+         * Patch added: ?
+         *
+         * @param args
+         */
+        OnPetStableUpdatePaperdoll(frame: WoWAPI.Frame, callback: (...args: any[]) => void): void;
+    };
+    System: {
+        /**
+         *
+         * Patch added: ?
+         *
+         * @param args
+         */
+        OnDisableTaxiBenchmark(frame: WoWAPI.Frame, callback: (...args: any[]) => void): void;
+        /**
+         *
+         * Patch added: ?
+         *
+         * @param args
+         */
+        OnEnableTaxiBenchmark(frame: WoWAPI.Frame, callback: (...args: any[]) => void): void;
+        /**
+         *
+         * Patch added: ?
+         *
+         * @param args
+         */
+        OnLogoutCancel(frame: WoWAPI.Frame, callback: (...args: any[]) => void): void;
+        /**
+         *
+         * Patch added: ?
+         *
+         * @param args
+         */
+        OnPlayerCamping(frame: WoWAPI.Frame, callback: (...args: any[]) => void): void;
+        /**
+         *
+         * Patch added: ?
+         *
+         * @param args
+         */
+        OnPlayerEnteringWorld(frame: WoWAPI.Frame, callback: (...args: any[]) => void): void;
+        /**
+         *
+         * Patch added: ?
+         *
+         * @param args
+         */
+        OnPlayerLeavingWorld(frame: WoWAPI.Frame, callback: (...args: any[]) => void): void;
+        /**
+         *
+         * Patch added: ?
+         *
+         * @param args
+         */
+        OnPlayerLogin(frame: WoWAPI.Frame, callback: (...args: any[]) => void): void;
+        /**
+         *
+         * Patch added: ?
+         *
+         * @param args
+         */
+        OnPlayerLogout(frame: WoWAPI.Frame, callback: (...args: any[]) => void): void;
+        /**
+         * The dialog which appears after this event, has choices of "Exit Now" or "Cancel".
+          *
+         ** The dialog from {{api|t=e|PLAYER_CAMPING}} which appears when you try to '''logout''' outside an inn, only has a "Cancel" choice.
+         *
+         * Patch added: ?
+         *
+         * @param args
+         */
+        OnPlayerQuiting(frame: WoWAPI.Frame, callback: (...args: any[]) => void): void;
+        /**
+         *
+         * Patch added: ?
+         *
+         * @param string
+         * @param r
+         * @param g
+         * @param b
+         */
+        OnSysmsg(frame: WoWAPI.Frame, callback: (string: string, r: number, g: number, b: number) => void): void;
+        /**
+         *
+         * Patch added: ?
+         *
+         * @param totalTimePlayed Total time played in seconds.
+         * @param timePlayedThisLevel Time played for the current level in seconds.
+         */
+        OnTimePlayedMsg(frame: WoWAPI.Frame, callback: (totalTimePlayed: number, timePlayedThisLevel: number) => void): void;
+        /**
+         *
+         * Patch added: ?
+         *
+         * @param errorType see {{api|GetGameMessageInfo}}
+         * @param message
+         */
+        OnUiErrorMessage(frame: WoWAPI.Frame, callback: (errorType: number, message: string) => void): void;
+        /**
+         *
+         * Patch added: ?
+         *
+         * @param errorType see {{api|GetGameMessageInfo}}
+         * @param message
+         */
+        OnUiInfoMessage(frame: WoWAPI.Frame, callback: (errorType: number, message: string) => void): void;
+        /**
+         * Since key bindings and macros in particular may be stored on the server they event may be delayed a bit beyond the original loading sequence.
+          *
+         ** Previously (prior to 3.0.1) this event was part of the loading sequence.  Although it still occurs within the same general timeframe as the other events, it no longer has a guaranteed order that can be relied on. This may be problematic to addons that relied on the order of {{api|t=e|VARIABLES_LOADED}}, specifically that it would fire before {{api|t=e|PLAYER_ENTERING_WORLD}}.
+          *
+         ** Addons should not use this event to check if their addon's saved variables have loaded.  They can use {{api|t=e|ADDON_LOADED}} (testing for arg1 being the name of the addon) or another appropriate event to initialize, ensuring that the addon works when loaded on demand.
+          *
+         ** [[AddOn loading process]]
+          *
+         ** [https://www.townlong-yak.com/framexml/live/Blizzard_APIDocumentation#VARIABLES_LOADED Blizzard API Documentation]
+         *
+         * Patch added: ?
+         *
+         * @param args
+         */
+        OnVariablesLoaded(frame: WoWAPI.Frame, callback: (...args: any[]) => void): void;
+        /**
+         *
+         * Patch added: ?
+         *
+         * @param args
+         */
+        OnWowMouseNotFound(frame: WoWAPI.Frame, callback: (...args: any[]) => void): void;
+    };
+    TaxiMap: {
+        /**
+         *
+         * Patch added: ?
+         *
+         * @param args
+         */
+        OnTaximapClosed(frame: WoWAPI.Frame, callback: (...args: any[]) => void): void;
+        /**
+         * This will fire even if you know no flight paths connected to the one you're at, so the map doesn't actually open.
+         *
+         * Patch added: ?
+         *
+         * @param system
+         */
+        OnTaximapOpened(frame: WoWAPI.Frame, callback: (system: number) => void): void;
+    };
+    TradeInfo: {
+        /**
+         *
+         * Patch added: ?
+         *
+         * @param args
+         */
+        OnPlayerTradeCurrency(frame: WoWAPI.Frame, callback: (...args: any[]) => void): void;
+        /**
+         *
+         * Patch added: ?
+         *
+         * @param args
+         */
+        OnPlayerTradeMoney(frame: WoWAPI.Frame, callback: (...args: any[]) => void): void;
+        /**
+         * Target agree status only shown when he has done it first. By this, player and target agree status is only shown together (playerAccepted  == 1 and targetAccepted == 1), when player agreed after target.
+         *
+         * Patch added: ?
+         *
+         * @param playerAccepted Player has agreed to the trade (1) or not (0)
+         * @param targetAccepted Target has agreed to the trade (1) or not (0)
+         */
+        OnTradeAcceptUpdate(frame: WoWAPI.Frame, callback: (playerAccepted: number, targetAccepted: number) => void): void;
+        /**
+         *
+         * Patch added: ?
+         *
+         * @param args
+         */
+        OnTradeClosed(frame: WoWAPI.Frame, callback: (...args: any[]) => void): void;
+        /**
+         *
+         * Patch added: ?
+         *
+         * @param args
+         */
+        OnTradeCurrencyChanged(frame: WoWAPI.Frame, callback: (...args: any[]) => void): void;
+        /**
+         *
+         * Patch added: ?
+         *
+         * @param args
+         */
+        OnTradeMoneyChanged(frame: WoWAPI.Frame, callback: (...args: any[]) => void): void;
+        /**
+         * Not initially fired when trading is started by dropping an item on target.
+         *
+         * Patch added: ?
+         *
+         * @param tradeSlotIndex
+         */
+        OnTradePlayerItemChanged(frame: WoWAPI.Frame, callback: (tradeSlotIndex: number) => void): void;
+        /**
+         *
+         * Patch added: ?
+         *
+         * @param canBecomeBoundForTrade
+         */
+        OnTradePotentialBindEnchant(frame: WoWAPI.Frame, callback: (canBecomeBoundForTrade: boolean) => void): void;
+        /**
+         *
+         * Patch added: ?
+         *
+         * @param name
+         */
+        OnTradeRequest(frame: WoWAPI.Frame, callback: (name: string) => void): void;
+        /**
+         * Upon a trade being cancelled (as in, either part clicking the cancel button), TRADE_CLOSED is fired twice, and then {{api|t=e|TRADE_REQUEST_CANCEL}} once.
+         *
+         * Patch added: ?
+         *
+         * @param args
+         */
+        OnTradeRequestCancel(frame: WoWAPI.Frame, callback: (...args: any[]) => void): void;
+        /**
+         *
+         * Patch added: ?
+         *
+         * @param args
+         */
+        OnTradeShow(frame: WoWAPI.Frame, callback: (...args: any[]) => void): void;
+        /**
+         *
+         * Patch added: ?
+         *
+         * @param tradeSlotIndex
+         */
+        OnTradeTargetItemChanged(frame: WoWAPI.Frame, callback: (tradeSlotIndex: number) => void): void;
+        /**
+         *
+         * Patch added: ?
+         *
+         * @param args
+         */
+        OnTradeUpdate(frame: WoWAPI.Frame, callback: (...args: any[]) => void): void;
+    };
+    TradeSkillUI: {
+        /**
+         *
+         * Patch added: ?
+         *
+         * @param args
+         */
+        OnTradeSkillClose(frame: WoWAPI.Frame, callback: (...args: any[]) => void): void;
+        /**
+         *
+         * Patch added: ?
+         *
+         * @param args
+         */
+        OnTradeSkillNameUpdate(frame: WoWAPI.Frame, callback: (...args: any[]) => void): void;
+        /**
+         *
+         * Patch added: ?
+         *
+         * @param args
+         */
+        OnTradeSkillShow(frame: WoWAPI.Frame, callback: (...args: any[]) => void): void;
+        /**
+         *
+         * Patch added: ?
+         *
+         * @param args
+         */
+        OnUpdateTradeskillRecast(frame: WoWAPI.Frame, callback: (...args: any[]) => void): void;
+    };
+    Trainer: {
+        /**
+         *
+         * Patch added: ?
+         *
+         * @param args
+         */
+        OnTrainerClosed(frame: WoWAPI.Frame, callback: (...args: any[]) => void): void;
+        /**
+         *
+         * Patch added: ?
+         *
+         * @param args
+         */
+        OnTrainerDescriptionUpdate(frame: WoWAPI.Frame, callback: (...args: any[]) => void): void;
+        /**
+         *
+         * Patch added: ?
+         *
+         * @param args
+         */
+        OnTrainerShow(frame: WoWAPI.Frame, callback: (...args: any[]) => void): void;
+        /**
+         *
+         * Patch added: ?
+         *
+         * @param args
+         */
+        OnTrainerUpdate(frame: WoWAPI.Frame, callback: (...args: any[]) => void): void;
+    };
+    Transmog: {
+        /**
+         *
+         * Patch added: ?
+         *
+         * @param args
+         */
+        OnTransmogrifyClose(frame: WoWAPI.Frame, callback: (...args: any[]) => void): void;
+        /**
+         *
+         * Patch added: ?
+         *
+         * @param args
+         */
+        OnTransmogrifyOpen(frame: WoWAPI.Frame, callback: (...args: any[]) => void): void;
+        /**
+         *
+         * Patch added: ?
+         *
+         * @param args
+         */
+        OnTransmogrifySuccess(frame: WoWAPI.Frame, callback: (...args: any[]) => void): void;
+        /**
+         *
+         * Patch added: ?
+         *
+         * @param args
+         */
+        OnTransmogrifyUpdate(frame: WoWAPI.Frame, callback: (...args: any[]) => void): void;
+    };
+    Tutorial: {
+        /**
+         *
+         * Patch added: ?
+         *
+         * @param tutorialIndex
+         * @param forceShow
+         */
+        OnTutorialTrigger(frame: WoWAPI.Frame, callback: (tutorialIndex: number, forceShow: boolean) => void): void;
+    };
+    UI: {
+        /**
+         *
+         * Patch added: ?
+         *
+         * @param args
+         */
+        OnUiScaleChanged(frame: WoWAPI.Frame, callback: (...args: any[]) => void): void;
+    };
+    Vehicle: {
+        /**
+         *
+         * Patch added: ?
+         *
+         * @param unitTarget
+         * @param vehicleUIIndicatorID
+         */
+        OnPlayerGainsVehicleData(frame: WoWAPI.Frame, callback: (unitTarget: string, vehicleUIIndicatorID: number) => void): void;
+        /**
+         *
+         * Patch added: ?
+         *
+         * @param unitTarget
+         */
+        OnPlayerLosesVehicleData(frame: WoWAPI.Frame, callback: (unitTarget: string) => void): void;
+        /**
+         *
+         * Patch added: ?
+         *
+         * @param unitTarget
+         * @param showVehicleFrame Vehicle has vehicle UI.
+         * @param isControlSeat
+         * @param vehicleUIIndicatorID VehicleType (possible values are 'Natural' and 'Mechanical' and 'VehicleMount' and 'VehicleMount_Organic' or empty string).
+         * @param vehicleGUID
+         * @param mayChooseExit
+         * @param hasPitch Vehicle can aim.
+         */
+        OnUnitEnteredVehicle(frame: WoWAPI.Frame, callback: (unitTarget: string, showVehicleFrame: boolean, isControlSeat: boolean, vehicleUIIndicatorID: number, vehicleGUID: string, mayChooseExit: boolean, hasPitch: boolean) => void): void;
+        /**
+         *
+         * Patch added: ?
+         *
+         * @param unitTarget
+         * @param showVehicleFrame
+         * @param isControlSeat
+         * @param vehicleUIIndicatorID
+         * @param vehicleGUID
+         * @param mayChooseExit
+         * @param hasPitch
+         */
+        OnUnitEnteringVehicle(frame: WoWAPI.Frame, callback: (unitTarget: string, showVehicleFrame: boolean, isControlSeat: boolean, vehicleUIIndicatorID: number, vehicleGUID: string, mayChooseExit: boolean, hasPitch: boolean) => void): void;
+        /**
+         *
+         * Patch added: ?
+         *
+         * @param unitTarget
+         */
+        OnUnitExitedVehicle(frame: WoWAPI.Frame, callback: (unitTarget: string) => void): void;
+        /**
+         *
+         * Patch added: ?
+         *
+         * @param unitTarget
+         */
+        OnUnitExitingVehicle(frame: WoWAPI.Frame, callback: (unitTarget: string) => void): void;
+        /**
+         *
+         * Patch added: ?
+         *
+         * @param shouldShow (nilable)
+         */
+        OnVehicleAngleShow(frame: WoWAPI.Frame, callback: (shouldShow?: number) => void): void;
+        /**
+         *
+         * Patch added: ?
+         *
+         * @param args
+         */
+        OnVehiclePassengersChanged(frame: WoWAPI.Frame, callback: (...args: any[]) => void): void;
+        /**
+         *
+         * Patch added: ?
+         *
+         * @param shouldShow (nilable)
+         */
+        OnVehiclePowerShow(frame: WoWAPI.Frame, callback: (shouldShow?: number) => void): void;
+        /**
+         *
+         * Patch added: ?
+         *
+         * @param args
+         */
+        OnVehicleUpdate(frame: WoWAPI.Frame, callback: (...args: any[]) => void): void;
+    };
+    VideoOptions: {
+        /**
+         *
+         * Patch added: ?
+         *
+         * @param args
+         */
+        OnDisplaySizeChanged(frame: WoWAPI.Frame, callback: (...args: any[]) => void): void;
+        /**
+         *
+         * Patch added: ?
+         *
+         * @param args
+         */
+        OnScreenshotFailed(frame: WoWAPI.Frame, callback: (...args: any[]) => void): void;
+        /**
+         *
+         * Patch added: ?
+         *
+         * @param args
+         */
+        OnScreenshotSucceeded(frame: WoWAPI.Frame, callback: (...args: any[]) => void): void;
+    };
+    VoidStorageInfo: {
+        /**
+         *
+         * Patch added: ?
+         *
+         * @param slot Slot Index for {{api|GetVoidTransferDepositInfo}}
+         * @param link Item Link
+         */
+        OnVoidDepositWarning(frame: WoWAPI.Frame, callback: (slot: number, link: string) => void): void;
+        /**
+         *
+         * Patch added: ?
+         *
+         * @param args
+         */
+        OnVoidStorageClose(frame: WoWAPI.Frame, callback: (...args: any[]) => void): void;
+        /**
+         *
+         * Patch added: ?
+         *
+         * @param args
+         */
+        OnVoidStorageContentsUpdate(frame: WoWAPI.Frame, callback: (...args: any[]) => void): void;
+        /**
+         *
+         * Patch added: ?
+         *
+         * @param slot Slot Index for {{api|GetVoidTransferDepositInfo}}
+         */
+        OnVoidStorageDepositUpdate(frame: WoWAPI.Frame, callback: (slot: number) => void): void;
+        /**
+         *
+         * Patch added: ?
+         *
+         * @param args
+         */
+        OnVoidStorageOpen(frame: WoWAPI.Frame, callback: (...args: any[]) => void): void;
+        /**
+         *
+         * Patch added: ?
+         *
+         * @param args
+         */
+        OnVoidStorageUpdate(frame: WoWAPI.Frame, callback: (...args: any[]) => void): void;
+        /**
+         *
+         * Patch added: ?
+         *
+         * @param args
+         */
+        OnVoidTransferDone(frame: WoWAPI.Frame, callback: (...args: any[]) => void): void;
+    };
+    WorldStateInfo: {
+        /**
+         *
+         * Patch added: ?
+         *
+         * @param timerType
+         * @param timeRemaining
+         * @param totalTime
+         */
+        OnStartTimer(frame: WoWAPI.Frame, callback: (timerType: number, timeRemaining: number, totalTime: number) => void): void;
+        /**
+         *
+         * Patch added: ?
+         *
+         * @param timerID
+         */
+        OnWorldStateTimerStart(frame: WoWAPI.Frame, callback: (timerID: number) => void): void;
+        /**
+         *
+         * Patch added: ?
+         *
+         * @param timerID
+         */
+        OnWorldStateTimerStop(frame: WoWAPI.Frame, callback: (timerID: number) => void): void;
+    };
+    Unit: {
+        /**
+         *
+         * Patch added: ?
+         *
+         * @param name The unit you are following. Not necessarily your target (in case of right-clicking a group member's portrait or using the "/follow" command).
+         */
+        OnAutofollowBegin(frame: WoWAPI.Frame, callback: (name: string) => void): void;
+        /**
+         *
+         * Patch added: ?
+         *
+         * @param args
+         */
+        OnAutofollowEnd(frame: WoWAPI.Frame, callback: (...args: any[]) => void): void;
+        /**
+         *
+         * Patch added: ?
+         *
+         * @param args
+         */
+        OnCancelSummon(frame: WoWAPI.Frame, callback: (...args: any[]) => void): void;
+        /**
+         *
+         * Patch added: ?
+         *
+         * @param areaName
+         */
+        OnConfirmBinder(frame: WoWAPI.Frame, callback: (areaName: string) => void): void;
+        /**
+         *
+         * Patch added: ?
+         *
+         * @param summonReason
+         * @param skippingStartExperience
+         */
+        OnConfirmSummon(frame: WoWAPI.Frame, callback: (summonReason: number, skippingStartExperience: boolean) => void): void;
+        /**
+         *
+         * Patch added: ?
+         *
+         * @param unitTarget
+         */
+        OnIncomingResurrectChanged(frame: WoWAPI.Frame, callback: (unitTarget: string) => void): void;
+        /**
+         *
+         * Patch added: ?
+         *
+         * @param unitTarget
+         */
+        OnKnownTitlesUpdate(frame: WoWAPI.Frame, callback: (unitTarget: string) => void): void;
+        /**
+         *
+         * Patch added: ?
+         *
+         * @param args
+         */
+        OnLocalplayerPetRenamed(frame: WoWAPI.Frame, callback: (...args: any[]) => void): void;
+        /**
+         *
+         * Patch added: ?
+         *
+         * @param timerName
+         * @param paused pause duration
+         */
+        OnMirrorTimerPause(frame: WoWAPI.Frame, callback: (timerName: string, paused: number) => void): void;
+        /**
+         *
+         * Patch added: ?
+         *
+         * @param timerName e.g. "BREATH"
+         * @param value start-time in ms, e.g. 180000
+         * @param maxValue max-time in ms, e.g. 180000
+         * @param scale time added per second in seconds, for e.g. -1
+         * @param paused
+         * @param timerLabel e.g. "Breath"
+         */
+        OnMirrorTimerStart(frame: WoWAPI.Frame, callback: (timerName: string, value: number, maxValue: number, scale: number, paused: number, timerLabel: string) => void): void;
+        /**
+         *
+         * Patch added: ?
+         *
+         * @param timerName e.g. "BREATH"
+         */
+        OnMirrorTimerStop(frame: WoWAPI.Frame, callback: (timerName: string) => void): void;
+        /**
+         *
+         * Patch added: ?
+         *
+         * @param args
+         */
+        OnPetBarUpdateUsable(frame: WoWAPI.Frame, callback: (...args: any[]) => void): void;
+        /**
+         *
+         * Patch added: ?
+         *
+         * @param args
+         */
+        OnPetUiUpdate(frame: WoWAPI.Frame, callback: (...args: any[]) => void): void;
+        /**
+         *
+         * Patch added: ?
+         *
+         * @param unitTarget
+         */
+        OnPlayerDamageDoneMods(frame: WoWAPI.Frame, callback: (unitTarget: string) => void): void;
+        /**
+         * PLAYER_ENTER_COMBAT and {{api|t=e|PLAYER_LEAVE_COMBAT}} are for *MELEE* combat only. They fire when you initiate autoattack and when you turn it off. However, any spell or ability that does not turn on autoattack does not trigger it. Nor does it trigger when you get aggro.
+          *
+         ** You probably want {{api|t=e|PLAYER_REGEN_DISABLED}} (fires when you get aggro) and {{api|t=e|PLAYER_REGEN_ENABLED}} (fires when you lose aggro).''
+         *
+         * Patch added: ?
+         *
+         * @param args
+         */
+        OnPlayerEnterCombat(frame: WoWAPI.Frame, callback: (...args: any[]) => void): void;
+        /**
+         *
+         * Patch added: ?
+         *
+         * @param args
+         */
+        OnPlayerFarsightFocusChanged(frame: WoWAPI.Frame, callback: (...args: any[]) => void): void;
+        /**
+         * WoW condenses simultaneous flag changes into a single event. If you are currently AFK and not(DND) but you type /dnd you'll see two Chat Log messages ("You are no longer AFK" and "You are now DND: Do Not Disturb") but you'll only see a single PLAYER_FLAGS_CHANGED event.
+         *
+         * Patch added: ?
+         *
+         * @param unitTarget
+         */
+        OnPlayerFlagsChanged(frame: WoWAPI.Frame, callback: (unitTarget: string) => void): void;
+        /**
+         *
+         * Patch added: ?
+         *
+         * @param args
+         */
+        OnPlayerFocusChanged(frame: WoWAPI.Frame, callback: (...args: any[]) => void): void;
+        /**
+         *
+         * Patch added: ?
+         *
+         * @param args
+         */
+        OnPlayerLeaveCombat(frame: WoWAPI.Frame, callback: (...args: any[]) => void): void;
+        /**
+         *
+         * Patch added: ?
+         *
+         * @param 1. level New player level. ''Note that {{api|UnitLevel}}("player") will most likely return an incorrect value when called in this event handler or shortly after, so use this value.''
+         * @param 2. healthDelta Hit points gained from leveling.
+         * @param 3. powerDelta Mana points gained from leveling.
+         * @param 4. numNewTalents Talent points gained from leveling.
+         * @param 5. numNewPvpTalentSlots
+         * @param 6. strengthDelta
+         * @param 7. agilityDelta
+         * @param 8. staminaDelta
+         * @param 9. intellectDelta
+         */
+        OnPlayerLevelUp(frame: WoWAPI.Frame, callback: (level: number, healthDelta: number, powerDelta: number, numNewTalents: number, numNewPvpTalentSlots: number, strengthDelta: number, agilityDelta: number, staminaDelta: number, intellectDelta: number) => void): void;
+        /**
+         *
+         * Patch added: ?
+         *
+         * @param unitTarget
+         */
+        OnPlayerPvpKillsChanged(frame: WoWAPI.Frame, callback: (unitTarget: string) => void): void;
+        /**
+         *
+         * Patch added: ?
+         *
+         * @param unitTarget
+         */
+        OnPlayerPvpRankChanged(frame: WoWAPI.Frame, callback: (unitTarget: string) => void): void;
+        /**
+         *
+         * Patch added: ?
+         *
+         * @param args
+         */
+        OnPlayerRegenDisabled(frame: WoWAPI.Frame, callback: (...args: any[]) => void): void;
+        /**
+         *
+         * Patch added: ?
+         *
+         * @param args
+         */
+        OnPlayerRegenEnabled(frame: WoWAPI.Frame, callback: (...args: any[]) => void): void;
+        /**
+         *
+         * Patch added: ?
+         *
+         * @param args
+         */
+        OnPlayerTargetChanged(frame: WoWAPI.Frame, callback: (...args: any[]) => void): void;
+        /**
+         *
+         * Patch added: ?
+         *
+         * @param args
+         */
+        OnPlayerUpdateResting(frame: WoWAPI.Frame, callback: (...args: any[]) => void): void;
+        /**
+         *
+         * Patch added: ?
+         *
+         * @param unitTarget
+         */
+        OnPlayerXpUpdate(frame: WoWAPI.Frame, callback: (unitTarget: string) => void): void;
+        /**
+         *
+         * Patch added: ?
+         *
+         * @param runeIndex
+         * @param added (nilable) - is the rune usable (if usable, it's not cooling, if not usable it's cooling)
+         */
+        OnRunePowerUpdate(frame: WoWAPI.Frame, callback: (runeIndex: number, added?: boolean) => void): void;
+        /**
+         *
+         * Patch added: ?
+         *
+         * @param unitTarget
+         */
+        OnUnitAttack(frame: WoWAPI.Frame, callback: (unitTarget: string) => void): void;
+        /**
+         *
+         * Patch added: ?
+         *
+         * @param unitTarget
+         */
+        OnUnitAttackPower(frame: WoWAPI.Frame, callback: (unitTarget: string) => void): void;
+        /**
+         *
+         * Patch added: ?
+         *
+         * @param unitTarget
+         */
+        OnUnitAttackSpeed(frame: WoWAPI.Frame, callback: (unitTarget: string) => void): void;
+        /**
+         * This event fires before the associated effects take place.
+         *
+         * Patch added: ?
+         *
+         * @param unitTarget
+         */
+        OnUnitAura(frame: WoWAPI.Frame, callback: (unitTarget: string) => void): void;
+        /**
+         *
+         * Patch added: ?
+         *
+         * @param unitTarget
+         */
+        OnUnitClassificationChanged(frame: WoWAPI.Frame, callback: (unitTarget: string) => void): void;
+        /**
+         *
+         * Patch added: ?
+         *
+         * @param unitTarget [[UnitId]]
+         * @param event Action, Damage, etc (e.g. HEAL, DODGE, BLOCK, WOUND, MISS, PARRY, RESIST, ...)
+         * @param flagText Critical/Glancing indicator (e.g. CRITICAL, CRUSHING, GLANCING)
+         * @param amount The numeric damage
+         * @param schoolMask Damage type in numeric value (1 - physical; 2 - holy; 4 - fire; 8 - nature; 16 - frost; 32 - shadow; 64 - arcane)
+         */
+        OnUnitCombat(frame: WoWAPI.Frame, callback: (unitTarget: string, event: string, flagText: string, amount: number, schoolMask: number) => void): void;
+        /**
+         *
+         * Patch added: ?
+         *
+         * @param unitTarget
+         * @param isConnected
+         */
+        OnUnitConnection(frame: WoWAPI.Frame, callback: (unitTarget: string, isConnected: boolean) => void): void;
+        /**
+         * Be warned that this often gets fired multiple times, for example when you change weapons.
+         *
+         * Patch added: ?
+         *
+         * @param unitTarget
+         */
+        OnUnitDamage(frame: WoWAPI.Frame, callback: (unitTarget: string) => void): void;
+        /**
+         *
+         * Patch added: ?
+         *
+         * @param unitTarget
+         */
+        OnUnitDefense(frame: WoWAPI.Frame, callback: (unitTarget: string) => void): void;
+        /**
+         *
+         * Patch added: ?
+         *
+         * @param unitTarget
+         */
+        OnUnitDisplaypower(frame: WoWAPI.Frame, callback: (unitTarget: string) => void): void;
+        /**
+         *
+         * Patch added: ?
+         *
+         * @param unitTarget
+         */
+        OnUnitHealPrediction(frame: WoWAPI.Frame, callback: (unitTarget: string) => void): void;
+        /**
+         *
+         * Patch added: 1.1.0
+         *
+         * @param args
+         */
+        OnUnitHealth(frame: WoWAPI.Frame, callback: (...args: any[]) => void): void;
+        /**
+         * This event is not triggered when equipping/unequipping rings or trinkets.
+          *
+         ** This can also be called if your target or party members changes equipment (untested for hostile targets).
+          *
+         ** This event is also raised when a new item is placed in the player's containers, taking up a new slot. If the new item(s) are placed onto an existing stack or when two stacks already in the containers are merged, the event is not raised. When an item is moved inside the container or to the bank, the event is not raised. The event ''is'' raised when an existing stack is split inside the player's containers.
+          *
+         ** This event is also raised when a temporary enhancement (poison, lure, etc..) is applied to the player's weapon (untested for other units). It will again be raised when that enhancement is removed, including by manual cancellation or buff expiration.
+          *
+         ** If multiple slots are equipped/unequipped at once it only fires once now.
+          *
+         ** This event is triggered during initial character login but not during subsequent reloads.
+          *
+         ** This event is no longer triggered when changing zones. Inventory information is available when {{api|t=e|PLAYER_ENTERING_WORLD}} is triggered.
+         *
+         * Patch added: ?
+         *
+         * @param unitTarget [[UnitId]]
+         */
+        OnUnitInventoryChanged(frame: WoWAPI.Frame, callback: (unitTarget: string) => void): void;
+        /**
+         *
+         * Patch added: ?
+         *
+         * @param unitTarget [[UnitId]]
+         */
+        OnUnitLevel(frame: WoWAPI.Frame, callback: (unitTarget: string) => void): void;
+        /**
+         *
+         * Patch added: ?
+         *
+         * @param args
+         */
+        OnUnitMana(frame: WoWAPI.Frame, callback: (...args: any[]) => void): void;
+        /**
+         *
+         * Patch added: ?
+         *
+         * @param unitTarget [[UnitId]]
+         */
+        OnUnitMaxhealth(frame: WoWAPI.Frame, callback: (unitTarget: string) => void): void;
+        /**
+         *
+         * Patch added: ?
+         *
+         * @param unitTarget
+         */
+        OnUnitModelChanged(frame: WoWAPI.Frame, callback: (unitTarget: string) => void): void;
+        /**
+         *
+         * Patch added: ?
+         *
+         * @param unitTarget [[UnitId]]
+         */
+        OnUnitNameUpdate(frame: WoWAPI.Frame, callback: (unitTarget: string) => void): void;
+        /**
+         *
+         * Patch added: ?
+         *
+         * @param unitTarget [[unitId]] that has just become visible or invisible to the player
+         */
+        OnUnitPhase(frame: WoWAPI.Frame, callback: (unitTarget: string) => void): void;
+        /**
+         *
+         * Patch added: ?
+         *
+         * @param unitTarget [[UnitId]]
+         */
+        OnUnitPortraitUpdate(frame: WoWAPI.Frame, callback: (unitTarget: string) => void): void;
+        /**
+         *
+         * Patch added: ?
+         *
+         * @param unitTarget
+         */
+        OnUnitPowerBarHide(frame: WoWAPI.Frame, callback: (unitTarget: string) => void): void;
+        /**
+         *
+         * Patch added: ?
+         *
+         * @param unitTarget
+         */
+        OnUnitPowerBarShow(frame: WoWAPI.Frame, callback: (unitTarget: string) => void): void;
+        /**
+         *
+         * Patch added: ?
+         *
+         * @param unitTarget
+         */
+        OnUnitPowerBarTimerUpdate(frame: WoWAPI.Frame, callback: (unitTarget: string) => void): void;
+        /**
+         *
+         * Patch added: ?
+         *
+         * @param unitTarget
+         * @param powerType
+         */
+        OnUnitPowerFrequent(frame: WoWAPI.Frame, callback: (unitTarget: string, powerType: string) => void): void;
+        /**
+         *
+         * Patch added: ?
+         *
+         * @param unitTarget [[UnitId]]
+         * @param powerType resource whose value changed: "MANA", "RAGE", "ENERGY", "FOCUS", "HAPPINESS", "RUNIC_POWER", "HOLY_POWER".
+         */
+        OnUnitPowerUpdate(frame: WoWAPI.Frame, callback: (unitTarget: string, powerType: string) => void): void;
+        /**
+         *
+         * Patch added: ?
+         *
+         * @param unitTarget [[UnitId]]
+         */
+        OnUnitQuestLogChanged(frame: WoWAPI.Frame, callback: (unitTarget: string) => void): void;
+        /**
+         *
+         * Patch added: ?
+         *
+         * @param unitTarget
+         */
+        OnUnitRangedAttackPower(frame: WoWAPI.Frame, callback: (unitTarget: string) => void): void;
+        /**
+         *
+         * Patch added: ?
+         *
+         * @param unitTarget
+         */
+        OnUnitRangeddamage(frame: WoWAPI.Frame, callback: (unitTarget: string) => void): void;
+        /**
+         *
+         * Patch added: ?
+         *
+         * @param unitTarget [[UnitId]]
+         */
+        OnUnitResistances(frame: WoWAPI.Frame, callback: (unitTarget: string) => void): void;
+        /**
+         *
+         * Patch added: 2.0.1
+         *
+         * @param unitTarget
+         * @param castGUID
+         * @param spellID
+         */
+        OnUnitSpellcastChannelStart(frame: WoWAPI.Frame, callback: (unitTarget: string, castGUID: string, spellID: number) => void): void;
+        /**
+         *
+         * Patch added: 2.0.1
+         *
+         * @param unitTarget
+         * @param castGUID
+         * @param spellID
+         */
+        OnUnitSpellcastChannelStop(frame: WoWAPI.Frame, callback: (unitTarget: string, castGUID: string, spellID: number) => void): void;
+        /**
+         *
+         * Patch added: 2.0.1
+         *
+         * @param unitTarget
+         * @param castGUID
+         * @param spellID
+         */
+        OnUnitSpellcastChannelUpdate(frame: WoWAPI.Frame, callback: (unitTarget: string, castGUID: string, spellID: number) => void): void;
+        /**
+         *
+         * Patch added: 2.0.1
+         *
+         * @param unitTarget
+         * @param castGUID
+         * @param spellID
+         */
+        OnUnitSpellcastDelayed(frame: WoWAPI.Frame, callback: (unitTarget: string, castGUID: string, spellID: number) => void): void;
+        /**
+         *
+         * Patch added: 2.0.1
+         *
+         * @param unitTarget
+         * @param castGUID
+         * @param spellID
+         */
+        OnUnitSpellcastFailed(frame: WoWAPI.Frame, callback: (unitTarget: string, castGUID: string, spellID: number) => void): void;
+        /**
+         *
+         * Patch added: 2.0.1
+         *
+         * @param unitTarget
+         * @param castGUID
+         * @param spellID
+         */
+        OnUnitSpellcastFailedQuiet(frame: WoWAPI.Frame, callback: (unitTarget: string, castGUID: string, spellID: number) => void): void;
+        /**
+         *
+         * Patch added: 2.0.1
+         *
+         * @param unitTarget
+         * @param castGUID
+         * @param spellID
+         */
+        OnUnitSpellcastInterrupted(frame: WoWAPI.Frame, callback: (unitTarget: string, castGUID: string, spellID: number) => void): void;
+        /**
+         *
+         * Patch added: 3.2.0
+         *
+         * @param unitTarget [[UnitId]]
+         */
+        OnUnitSpellcastInterruptible(frame: WoWAPI.Frame, callback: (unitTarget: string) => void): void;
+        /**
+         *
+         * Patch added: 3.2.0
+         *
+         * @param unitTarget [[UnitId]]
+         */
+        OnUnitSpellcastNotInterruptible(frame: WoWAPI.Frame, callback: (unitTarget: string) => void): void;
+        /**
+         *
+         * Patch added: 2.0.1
+         *
+         * @param unitTarget
+         * @param castGUID
+         * @param spellID
+         */
+        OnUnitSpellcastStart(frame: WoWAPI.Frame, callback: (unitTarget: string, castGUID: string, spellID: number) => void): void;
+        /**
+         *
+         * Patch added: 2.0.1
+         *
+         * @param unitTarget
+         * @param castGUID
+         * @param spellID
+         */
+        OnUnitSpellcastStop(frame: WoWAPI.Frame, callback: (unitTarget: string, castGUID: string, spellID: number) => void): void;
+        /**
+         *
+         * Patch added: 2.0.1
+         *
+         * @param unit [[UnitId]]
+         * @param castGUID
+         * @param spellID
+         */
+        OnUnitSpellcastSucceeded(frame: WoWAPI.Frame, callback: (unit: string, castGUID: string, spellID: number) => void): void;
+        /**
+         *
+         * Patch added: ?
+         *
+         * @param unitTarget [[UnitId]]
+         */
+        OnUnitStats(frame: WoWAPI.Frame, callback: (unitTarget: string) => void): void;
+        /**
+         * Should also work for 'pet' and 'focus'. This event only fires when the triggering unit is within the player's visual range.
+         *
+         * Patch added: ?
+         *
+         * @param unitTarget [[UnitId]]
+         */
+        OnUnitTarget(frame: WoWAPI.Frame, callback: (unitTarget: string) => void): void;
+        /**
+         *
+         * Patch added: ?
+         *
+         * @param unitTarget
+         */
+        OnUnitTargetableChanged(frame: WoWAPI.Frame, callback: (unitTarget: string) => void): void;
+        /**
+         *
+         * Patch added: ?
+         *
+         * @param args
+         */
+        OnUnitThreatListUpdate(frame: WoWAPI.Frame, callback: (...args: any[]) => void): void;
+        /**
+         *
+         * Patch added: ?
+         *
+         * @param args
+         */
+        OnUnitThreatSituationUpdate(frame: WoWAPI.Frame, callback: (...args: any[]) => void): void;
+        /**
+         *
+         * Patch added: ?
+         *
+         * @param args
+         */
+        OnUpdateExhaustion(frame: WoWAPI.Frame, callback: (...args: any[]) => void): void;
+        /**
+         * Fired when the target of the "mouseover" [[UnitId]] has changed and is a 3d model. (Does not fire when {{api|UnitExists}}("mouseover") becomes nil, or if you mouse over a unitframe.)
+         *
+         * Patch added: ?
+         *
+         * @param args
+         */
+        OnUpdateMouseoverUnit(frame: WoWAPI.Frame, callback: (...args: any[]) => void): void;
+        /**
+         *
+         * Patch added: ?
+         *
+         * @param args
+         */
+        OnUpdateStealth(frame: WoWAPI.Frame, callback: (...args: any[]) => void): void;
+        /**
+         *
+         * Patch added: ?
+         *
+         * @param normalizedPitch
+         * @param radians
+         */
+        OnVehicleAngleUpdate(frame: WoWAPI.Frame, callback: (normalizedPitch: number, radians: number) => void): void;
+    };
+    NonBlizzard_documented: {
+        /**
+         *
+         * Patch added: ?
+         *
+         * @param args
+         */
+        OnPlaytimeChanged(frame: WoWAPI.Frame, callback: (...args: any[]) => void): void;
+        /**
+         *
+         * Patch added: ?
+         *
+         * @param args
+         */
+        OnTrialCapReachedLevel(frame: WoWAPI.Frame, callback: (...args: any[]) => void): void;
+    };
+};
